@@ -131,13 +131,22 @@ h1 {
   color: #ffffff;
 }
 
-/* 完了チェックボックス（少し大きくして押しやすくする） */
-.done-checkbox {
+/* 他のタスクの一覧にある、小さな撃破ボタン（金色） */
+.defeat-button {
   flex-shrink: 0;
-  width: 20px;
-  height: 20px;
-  margin: 0;
+  padding: 4px 10px;
+  font-size: 14px;
+  font-weight: bold;
+  background-color: #d4a017;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
   cursor: pointer;
+}
+
+/* マウスを撃破ボタンに乗せたときだけの見た目 */
+.defeat-button:hover {
+  background-color: #a87d0f;
 }
 
 /* 撃破済みのクエストの行（全体を薄くする） */
@@ -316,13 +325,21 @@ h1 {
   gap: 16px;
 }
 
-/* 「撃破する」の文字とチェックボックス */
-.today-check {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+/* 本日のタスクの、大きな「⚔️ 撃破する」ボタン（金色） */
+.today-defeat-button {
+  padding: 10px 24px;
+  font-size: 18px;
   font-weight: bold;
+  background-color: #d4a017;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
   cursor: pointer;
+}
+
+/* マウスを大きな撃破ボタンに乗せたときだけの見た目 */
+.today-defeat-button:hover {
+  background-color: #a87d0f;
 }
 
 /* 撃破していないクエストが無いときのメッセージ */
@@ -342,6 +359,38 @@ h1 {
   background: none;
   border: none;
   cursor: pointer;
+}
+
+/* 「撃破済みをまとめて削除」のボタン（削除ボタンと同じ赤色の系統） */
+.clear-done-button {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px;
+  font-size: 14px;
+  font-weight: bold;
+  background-color: #ffffff;
+  color: #c0392b;
+  border: 1px solid #c0392b;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+/* 見えないようにする設定（hidden）を、上の display より優先させる */
+.clear-done-button[hidden] {
+  display: none;
+}
+
+/* マウスを乗せたときの見た目（押せるときだけ） */
+.clear-done-button:hover:enabled {
+  background-color: #c0392b;
+  color: #ffffff;
+}
+
+/* 押せないとき（撃破済みが0件のとき）は薄く表示する */
+.clear-done-button:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 /* 演出用の板（画面全体にかぶさる。ふだんは透明で見えない） */

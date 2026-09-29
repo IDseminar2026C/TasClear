@@ -21,6 +21,9 @@ const todayQuest = document.getElementById("today-quest");
 // 「他のタスク ▽」のボタン
 const otherToggle = document.getElementById("other-toggle");
 
+// 「撃破済みをまとめて削除」のボタン
+const clearDoneButton = document.getElementById("clear-done-button");
+
 // 勇者のドット絵を描く場所
 const heroCanvas = document.getElementById("hero-canvas");
 
@@ -244,19 +247,17 @@ function playLevelUpEffect() {
   restartAnimation(effectOverlay, "is-levelup");
 }
 
-// クエスト1つ分の完了チェックボックスを作って返す
+// クエスト1つ分の撃破ボタンを作って返す
 // index は、そのクエストが quests 配列の何番目か
-function createDoneCheckbox(quest, index) {
-  const checkbox = document.createElement("input");
-  checkbox.type = "checkbox";
-  checkbox.className = "done-checkbox";
-  checkbox.checked = quest.done;
+// text はボタンに書く文字、className は見た目を決めるクラスの名前
+function createDefeatButton(quest, index, text, className) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = className;
+  button.textContent = text;
 
-  // 撃破済みのクエストは、チェックを外せないように押せなくする
-  checkbox.disabled = quest.done;
-
-  // チェックされたら、そのクエストを完了にして表示し直す
-  checkbox.addEventListener("change", function () {
+  // 押されたら、そのクエストを撃破済みにして表示し直す
+  button.addEventListener("click", function () {
     // 撃破する前のレベルを覚えておく
     const levelBefore = getLevel();
 
@@ -270,7 +271,7 @@ function createDoneCheckbox(quest, index) {
       levelUpTimer = setTimeout(playLevelUpEffect, 1000);
     }
   });
-  return checkbox;
+  return button;
 }
 
 // 「撃破済み」の目印を作って返す
@@ -301,10 +302,14 @@ function createQuestItem(quest, index) {
   exp.className = "quest-exp";
   exp.textContent = quest.exp + " EXP";
 
-  item.appendChild(createDoneCheckbox(quest, index));
+  // まだ撃破していなければ、左に小さな撃破ボタンを置く
+  if (!quest.done) {
+    item.appendChild(createDefeatButton(quest, index, "撃破", "defeat-button"));
+  }
+
   item.appendChild(name);
 
-  // 撃破済みなら「撃破済み」の目印を出す
+  // 撃破済みなら「撃破済み」の目印を出す（撃破ボタンは出さない）
   if (quest.done) {
     item.appendChild(createDoneLabel());
   }
@@ -351,16 +356,13 @@ function renderToday(index) {
   exp.className = "today-exp";
   exp.textContent = "（" + quest.exp + " EXP get）";
 
-  // 「撃破する」の文字付きチェックボックス
-  const check = document.createElement("label");
-  check.className = "today-check";
-  check.appendChild(createDoneCheckbox(quest, index));
-  check.appendChild(document.createTextNode("撃破する"));
+  // 大きな「⚔️ 撃破する」ボタン
+  const defeatButton = createDefeatButton(quest, index, "⚔️ 撃破する", "today-defeat-button");
 
-  // チェックボックスと削除ボタンを横に並べる箱
+  // 撃破ボタンと削除ボタンを横に並べる箱
   const actions = document.createElement("div");
   actions.className = "today-actions";
-  actions.appendChild(check);
+  actions.appendChild(defeatButton);
   actions.appendChild(createDeleteButton(index));
 
   todayQuest.appendChild(name);
@@ -376,17 +378,63 @@ function renderQuests() {
   // 他のタスクの一覧を、いったん空にする
   questList.innerHTML = "";
 
-  // 本日のタスク以外のクエストを、1つずつ行にして追加する（i は何番目か）
+  // 1回目：まだ撃破していないクエストを先に並べる（本日のタスクは除く）
   for (let i = 0; i < quests.length; i++) {
-    if (i !== todayIndex) {
+    if (i !== todayIndex && !quests[i].done) {
       questList.appendChild(createQuestItem(quests[i], i));
     }
   }
+
+  // 2回目：撃破済みのクエストをあとに並べる
+  for (let i = 0; i < quests.length; i++) {
+    if (quests[i].done) {
+      questList.appendChild(createQuestItem(quests[i], i));
+    }
+  }
+
+  // 撃破済みが0件なら、まとめて削除のボタンを押せなくする
+  clearDoneButton.disabled = countDoneQuests() === 0;
+}
+
+// 撃破済みのクエストが何件あるか数えて返す
+function countDoneQuests() {
+  let count = 0;
+  for (let i = 0; i < quests.length; i++) {
+    if (quests[i].done) {
+      count = count + 1;
+    }
+  }
+  return count;
+}
+
+// 撃破済みのクエストをまとめて削除する（確認してから）
+// （決まりどおり、もらったEXPは減らしません）
+function clearDoneQuests() {
+  const count = countDoneQuests();
+  if (count === 0) {
+    return;
+  }
+
+  // 確認を出して、「キャンセル」が押されたら何もしない
+  const ok = confirm("撃破済みのクエスト " + count + "件を削除しますか？");
+  if (!ok) {
+    return;
+  }
+
+  // まだ撃破していないクエストだけを残す
+  quests = quests.filter(function (quest) {
+    return !quest.done;
+  });
+  saveQuests();
+  console.log("撃破済みのクエストをまとめて削除しました", count + "件");
 }
 
 // 「他のタスク」の一覧を、開いていれば閉じ、閉じていれば開く
 function toggleOtherQuests() {
   questList.hidden = !questList.hidden;
+
+  // まとめて削除のボタンも、一覧と一緒に出したり消したりする
+  clearDoneButton.hidden = questList.hidden;
 
   // 開いているときは △、閉じているときは ▽ にする
   if (questList.hidden) {
@@ -457,6 +505,12 @@ questForm.addEventListener("submit", function (event) {
 
 // 「他のタスク ▽」のボタンが押されたとき
 otherToggle.addEventListener("click", toggleOtherQuests);
+
+// 「撃破済みをまとめて削除」のボタンが押されたとき
+clearDoneButton.addEventListener("click", function () {
+  clearDoneQuests();
+  renderQuests();
+});
 
 // --- ページを開いたときに最初に1回だけ行うこと ---
 
