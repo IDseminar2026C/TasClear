@@ -270,11 +270,35 @@ h1 {
   text-align: right;
 }
 
-/* 勇者のドット絵を置く場所（真ん中に寄せる） */
+/* 勇者のドット絵を置く場所（青空と草原の景色。キャラは真ん中・下に寄せる） */
 .hero-area {
   display: flex;
   justify-content: center;
+  align-items: flex-end; /* キャラを下に寄せて、丘の上に立たせる */
+  height: 200px;
+  padding-bottom: 10px;
   margin-bottom: 16px;
+  border: 3px solid #1e2040;
+  border-radius: 12px;
+  overflow: hidden; /* 丸い角からはみ出した景色を隠す */
+
+  /* 景色は、上に書いたものほど手前に描かれます
+     （太陽 → 雲 → 手前の丘 → 奥の丘 → 空 の順） */
+  background:
+    /* 太陽（右上の黄色い丸） */
+    radial-gradient(circle 20px at 86% 20%, #ffe066 70%, rgba(255, 224, 102, 0.4) 85%, transparent 100%),
+    /* 雲その1（左上。楕円を2つ重ねる） */
+    radial-gradient(ellipse 34px 12px at 20% 24%, #ffffff 95%, transparent 100%),
+    radial-gradient(ellipse 20px 12px at 25% 17%, #ffffff 95%, transparent 100%),
+    /* 雲その2（真ん中より少し右） */
+    radial-gradient(ellipse 30px 10px at 64% 36%, #ffffff 95%, transparent 100%),
+    radial-gradient(ellipse 16px 10px at 67% 30%, #ffffff 95%, transparent 100%),
+    /* 手前の丘（こい緑） */
+    radial-gradient(ellipse 75% 46px at 30% 100%, #4caf50 97%, transparent 100%),
+    /* 奥の丘（明るい緑） */
+    radial-gradient(ellipse 70% 62px at 85% 100%, #8bd16a 97%, transparent 100%),
+    /* 空（上がこい青、下に行くほど明るい水色） */
+    linear-gradient(#3d9be9, #bfe8ff 80%);
 }
 
 /* 勇者のドット絵（16×16マスの絵を、10倍の大きさに広げて表示する） */
