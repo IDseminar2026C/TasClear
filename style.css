@@ -1,0 +1,132 @@
+/*
+  style.css … ページの「見た目」を決めるファイルです。
+*/
+
+/* 幅の計算に、余白や線の太さも含める（はみ出し防止） */
+* {
+  box-sizing: border-box;
+}
+
+/* ページ全体の設定 */
+body {
+  /* 文字の種類。日本語が読みやすいものを順に指定しています */
+  font-family: "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
+
+  /* 背景の色（夜空のような濃い紺色） */
+  background-color: #1e2040;
+
+  /* 文字の色 */
+  color: #222222;
+
+  line-height: 1.7;
+  margin: 0;
+  padding: 16px;
+}
+
+/* 中身をまとめている箱 */
+.container {
+  /* 横幅の上限。これより広い画面では広がりません */
+  max-width: 640px;
+
+  /* 左右の余白を自動にすると、中央に寄ります */
+  margin: 0 auto;
+  padding: 20px;
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* アプリのロゴ（一番大きな見出し） */
+h1 {
+  font-size: 24px;
+  margin-top: 0;
+  border-bottom: 3px solid #d4a017;
+  padding-bottom: 8px;
+}
+
+/* 入力フォーム（入力欄とボタンを横に並べる） */
+.quest-form {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+/* クエスト名の入力欄（残りの幅いっぱいに広げる） */
+.quest-form input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px;
+  font-size: 16px;
+  border: 2px solid #cccccc;
+  border-radius: 8px;
+}
+
+/* 追加ボタン */
+.quest-form button {
+  padding: 10px 16px;
+  font-size: 16px;
+  font-weight: bold;
+  background-color: #d4a017;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* マウスをボタンに乗せたときだけの見た目 */
+.quest-form button:hover {
+  background-color: #a87d0f;
+}
+
+/* クエスト一覧（先頭の黒丸を消す） */
+.quest-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* クエスト1行分 */
+.quest-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background-color: #f5f1e6;
+  border-left: 5px solid #d4a017;
+  border-radius: 6px;
+}
+
+/* クエスト名（長い名前でも折り返してはみ出さない） */
+.quest-name {
+  /* 残りの幅いっぱいに広げて、EXPと削除ボタンを右に寄せる */
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* 獲得EXPの表示 */
+.quest-exp {
+  flex-shrink: 0;
+  font-weight: bold;
+  color: #a87d0f;
+}
+
+/* 削除ボタン（小さめ・赤い文字） */
+.delete-button {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  font-size: 14px;
+  background-color: #ffffff;
+  color: #c0392b;
+  border: 1px solid #c0392b;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+/* マウスを削除ボタンに乗せたときだけの見た目 */
+.delete-button:hover {
+  background-color: #c0392b;
+  color: #ffffff;
+}

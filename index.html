@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<!-- このページ全体が日本語であることをブラウザに伝えています -->
+<html lang="ja">
+
+<head>
+  <!-- 文字化けを防ぐための設定 -->
+  <meta charset="UTF-8">
+
+  <!-- スマートフォンで見たときに、ちょうどよい大きさで表示するための設定 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- ブラウザのタブに表示される名前 -->
+  <title>タスクリア</title>
+
+  <!-- 見た目を決めるファイル（style.css）を読み込みます -->
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <!-- 中身を中央にまとめるための箱 -->
+  <div class="container">
+
+    <!-- ヘッダー：アプリのロゴ -->
+    <header>
+      <h1>⚔️ タスクリア</h1>
+    </header>
+
+    <!-- クエスト（タスク）の入力フォーム -->
+    <form id="quest-form" class="quest-form">
+      <input id="quest-input" type="text" placeholder="クエスト名を入力" autocomplete="off">
+      <button type="submit">追加</button>
+    </form>
+
+    <!-- 登録済みクエストの一覧。中身は JavaScript で作ります -->
+    <ul id="quest-list" class="quest-list"></ul>
+
+  </div>
+
+  <!-- JavaScript のファイルを読み込みます（ページの最後に書きます） -->
+  <script src="script.js"></script>
+</body>
+
+</html>
