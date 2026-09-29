@@ -23,6 +23,26 @@
     <!-- ヘッダー：アプリのロゴ -->
     <header>
       <h1>⚔️ タスクリア</h1>
+
+      <!-- プレイヤーのステータス。中身は JavaScript で書き換えます -->
+      <div class="status">
+        <!-- アイコンと称号 -->
+        <p class="status-title">
+          <span id="status-icon">🧑‍🌾</span>
+          <span id="status-name">見習い冒険者</span>
+        </p>
+
+        <!-- レベル -->
+        <p id="status-level" class="status-level">Lv 1</p>
+
+        <!-- 経験値バー（外側の枠と、伸びる中身） -->
+        <div class="exp-bar">
+          <div id="exp-bar-fill" class="exp-bar-fill"></div>
+        </div>
+
+        <!-- 経験値の数字 -->
+        <p id="exp-text" class="exp-text">0 / 100 EXP</p>
+      </div>
     </header>
 
     <!-- クエスト（タスク）の入力フォーム -->

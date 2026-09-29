@@ -155,3 +155,52 @@ h1 {
   color: #ffffff;
   border-radius: 4px;
 }
+
+/* プレイヤーのステータス表示の箱 */
+.status {
+  margin-bottom: 16px;
+  padding: 12px;
+  background-color: #1e2040;
+  color: #ffffff;
+  border-radius: 8px;
+}
+
+/* 称号（アイコンと名前） */
+.status-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+/* レベルの表示 */
+.status-level {
+  margin: 0 0 8px;
+  font-size: 16px;
+  color: #f0c94a;
+  font-weight: bold;
+}
+
+/* 経験値バーの外側の枠 */
+.exp-bar {
+  height: 14px;
+  background-color: #44476e;
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+/* 経験値バーの伸びる中身（幅は JavaScript で変えます） */
+.exp-bar-fill {
+  width: 0%;
+  height: 100%;
+  background-color: #d4a017;
+
+  /* 幅が変わるときに、なめらかに伸びるようにする */
+  transition: width 0.4s;
+}
+
+/* 経験値の数字 */
+.exp-text {
+  margin: 4px 0 0;
+  font-size: 14px;
+  text-align: right;
+}

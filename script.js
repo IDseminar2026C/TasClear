@@ -15,6 +15,13 @@ const questInput = document.getElementById("quest-input");
 // クエスト一覧を表示する場所
 const questList = document.getElementById("quest-list");
 
+// ステータス表示の部品（アイコン・称号・レベル・経験値バー・経験値の数字）
+const statusIcon = document.getElementById("status-icon");
+const statusName = document.getElementById("status-name");
+const statusLevel = document.getElementById("status-level");
+const expBarFill = document.getElementById("exp-bar-fill");
+const expText = document.getElementById("exp-text");
+
 // --- データ ---
 
 // 登録されたクエストをすべて入れておく配列
@@ -24,7 +31,71 @@ let quests = [];
 // localStorage にクエスト一覧をしまうときの名前
 const QUESTS_KEY = "tasclear-tasks";
 
+// これまでに貯めた経験値の合計（累計EXP）
+let totalExp = 0;
+
+// localStorage にプレイヤーの状態をしまうときの名前
+const PLAYER_KEY = "tasclear-player";
+
+// 1レベル上がるのに必要なEXP
+const EXP_PER_LEVEL = 100;
+
 // --- 関数 ---
+
+// プレイヤーの状態（累計EXP）を localStorage に保存する
+function savePlayer() {
+  localStorage.setItem(PLAYER_KEY, JSON.stringify({ totalExp: totalExp }));
+}
+
+// localStorage から、保存しておいた累計EXPを取り出す
+function loadPlayer() {
+  const saved = localStorage.getItem(PLAYER_KEY);
+
+  // まだ何も保存されていなければ、0 のまま
+  if (saved === null) {
+    return;
+  }
+
+  // 保存されたデータが壊れていても止まらないように、try で囲みます
+  try {
+    totalExp = JSON.parse(saved).totalExp || 0;
+    console.log("累計EXPを読み込みました", totalExp);
+  } catch (error) {
+    console.log("プレイヤーの保存データが壊れていたので、0 から始めます");
+    totalExp = 0;
+  }
+}
+
+// 累計EXPから、今のレベルを計算して返す（100 ごとに 1 上がる。Lv1 から始まる）
+function getLevel() {
+  return Math.floor(totalExp / EXP_PER_LEVEL) + 1;
+}
+
+// レベルから、称号とアイコンを決めて返す
+function getTitle(level) {
+  if (level >= 5) {
+    return { icon: "👑", name: "勇者" };
+  }
+  if (level >= 3) {
+    return { icon: "⚔️", name: "戦士" };
+  }
+  return { icon: "🧑‍🌾", name: "見習い冒険者" };
+}
+
+// ステータス（アイコン・称号・レベル・経験値バー）を画面に表示し直す
+function renderStatus() {
+  const level = getLevel();
+  const title = getTitle(level);
+
+  // 今のレベルの中で、どれだけ貯まっているか（0〜99）
+  const currentExp = totalExp % EXP_PER_LEVEL;
+
+  statusIcon.textContent = title.icon;
+  statusName.textContent = title.name;
+  statusLevel.textContent = "Lv " + level;
+  expBarFill.style.width = (currentExp / EXP_PER_LEVEL) * 100 + "%";
+  expText.textContent = currentExp + " / " + EXP_PER_LEVEL + " EXP";
+}
 
 // quests 配列を localStorage に保存する
 // （localStorage には文字しか入らないので、JSON という形の文字に変えてしまいます）
@@ -87,6 +158,7 @@ function createDoneCheckbox(quest, index) {
   checkbox.addEventListener("change", function () {
     completeQuest(index);
     renderQuests();
+    renderStatus();
   });
   return checkbox;
 }
@@ -164,6 +236,11 @@ function completeQuest(index) {
   quests[index].done = true;
   saveQuests();
   console.log("クエストを撃破しました", quests[index]);
+
+  // そのクエストのEXPを累計EXPに足して、保存する
+  totalExp = totalExp + quests[index].exp;
+  savePlayer();
+  console.log("累計EXP", totalExp);
 }
 
 // index 番目のクエストを削除する
@@ -202,3 +279,7 @@ questForm.addEventListener("submit", function (event) {
 // 保存しておいたクエストを取り出して、一覧に表示する
 loadQuests();
 renderQuests();
+
+// 保存しておいた累計EXPを取り出して、ステータスを表示する
+loadPlayer();
+renderStatus();
