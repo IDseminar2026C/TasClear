@@ -204,3 +204,95 @@ h1 {
   font-size: 14px;
   text-align: right;
 }
+
+/* 演出用の板（画面全体にかぶさる。ふだんは透明で見えない） */
+.effect-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  /* ふだんは色なし（透明） */
+  background-color: transparent;
+
+  /* 板がかぶさっていても、下のボタンを押せるようにする */
+  pointer-events: none;
+}
+
+/* 演出で出る文字（ふだんは見えない） */
+.effect-text {
+  margin: 0;
+  padding: 0 16px;
+  font-size: 36px;
+  font-weight: bold;
+  color: #f0c94a;
+  text-align: center;
+  text-shadow: 0 0 8px #1e2040, 0 0 16px #1e2040;
+  opacity: 0;
+}
+
+/* 撃破したとき：板が白くピカッと光る */
+.effect-overlay.is-playing {
+  animation: flash 0.4s;
+}
+
+/* 撃破したとき：文字が飛び出して消える */
+.effect-overlay.is-playing .effect-text {
+  animation: pop-text 1s;
+}
+
+/* 撃破したとき：アプリの画面がガタガタッと揺れる */
+.container.is-shaking {
+  animation: shake 0.3s;
+}
+
+/* フラッシュの動き（白くなって、すぐ透明に戻る） */
+@keyframes flash {
+  0% {
+    background-color: rgba(255, 255, 255, 0.8);
+  }
+  100% {
+    background-color: rgba(255, 255, 255, 0);
+  }
+}
+
+/* 文字の動き（小さい所から大きく飛び出して、ふわっと消える） */
+@keyframes pop-text {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  20% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+/* 揺れの動き（左右に小さく揺れる） */
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-6px);
+  }
+  50% {
+    transform: translateX(6px);
+  }
+  75% {
+    transform: translateX(-3px);
+  }
+}

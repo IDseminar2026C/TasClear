@@ -22,6 +22,11 @@ const statusLevel = document.getElementById("status-level");
 const expBarFill = document.getElementById("exp-bar-fill");
 const expText = document.getElementById("exp-text");
 
+// 演出用の部品（画面全体にかぶさる板・演出の文字・揺らすアプリの画面）
+const effectOverlay = document.getElementById("effect-overlay");
+const effectText = document.getElementById("effect-text");
+const container = document.querySelector(".container");
+
 // --- データ ---
 
 // 登録されたクエストをすべて入れておく配列
@@ -143,6 +148,21 @@ function createDeleteButton(index) {
   return button;
 }
 
+// 要素に付けたアニメーション用のクラスを、最初から動かし直す
+// （いったん外してから付け直さないと、2回目以降のアニメーションが動かないため）
+function restartAnimation(element, className) {
+  element.classList.remove(className);
+  void element.offsetWidth; // ブラウザに「一度外した」ことを気づかせるおまじない
+  element.classList.add(className);
+}
+
+// 撃破の演出を出す（光る・揺れる・「撃破！ +〇 EXP」の文字が出る）
+function playDefeatEffect(exp) {
+  effectText.textContent = "⚔️ 撃破！ +" + exp + " EXP";
+  restartAnimation(effectOverlay, "is-playing");
+  restartAnimation(container, "is-shaking");
+}
+
 // クエスト1つ分の完了チェックボックスを作って返す
 // index は、そのクエストが quests 配列の何番目か
 function createDoneCheckbox(quest, index) {
@@ -159,6 +179,7 @@ function createDoneCheckbox(quest, index) {
     completeQuest(index);
     renderQuests();
     renderStatus();
+    playDefeatEffect(quest.exp);
   });
   return checkbox;
 }
