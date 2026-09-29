@@ -60,6 +60,24 @@ const EXP_PER_LEVEL = 100;
 // レベルアップの演出を出すまでの待ち時間の番号（途中でやめるときに使う）
 let levelUpTimer = null;
 
+// 音を作るための道具（最初に撃破したときに1回だけ用意する）
+let audioContext = null;
+
+// ドレミファソラシドの音の高さ（周波数。数字が大きいほど高い音）
+const SCALE_NOTES = [
+  523.25, // ド
+  587.33, // レ
+  659.25, // ミ
+  698.46, // ファ
+  783.99, // ソ
+  880.0, // ラ
+  987.77, // シ
+  1046.5, // 高いド
+];
+
+// ドレミの1音ずつの間（秒）。小さくするほど速く「なでる」感じになる
+const NOTE_GAP = 0.06;
+
 // 勇者のドット絵の設計図（16×16マス）
 // 1文字が1マスで、文字によって塗る色が決まります（「.」は塗らない）
 // この表を書きかえると、勇者の見た目を変えられます
@@ -224,6 +242,121 @@ function restartAnimation(element, className) {
   element.classList.add(className);
 }
 
+// 音を作るための道具を返す（まだ無ければ、ここで用意する）
+// （ブラウザの決まりで、ボタンを押したあとでないと音の道具は使えません）
+function getAudioContext() {
+  if (audioContext === null) {
+    // 古い Safari では名前が違うので、どちらか使えるほうを使う
+    const AudioTool = window.AudioContext || window.webkitAudioContext;
+    audioContext = new AudioTool();
+  }
+  return audioContext;
+}
+
+// 「シュッ」という、風を切る音を鳴らす
+// ザーッという音（ノイズ）を、高い音から低い音へ一瞬で変化させて作ります
+function playSwooshSound(audio) {
+  const now = audio.currentTime; // 今の時刻（秒）
+  const duration = 0.2; // 音の長さ（秒）
+
+  // ザーッという音のもとを作る（でたらめな数を並べると、ザーッという音になる）
+  const noiseData = audio.createBuffer(1, audio.sampleRate * duration, audio.sampleRate);
+  const samples = noiseData.getChannelData(0);
+  for (let i = 0; i < samples.length; i++) {
+    samples[i] = Math.random() * 2 - 1;
+  }
+  const noise = audio.createBufferSource();
+  noise.buffer = noiseData;
+
+  // 聞こえる音の高さをしぼる（高い音 → 低い音 へ動かす）
+  const filter = audio.createBiquadFilter();
+  filter.type = "bandpass";
+  filter.frequency.setValueAtTime(4000, now);
+  filter.frequency.exponentialRampToValueAtTime(600, now + duration);
+
+  // 音の大きさ（だんだん小さくして消す）
+  const volume = audio.createGain();
+  volume.gain.setValueAtTime(0.6, now);
+  volume.gain.exponentialRampToValueAtTime(0.01, now + duration);
+
+  // 音のもと → しぼる → 大きさ → スピーカー の順につなぐ
+  noise.connect(filter);
+  filter.connect(volume);
+  volume.connect(audio.destination);
+  noise.start(now);
+}
+
+// 「キンッ」という、高い金属っぽい音を鳴らす
+function playClangSound(audio) {
+  const start = audio.currentTime + 0.05; // 「シュッ」の少しあとに鳴らす
+  const duration = 0.25; // 音の長さ（秒）
+
+  // 高い音を出すもと
+  const tone = audio.createOscillator();
+  tone.type = "triangle";
+  tone.frequency.setValueAtTime(2400, start);
+
+  // 音の大きさ（すぐに小さくして消す）
+  const volume = audio.createGain();
+  volume.gain.setValueAtTime(0.25, start);
+  volume.gain.exponentialRampToValueAtTime(0.01, start + duration);
+
+  // 音のもと → 大きさ → スピーカー の順につなぐ
+  tone.connect(volume);
+  volume.connect(audio.destination);
+  tone.start(start);
+  tone.stop(start + duration);
+}
+
+// 剣で切る音（シュッ＋キンッ）を鳴らす
+function playSlashSound() {
+  // 音が鳴らせないブラウザでも、撃破そのものは止まらないように try で囲みます
+  try {
+    const audio = getAudioContext();
+    playSwooshSound(audio);
+    playClangSound(audio);
+  } catch (error) {
+    console.log("音を鳴らせませんでした", error);
+  }
+}
+
+// ピアノっぽい音を1つ鳴らす
+// frequency は音の高さ、start は鳴らし始める時刻（秒）
+function playPianoNote(audio, frequency, start) {
+  const duration = 0.8; // 余韻が消えるまでの長さ（秒）
+
+  // 音を出すもと（やわらかい音の「sine」を使う）
+  const tone = audio.createOscillator();
+  tone.type = "sine";
+  tone.frequency.setValueAtTime(frequency, start);
+
+  // 音の大きさ（鳴った瞬間がいちばん大きく、余韻を残して小さくなる）
+  const volume = audio.createGain();
+  volume.gain.setValueAtTime(0.01, start);
+  volume.gain.exponentialRampToValueAtTime(0.25, start + 0.01);
+  volume.gain.exponentialRampToValueAtTime(0.01, start + duration);
+
+  // 音のもと → 大きさ → スピーカー の順につなぐ
+  tone.connect(volume);
+  volume.connect(audio.destination);
+  tone.start(start);
+  tone.stop(start + duration);
+}
+
+// ドレミファソラシドを、鍵盤をなでるように素早く順に鳴らす
+function playLevelUpSound() {
+  // 音が鳴らせないブラウザでも、レベルアップの演出は止まらないように try で囲みます
+  try {
+    const audio = getAudioContext();
+    for (let i = 0; i < SCALE_NOTES.length; i++) {
+      // i 番目の音は、NOTE_GAP 秒 × i だけ遅らせて鳴らす
+      playPianoNote(audio, SCALE_NOTES[i], audio.currentTime + NOTE_GAP * i);
+    }
+  } catch (error) {
+    console.log("レベルアップの音を鳴らせませんでした", error);
+  }
+}
+
 // 撃破の演出を出す（光る・揺れる・「撃破！ +〇 EXP」の文字が出る）
 function playDefeatEffect(exp) {
   // 待っているレベルアップの演出があれば、やめる（演出が重ならないように）
@@ -245,6 +378,9 @@ function playLevelUpEffect() {
   effectText.textContent =
     "🎉 レベルアップ！ Lv " + level + "\n" + title.icon + " " + title.name;
   restartAnimation(effectOverlay, "is-levelup");
+
+  // ドレミファソラシドを鳴らす
+  playLevelUpSound();
 }
 
 // クエスト1つ分の撃破ボタンを作って返す
@@ -264,6 +400,7 @@ function createDefeatButton(quest, index, text, className) {
     completeQuest(index);
     renderQuests();
     renderStatus();
+    playSlashSound();
     playDefeatEffect(quest.exp);
 
     // レベルが上がっていたら、撃破の演出が終わる 1秒後 にレベルアップの演出を出す
