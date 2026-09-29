@@ -45,6 +45,9 @@ const PLAYER_KEY = "tasclear-player";
 // 1レベル上がるのに必要なEXP
 const EXP_PER_LEVEL = 100;
 
+// レベルアップの演出を出すまでの待ち時間の番号（途中でやめるときに使う）
+let levelUpTimer = null;
+
 // --- 関数 ---
 
 // プレイヤーの状態（累計EXP）を localStorage に保存する
@@ -158,9 +161,25 @@ function restartAnimation(element, className) {
 
 // 撃破の演出を出す（光る・揺れる・「撃破！ +〇 EXP」の文字が出る）
 function playDefeatEffect(exp) {
+  // 待っているレベルアップの演出があれば、やめる（演出が重ならないように）
+  clearTimeout(levelUpTimer);
+  effectOverlay.classList.remove("is-levelup");
+
   effectText.textContent = "⚔️ 撃破！ +" + exp + " EXP";
   restartAnimation(effectOverlay, "is-playing");
   restartAnimation(container, "is-shaking");
+}
+
+// レベルアップの演出を出す（虹色にぴかぴか光って、レベルと称号が出る）
+function playLevelUpEffect() {
+  const level = getLevel();
+  const title = getTitle(level);
+
+  // 撃破の演出の目印を外してから、レベルアップの演出を動かす
+  effectOverlay.classList.remove("is-playing");
+  effectText.textContent =
+    "🎉 レベルアップ！ Lv " + level + "\n" + title.icon + " " + title.name;
+  restartAnimation(effectOverlay, "is-levelup");
 }
 
 // クエスト1つ分の完了チェックボックスを作って返す
@@ -176,10 +195,18 @@ function createDoneCheckbox(quest, index) {
 
   // チェックされたら、そのクエストを完了にして表示し直す
   checkbox.addEventListener("change", function () {
+    // 撃破する前のレベルを覚えておく
+    const levelBefore = getLevel();
+
     completeQuest(index);
     renderQuests();
     renderStatus();
     playDefeatEffect(quest.exp);
+
+    // レベルが上がっていたら、撃破の演出が終わる 1秒後 にレベルアップの演出を出す
+    if (getLevel() > levelBefore) {
+      levelUpTimer = setTimeout(playLevelUpEffect, 1000);
+    }
   });
   return checkbox;
 }

@@ -233,6 +233,9 @@ h1 {
   text-align: center;
   text-shadow: 0 0 8px #1e2040, 0 0 16px #1e2040;
   opacity: 0;
+
+  /* 文字の中の改行をそのまま表示する（レベルアップのときに2行にするため） */
+  white-space: pre-line;
 }
 
 /* 撃破したとき：板が白くピカッと光る */
@@ -294,5 +297,42 @@ h1 {
   }
   75% {
     transform: translateX(-3px);
+  }
+}
+
+/* レベルアップしたとき：板が虹色にぴかぴか光る */
+.effect-overlay.is-levelup {
+  animation: rainbow-flash 1.5s;
+}
+
+/* レベルアップしたとき：文字が飛び出して消える（撃破のときより長め） */
+.effect-overlay.is-levelup .effect-text {
+  animation: pop-text 1.5s;
+}
+
+/* 虹色のぴかぴかの動き
+   明るく光るのは 0秒・0.5秒・1秒 の3回だけ（1秒に2回まで）にして、
+   目にやさしいよう、色も少し透けさせています */
+@keyframes rainbow-flash {
+  0% {
+    background-color: rgba(255, 0, 0, 0.5); /* 赤 */
+  }
+  16% {
+    background-color: rgba(255, 150, 0, 0.1); /* オレンジ */
+  }
+  33% {
+    background-color: rgba(255, 230, 0, 0.5); /* 黄 */
+  }
+  50% {
+    background-color: rgba(0, 200, 0, 0.1); /* 緑 */
+  }
+  66% {
+    background-color: rgba(0, 120, 255, 0.5); /* 青 */
+  }
+  83% {
+    background-color: rgba(150, 0, 255, 0.1); /* 紫 */
+  }
+  100% {
+    background-color: rgba(150, 0, 255, 0);
   }
 }
