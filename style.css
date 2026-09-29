@@ -130,3 +130,28 @@ h1 {
   background-color: #c0392b;
   color: #ffffff;
 }
+
+/* 完了チェックボックス（少し大きくして押しやすくする） */
+.done-checkbox {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  cursor: pointer;
+}
+
+/* 撃破済みのクエストの行（全体を薄くする） */
+.quest-item.is-done {
+  opacity: 0.5;
+}
+
+/* 「撃破済み」の目印 */
+.done-label {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 2px 6px;
+  background-color: #888888;
+  color: #ffffff;
+  border-radius: 4px;
+}

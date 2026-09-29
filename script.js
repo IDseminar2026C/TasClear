@@ -72,10 +72,42 @@ function createDeleteButton(index) {
   return button;
 }
 
+// クエスト1つ分の完了チェックボックスを作って返す
+// index は、そのクエストが quests 配列の何番目か
+function createDoneCheckbox(quest, index) {
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.className = "done-checkbox";
+  checkbox.checked = quest.done;
+
+  // 撃破済みのクエストは、チェックを外せないように押せなくする
+  checkbox.disabled = quest.done;
+
+  // チェックされたら、そのクエストを完了にして表示し直す
+  checkbox.addEventListener("change", function () {
+    completeQuest(index);
+    renderQuests();
+  });
+  return checkbox;
+}
+
+// 「撃破済み」の目印を作って返す
+function createDoneLabel() {
+  const label = document.createElement("span");
+  label.className = "done-label";
+  label.textContent = "撃破済み";
+  return label;
+}
+
 // クエスト1つ分の行（li）を作って返す
 function createQuestItem(quest, index) {
   const item = document.createElement("li");
   item.className = "quest-item";
+
+  // 撃破済みなら、薄く表示するための目印（クラス）を付ける
+  if (quest.done) {
+    item.classList.add("is-done");
+  }
 
   // タスク名（textContent を使うので、入力した文字はそのまま文字として表示されます）
   const name = document.createElement("span");
@@ -87,7 +119,14 @@ function createQuestItem(quest, index) {
   exp.className = "quest-exp";
   exp.textContent = quest.exp + " EXP";
 
+  item.appendChild(createDoneCheckbox(quest, index));
   item.appendChild(name);
+
+  // 撃破済みなら「撃破済み」の目印を出す
+  if (quest.done) {
+    item.appendChild(createDoneLabel());
+  }
+
   item.appendChild(exp);
   item.appendChild(createDeleteButton(index));
   return item;
@@ -114,6 +153,17 @@ function addQuest(questName) {
   quests.push(newQuest);
   saveQuests();
   console.log("クエストを追加しました", newQuest);
+}
+
+// index 番目のクエストを完了（撃破済み）にする
+function completeQuest(index) {
+  // すでに撃破済みなら何もしない（二重に完了させない）
+  if (quests[index].done) {
+    return;
+  }
+  quests[index].done = true;
+  saveQuests();
+  console.log("クエストを撃破しました", quests[index]);
 }
 
 // index 番目のクエストを削除する
