@@ -21,7 +21,35 @@ const questList = document.getElementById("quest-list");
 // 1つのクエストは { name: タスク名, exp: 獲得EXP, done: 完了したか } の形
 let quests = [];
 
+// localStorage にクエスト一覧をしまうときの名前
+const QUESTS_KEY = "tasclear-tasks";
+
 // --- 関数 ---
+
+// quests 配列を localStorage に保存する
+// （localStorage には文字しか入らないので、JSON という形の文字に変えてしまいます）
+function saveQuests() {
+  localStorage.setItem(QUESTS_KEY, JSON.stringify(quests));
+}
+
+// localStorage から、保存しておいたクエスト一覧を取り出す
+function loadQuests() {
+  const saved = localStorage.getItem(QUESTS_KEY);
+
+  // まだ何も保存されていなければ、空の一覧のまま
+  if (saved === null) {
+    return;
+  }
+
+  // 保存されたデータが壊れていても止まらないように、try で囲みます
+  try {
+    quests = JSON.parse(saved);
+    console.log("保存されたクエストを読み込みました", quests);
+  } catch (error) {
+    console.log("保存データが壊れていたので、空の一覧から始めます");
+    quests = [];
+  }
+}
 
 // min 以上 max 以下の整数をランダムに1つ返す
 function getRandomExp(min, max) {
@@ -84,6 +112,7 @@ function addQuest(questName) {
     done: false,
   };
   quests.push(newQuest);
+  saveQuests();
   console.log("クエストを追加しました", newQuest);
 }
 
@@ -91,6 +120,7 @@ function addQuest(questName) {
 // （完了済みでも、もらったEXPは減らさない決まりです）
 function deleteQuest(index) {
   const removed = quests.splice(index, 1);
+  saveQuests();
   console.log("クエストを削除しました", removed[0]);
 }
 
@@ -116,3 +146,9 @@ questForm.addEventListener("submit", function (event) {
   questInput.value = "";
   questInput.focus();
 });
+
+// --- ページを開いたときに最初に1回だけ行うこと ---
+
+// 保存しておいたクエストを取り出して、一覧に表示する
+loadQuests();
+renderQuests();
