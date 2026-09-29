@@ -156,8 +156,11 @@ h1 {
   border-radius: 4px;
 }
 
-/* プレイヤーのステータス表示の箱 */
+/* プレイヤーのステータス表示の箱（アイコン・レベル・経験値バーを横に並べる） */
 .status {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
   margin-bottom: 16px;
   padding: 12px;
   background-color: #1e2040;
@@ -165,19 +168,63 @@ h1 {
   border-radius: 8px;
 }
 
-/* 称号（アイコンと名前） */
-.status-title {
+/* 左：プレイヤーのアイコン（四角い枠の中に絵文字） */
+.player-icon {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 28px;
+  background-color: #44476e;
+  border: 2px solid #d4a017;
+  border-radius: 6px;
+}
+
+/* 真ん中：レベルと称号の箱（中身を真ん中にそろえる） */
+.level-box {
+  flex-shrink: 0;
+  width: 88px;
+  text-align: center;
+}
+
+/* 「Level」の文字 */
+.level-label {
   margin: 0;
-  font-size: 18px;
+  font-size: 14px;
+  font-weight: bold;
+  color: #f0c94a;
+}
+
+/* レベルの数字が入る大きな丸 */
+.level-circle {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 26px;
+  font-weight: bold;
+  color: #1e2040;
+  background-color: #f0c94a;
+  border: 3px solid #ffffff;
+  border-radius: 50%; /* 50% にすると四角が丸になる */
+}
+
+/* 称号の名前 */
+.status-name {
+  margin: 4px 0 0;
+  font-size: 12px;
   font-weight: bold;
 }
 
-/* レベルの表示 */
-.status-level {
-  margin: 0 0 8px;
-  font-size: 16px;
-  color: #f0c94a;
-  font-weight: bold;
+/* 右：経験値バーと数字の箱（残りの幅いっぱいに広げる） */
+.exp-box {
+  flex: 1;
+  min-width: 0;
+  padding-top: 8px;
 }
 
 /* 経験値バーの外側の枠 */
@@ -203,6 +250,98 @@ h1 {
   margin: 4px 0 0;
   font-size: 14px;
   text-align: right;
+}
+
+/* 勇者のドット絵を置く場所（真ん中に寄せる） */
+.hero-area {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+/* 勇者のドット絵（16×16マスの絵を、10倍の大きさに広げて表示する） */
+.hero-canvas {
+  width: 160px;
+  height: 160px;
+
+  /* 広げたときにぼやけず、ドットがくっきり見えるようにする */
+  image-rendering: pixelated;
+}
+
+/* 本日のタスクのカード */
+.today-card {
+  margin-bottom: 12px;
+}
+
+/* 「本日のタスク」の見出し（カードの上に付いたタブのような形） */
+.today-label {
+  display: inline-block;
+  margin: 0;
+  padding: 4px 14px;
+  font-size: 16px;
+  color: #ffffff;
+  background-color: #1e2040;
+  border-radius: 8px 8px 0 0;
+}
+
+/* 本日のタスクの中身（太い枠で囲む） */
+.today-quest {
+  padding: 16px;
+  text-align: center;
+  border: 3px solid #1e2040;
+  border-radius: 0 8px 8px 8px;
+  background-color: #f5f1e6;
+}
+
+/* 本日のタスクのクエスト名（大きく表示。長くてもはみ出さない） */
+.today-name {
+  margin: 0;
+  font-size: 22px;
+  font-weight: bold;
+  overflow-wrap: anywhere;
+}
+
+/* 「（〇 EXP get）」の文字 */
+.today-exp {
+  margin: 4px 0 12px;
+  font-weight: bold;
+  color: #a87d0f;
+}
+
+/* チェックボックスと削除ボタンを横に並べる */
+.today-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+}
+
+/* 「撃破する」の文字とチェックボックス */
+.today-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+/* 撃破していないクエストが無いときのメッセージ */
+.today-empty {
+  margin: 0;
+  color: #666666;
+}
+
+/* 「他のタスク ▽」のボタン */
+.other-toggle {
+  display: block;
+  margin: 0 0 8px;
+  padding: 6px 4px;
+  font-size: 16px;
+  font-weight: bold;
+  color: #1e2040;
+  background: none;
+  border: none;
+  cursor: pointer;
 }
 
 /* 演出用の板（画面全体にかぶさる。ふだんは透明で見えない） */

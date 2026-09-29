@@ -12,8 +12,17 @@ const questForm = document.getElementById("quest-form");
 // クエスト名の入力欄
 const questInput = document.getElementById("quest-input");
 
-// クエスト一覧を表示する場所
+// 「他のタスク」の一覧を表示する場所
 const questList = document.getElementById("quest-list");
+
+// 「本日のタスク」を表示する場所
+const todayQuest = document.getElementById("today-quest");
+
+// 「他のタスク ▽」のボタン
+const otherToggle = document.getElementById("other-toggle");
+
+// 勇者のドット絵を描く場所
+const heroCanvas = document.getElementById("hero-canvas");
 
 // ステータス表示の部品（アイコン・称号・レベル・経験値バー・経験値の数字）
 const statusIcon = document.getElementById("status-icon");
@@ -48,7 +57,60 @@ const EXP_PER_LEVEL = 100;
 // レベルアップの演出を出すまでの待ち時間の番号（途中でやめるときに使う）
 let levelUpTimer = null;
 
+// 勇者のドット絵の設計図（16×16マス）
+// 1文字が1マスで、文字によって塗る色が決まります（「.」は塗らない）
+// この表を書きかえると、勇者の見た目を変えられます
+const HERO_PIXELS = [
+  ".............W..",
+  "....KKKKK....W..",
+  "...KHHHHHK...W..",
+  "..KHHHHHHHK..W..",
+  "..KHSSSSSHK..W..",
+  "..KSESSSESK..W..",
+  "..KSSSSSSSK..W..",
+  "...KSSMSSK..YYY.",
+  "..KKBBBBBKK..G..",
+  ".KSBBYYYBBSSSG..",
+  ".KSBBBYBBBK..G..",
+  "..KBBBBBBBK.....",
+  "..KYYYYYYYK.....",
+  "...KBBKBBK......",
+  "...KBBKBBK......",
+  "..KKKK.KKKK.....",
+];
+
+// 設計図の文字と、塗る色の対応表
+const HERO_COLORS = {
+  K: "#222222", // ふちどり（黒）
+  H: "#8b4513", // 髪（茶色）
+  S: "#f5c89a", // はだ
+  E: "#222222", // 目
+  M: "#c0392b", // 口（赤）
+  B: "#2e6bd6", // よろい（青）
+  Y: "#d4a017", // 金色の飾り・剣のつば
+  G: "#8b5a2b", // 剣の持ち手（茶色）
+  W: "#d0d8e0", // 剣の刃（銀色）
+};
+
 // --- 関数 ---
+
+// 勇者のドット絵を描く
+function drawHero() {
+  const pen = heroCanvas.getContext("2d"); // 絵を描くための道具
+
+  // 上から1行ずつ、左から1マスずつ見ていく（y は何行目、x は何マス目）
+  for (let y = 0; y < HERO_PIXELS.length; y++) {
+    for (let x = 0; x < HERO_PIXELS[y].length; x++) {
+      const color = HERO_COLORS[HERO_PIXELS[y][x]];
+
+      // 色が決まっているマスだけ、1マス分の四角を塗る
+      if (color) {
+        pen.fillStyle = color;
+        pen.fillRect(x, y, 1, 1);
+      }
+    }
+  }
+}
 
 // プレイヤーの状態（累計EXP）を localStorage に保存する
 function savePlayer() {
@@ -100,7 +162,7 @@ function renderStatus() {
 
   statusIcon.textContent = title.icon;
   statusName.textContent = title.name;
-  statusLevel.textContent = "Lv " + level;
+  statusLevel.textContent = level; // 丸の中には数字だけを出す
   expBarFill.style.width = (currentExp / EXP_PER_LEVEL) * 100 + "%";
   expText.textContent = currentExp + " / " + EXP_PER_LEVEL + " EXP";
 }
@@ -252,14 +314,85 @@ function createQuestItem(quest, index) {
   return item;
 }
 
-// quests 配列の中身を、画面の一覧に表示し直す
+// 「本日のタスク」にするクエストが、quests 配列の何番目かを返す
+// （まだ撃破していない一番上のクエスト。1つも無いときは -1 を返す）
+function findTodayIndex() {
+  for (let i = 0; i < quests.length; i++) {
+    if (!quests[i].done) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+// 「本日のタスク」のカードの中身を作って表示する
+function renderToday(index) {
+  // いったん中身を空にする
+  todayQuest.innerHTML = "";
+
+  // 撃破していないクエストが無いときは、メッセージだけ出す
+  if (index === -1) {
+    const empty = document.createElement("p");
+    empty.className = "today-empty";
+    empty.textContent = "未撃破のクエストはありません";
+    todayQuest.appendChild(empty);
+    return;
+  }
+
+  const quest = quests[index];
+
+  // クエスト名（大きく表示）
+  const name = document.createElement("p");
+  name.className = "today-name";
+  name.textContent = quest.name;
+
+  // 「（〇 EXP get）」
+  const exp = document.createElement("p");
+  exp.className = "today-exp";
+  exp.textContent = "（" + quest.exp + " EXP get）";
+
+  // 「撃破する」の文字付きチェックボックス
+  const check = document.createElement("label");
+  check.className = "today-check";
+  check.appendChild(createDoneCheckbox(quest, index));
+  check.appendChild(document.createTextNode("撃破する"));
+
+  // チェックボックスと削除ボタンを横に並べる箱
+  const actions = document.createElement("div");
+  actions.className = "today-actions";
+  actions.appendChild(check);
+  actions.appendChild(createDeleteButton(index));
+
+  todayQuest.appendChild(name);
+  todayQuest.appendChild(exp);
+  todayQuest.appendChild(actions);
+}
+
+// 画面のクエスト表示（本日のタスクと、他のタスクの一覧）をすべて表示し直す
 function renderQuests() {
-  // いったん一覧を空にする
+  const todayIndex = findTodayIndex();
+  renderToday(todayIndex);
+
+  // 他のタスクの一覧を、いったん空にする
   questList.innerHTML = "";
 
-  // クエストを1つずつ行にして追加する（i は何番目か）
+  // 本日のタスク以外のクエストを、1つずつ行にして追加する（i は何番目か）
   for (let i = 0; i < quests.length; i++) {
-    questList.appendChild(createQuestItem(quests[i], i));
+    if (i !== todayIndex) {
+      questList.appendChild(createQuestItem(quests[i], i));
+    }
+  }
+}
+
+// 「他のタスク」の一覧を、開いていれば閉じ、閉じていれば開く
+function toggleOtherQuests() {
+  questList.hidden = !questList.hidden;
+
+  // 開いているときは △、閉じているときは ▽ にする
+  if (questList.hidden) {
+    otherToggle.textContent = "他のタスク ▽";
+  } else {
+    otherToggle.textContent = "他のタスク △";
   }
 }
 
@@ -322,6 +455,9 @@ questForm.addEventListener("submit", function (event) {
   questInput.focus();
 });
 
+// 「他のタスク ▽」のボタンが押されたとき
+otherToggle.addEventListener("click", toggleOtherQuests);
+
 // --- ページを開いたときに最初に1回だけ行うこと ---
 
 // 保存しておいたクエストを取り出して、一覧に表示する
@@ -331,3 +467,6 @@ renderQuests();
 // 保存しておいた累計EXPを取り出して、ステータスを表示する
 loadPlayer();
 renderStatus();
+
+// 勇者のドット絵を描く
+drawHero();

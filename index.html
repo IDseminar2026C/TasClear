@@ -25,25 +25,32 @@
       <h1>⚔️ タスクリア</h1>
 
       <!-- プレイヤーのステータス。中身は JavaScript で書き換えます -->
+      <!-- 左：アイコン、真ん中：レベル、右：経験値バー の順に横に並べます -->
       <div class="status">
-        <!-- アイコンと称号 -->
-        <p class="status-title">
-          <span id="status-icon">🧑‍🌾</span>
-          <span id="status-name">見習い冒険者</span>
-        </p>
+        <!-- 左：プレイヤーのアイコン（称号の絵文字） -->
+        <div id="status-icon" class="player-icon">🧑‍🌾</div>
 
-        <!-- レベル -->
-        <p id="status-level" class="status-level">Lv 1</p>
-
-        <!-- 経験値バー（外側の枠と、伸びる中身） -->
-        <div class="exp-bar">
-          <div id="exp-bar-fill" class="exp-bar-fill"></div>
+        <!-- 真ん中：レベル（丸の中に数字）と称号の名前 -->
+        <div class="level-box">
+          <p class="level-label">Level</p>
+          <p id="status-level" class="level-circle">1</p>
+          <p id="status-name" class="status-name">見習い冒険者</p>
         </div>
 
-        <!-- 経験値の数字 -->
-        <p id="exp-text" class="exp-text">0 / 100 EXP</p>
+        <!-- 右：経験値バー（外側の枠と、伸びる中身）と経験値の数字 -->
+        <div class="exp-box">
+          <div class="exp-bar">
+            <div id="exp-bar-fill" class="exp-bar-fill"></div>
+          </div>
+          <p id="exp-text" class="exp-text">0 / 100 EXP</p>
+        </div>
       </div>
     </header>
+
+    <!-- 主人公（勇者）のドット絵。絵は JavaScript で描きます -->
+    <div class="hero-area">
+      <canvas id="hero-canvas" class="hero-canvas" width="16" height="16" aria-label="勇者のドット絵"></canvas>
+    </div>
 
     <!-- クエスト（タスク）の入力フォーム -->
     <form id="quest-form" class="quest-form">
@@ -51,8 +58,18 @@
       <button type="submit">追加</button>
     </form>
 
-    <!-- 登録済みクエストの一覧。中身は JavaScript で作ります -->
-    <ul id="quest-list" class="quest-list"></ul>
+    <!-- 本日のタスク：まだ撃破していない一番上のクエストを大きく表示します -->
+    <section class="today-card">
+      <h2 class="today-label">本日のタスク</h2>
+      <!-- 中身は JavaScript で作ります -->
+      <div id="today-quest" class="today-quest"></div>
+    </section>
+
+    <!-- 他のタスク：押すと、残りのクエストの一覧が開いたり閉じたりします -->
+    <button id="other-toggle" class="other-toggle" type="button">他のタスク ▽</button>
+
+    <!-- 残りのクエストの一覧（最初は閉じている）。中身は JavaScript で作ります -->
+    <ul id="quest-list" class="quest-list" hidden></ul>
 
   </div>
 
