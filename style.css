@@ -261,6 +261,15 @@ h1 {
   text-align: right;
 }
 
+/* 今日の撃破数（金色で右にそろえる） */
+.today-count {
+  margin: 4px 0 0;
+  font-size: 14px;
+  font-weight: bold;
+  color: #f0c94a;
+  text-align: right;
+}
+
 /* 勇者のドット絵を置く場所（真ん中に寄せる） */
 .hero-area {
   display: flex;
@@ -522,5 +531,34 @@ h1 {
   }
   100% {
     background-color: rgba(150, 0, 255, 0);
+  }
+}
+
+/* お祝いのとき：板が金色にふわっと2回光る */
+.effect-overlay.is-celebrate {
+  animation: gold-glow 1.5s;
+}
+
+/* お祝いのとき：文字が飛び出して消える */
+.effect-overlay.is-celebrate .effect-text {
+  animation: pop-text 1.5s;
+}
+
+/* 金色にふわっと光る動き（ゆっくり2回。目にやさしいよう、色は少し透けさせています） */
+@keyframes gold-glow {
+  0% {
+    background-color: rgba(240, 201, 74, 0);
+  }
+  25% {
+    background-color: rgba(240, 201, 74, 0.45);
+  }
+  50% {
+    background-color: rgba(240, 201, 74, 0.1);
+  }
+  75% {
+    background-color: rgba(240, 201, 74, 0.45);
+  }
+  100% {
+    background-color: rgba(240, 201, 74, 0);
   }
 }

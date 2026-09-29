@@ -34,6 +34,9 @@ const statusLevel = document.getElementById("status-level");
 const expBarFill = document.getElementById("exp-bar-fill");
 const expText = document.getElementById("exp-text");
 
+// 今日の撃破数を表示する場所
+const todayCountText = document.getElementById("today-count");
+
 // 演出用の部品（画面全体にかぶさる板・演出の文字・揺らすアプリの画面）
 const effectOverlay = document.getElementById("effect-overlay");
 const effectText = document.getElementById("effect-text");
@@ -51,6 +54,10 @@ const QUESTS_KEY = "tasclear-tasks";
 // これまでに貯めた経験値の合計（累計EXP）
 let totalExp = 0;
 
+// 今日撃破したクエストの数と、それが何日の数なのか（「2026-09-29」のような文字）
+let todayCount = 0;
+let todayDate = "";
+
 // localStorage にプレイヤーの状態をしまうときの名前
 const PLAYER_KEY = "tasclear-player";
 
@@ -63,6 +70,12 @@ const EXP_GROWTH = 1.1;
 
 // レベルアップの演出を出すまでの待ち時間の番号（途中でやめるときに使う）
 let levelUpTimer = null;
+
+// お祝いの演出を出すまでの待ち時間の番号（途中でやめるときに使う）
+let celebrateTimer = null;
+
+// 何体撃破するごとにお祝いを出すか
+const CELEBRATE_EVERY = 5;
 
 // 音を作るための道具（最初に撃破したときに1回だけ用意する）
 let audioContext = null;
@@ -282,12 +295,40 @@ function drawHero() {
   }
 }
 
-// プレイヤーの状態（累計EXP）を localStorage に保存する
-function savePlayer() {
-  localStorage.setItem(PLAYER_KEY, JSON.stringify({ totalExp: totalExp }));
+// 今日の日付を「2026-09-29」のような文字にして返す（スマホやパソコンの時計を使う）
+function getTodayString() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0"); // 月は 0 から数えるので +1
+  const day = String(now.getDate()).padStart(2, "0");
+  return year + "-" + month + "-" + day;
 }
 
-// localStorage から、保存しておいた累計EXPを取り出す
+// 保存してある撃破数が今日のものでなければ、今日の分として 0 に戻す
+function resetTodayCountIfNewDay() {
+  const today = getTodayString();
+  if (todayDate !== today) {
+    todayDate = today;
+    todayCount = 0;
+  }
+}
+
+// 今日の撃破数を画面に表示し直す
+function renderTodayCount() {
+  todayCountText.textContent = "今日 " + todayCount + "体 撃破";
+}
+
+// プレイヤーの状態（累計EXP・今日の撃破数・その日付）を localStorage に保存する
+function savePlayer() {
+  const player = {
+    totalExp: totalExp,
+    todayCount: todayCount,
+    todayDate: todayDate,
+  };
+  localStorage.setItem(PLAYER_KEY, JSON.stringify(player));
+}
+
+// localStorage から、保存しておいたプレイヤーの状態を取り出す
 function loadPlayer() {
   const saved = localStorage.getItem(PLAYER_KEY);
 
@@ -298,11 +339,16 @@ function loadPlayer() {
 
   // 保存されたデータが壊れていても止まらないように、try で囲みます
   try {
-    totalExp = JSON.parse(saved).totalExp || 0;
-    console.log("累計EXPを読み込みました", totalExp);
+    const player = JSON.parse(saved);
+    totalExp = player.totalExp || 0;
+    todayCount = player.todayCount || 0; // 前の形の保存データには無いので、そのときは 0
+    todayDate = player.todayDate || "";
+    console.log("プレイヤーの状態を読み込みました", player);
   } catch (error) {
     console.log("プレイヤーの保存データが壊れていたので、0 から始めます");
     totalExp = 0;
+    todayCount = 0;
+    todayDate = "";
   }
 }
 
@@ -356,6 +402,9 @@ function renderStatus() {
   statusLevel.textContent = level; // 丸の中には数字だけを出す
   expBarFill.style.width = (currentExp / needExp) * 100 + "%";
   expText.textContent = currentExp + " / " + needExp + " EXP";
+
+  // 今日の撃破数を表示し直す
+  renderTodayCount();
 
   // 今の称号に合ったキャラクターを描き直す
   drawHero();
@@ -532,9 +581,11 @@ function playLevelUpSound() {
 
 // 撃破の演出を出す（光る・揺れる・「撃破！ +〇 EXP」の文字が出る）
 function playDefeatEffect(exp) {
-  // 待っているレベルアップの演出があれば、やめる（演出が重ならないように）
+  // 待っているレベルアップ・お祝いの演出があれば、やめる（演出が重ならないように）
   clearTimeout(levelUpTimer);
+  clearTimeout(celebrateTimer);
   effectOverlay.classList.remove("is-levelup");
+  effectOverlay.classList.remove("is-celebrate");
 
   effectText.textContent = "⚔️ 撃破！ +" + exp + " EXP";
   restartAnimation(effectOverlay, "is-playing");
@@ -554,6 +605,15 @@ function playLevelUpEffect() {
 
   // ドレミファソラシドを鳴らす
   playLevelUpSound();
+}
+
+// お祝いの演出を出す（金色にふわっと光って、「🏆 今日 〇体 撃破！」が出る）
+function playCelebrateEffect(count) {
+  // ほかの演出の目印を外してから、お祝いの演出を動かす
+  effectOverlay.classList.remove("is-playing");
+  effectOverlay.classList.remove("is-levelup");
+  effectText.textContent = "🏆 今日 " + count + "体 撃破！\nすばらしい！";
+  restartAnimation(effectOverlay, "is-celebrate");
 }
 
 // クエスト1つ分の撃破ボタンを作って返す
@@ -577,11 +637,34 @@ function createDefeatButton(quest, index, text, className) {
     playDefeatEffect(quest.exp);
 
     // レベルが上がっていたら、撃破の演出が終わる 1秒後 にレベルアップの演出を出す
-    if (getLevel() > levelBefore) {
+    const isLevelUp = getLevel() > levelBefore;
+    if (isLevelUp) {
       levelUpTimer = setTimeout(playLevelUpEffect, 1000);
     }
+
+    // 今日の撃破数が5の倍数なら、お祝いの演出を出す予約をする
+    scheduleCelebrate(isLevelUp);
   });
   return button;
+}
+
+// 今日の撃破数が5の倍数（5体・10体・15体…）なら、お祝いの演出を出す予約をする
+// isLevelUp は、今回の撃破でレベルが上がったかどうか
+function scheduleCelebrate(isLevelUp) {
+  if (todayCount % CELEBRATE_EVERY !== 0) {
+    return;
+  }
+
+  // 撃破の演出（1秒）のあと。レベルアップもあるときは、その演出（1.5秒）のあと
+  let wait = 1000;
+  if (isLevelUp) {
+    wait = 2500;
+  }
+
+  const count = todayCount; // 予約した時点の撃破数を覚えておく
+  celebrateTimer = setTimeout(function () {
+    playCelebrateEffect(count);
+  }, wait);
 }
 
 // 「撃破済み」の目印を作って返す
@@ -776,10 +859,15 @@ function completeQuest(index) {
   saveQuests();
   console.log("クエストを撃破しました", quests[index]);
 
-  // そのクエストのEXPを累計EXPに足して、保存する
+  // そのクエストのEXPを累計EXPに足す
   totalExp = totalExp + quests[index].exp;
+
+  // 今日の撃破数を 1 増やす（日付が変わっていたら、先に 0 に戻す）
+  resetTodayCountIfNewDay();
+  todayCount = todayCount + 1;
+
   savePlayer();
-  console.log("累計EXP", totalExp);
+  console.log("累計EXP", totalExp, "今日の撃破数", todayCount);
 }
 
 // index 番目のクエストを削除する
@@ -830,4 +918,5 @@ renderQuests();
 
 // 保存しておいた累計EXPを取り出して、ステータスを表示する
 loadPlayer();
+resetTodayCountIfNewDay(); // 前に開いた日と違えば、今日の撃破数を 0 に戻す
 renderStatus(); // この中で、キャラクターのドット絵も描きます

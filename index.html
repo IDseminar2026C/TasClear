@@ -43,6 +43,9 @@
             <div id="exp-bar-fill" class="exp-bar-fill"></div>
           </div>
           <p id="exp-text" class="exp-text">0 / 100 EXP</p>
+
+          <!-- 今日の撃破数 -->
+          <p id="today-count" class="today-count">今日 0体 撃破</p>
         </div>
       </div>
     </header>
@@ -65,14 +68,14 @@
       <div id="today-quest" class="today-quest"></div>
     </section>
 
-    <!-- 他のタスク：押すと、残りのクエストの一覧が開いたり閉じたりします -->
-    <button id="other-toggle" class="other-toggle" type="button">他のタスク ▽</button>
+    <!-- 他のタスク：押すと、残りのクエストの一覧が閉じたり開いたりします -->
+    <button id="other-toggle" class="other-toggle" type="button">他のタスク △</button>
 
-    <!-- 残りのクエストの一覧（最初は閉じている）。中身は JavaScript で作ります -->
-    <ul id="quest-list" class="quest-list" hidden></ul>
+    <!-- 残りのクエストの一覧（最初から開いている）。中身は JavaScript で作ります -->
+    <ul id="quest-list" class="quest-list"></ul>
 
-    <!-- 撃破済みのクエストをまとめて消すボタン（一覧を開いたときだけ見える） -->
-    <button id="clear-done-button" class="clear-done-button" type="button" hidden>撃破済みをまとめて削除</button>
+    <!-- 撃破済みのクエストをまとめて消すボタン（一覧が開いているときだけ見える） -->
+    <button id="clear-done-button" class="clear-done-button" type="button">撃破済みをまとめて削除</button>
 
   </div>
 
