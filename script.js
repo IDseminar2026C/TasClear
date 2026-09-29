@@ -54,8 +54,11 @@ let totalExp = 0;
 // localStorage にプレイヤーの状態をしまうときの名前
 const PLAYER_KEY = "tasclear-player";
 
-// 1レベル上がるのに必要なEXP
-const EXP_PER_LEVEL = 100;
+// Lv1 から Lv2 に上がるのに必要なEXP
+const FIRST_LEVEL_EXP = 100;
+
+// 1レベル上がるごとに、必要なEXPを何倍にするか
+const EXP_GROWTH = 1.1;
 
 
 // レベルアップの演出を出すまでの待ち時間の番号（途中でやめるときに使う）
@@ -303,9 +306,28 @@ function loadPlayer() {
   }
 }
 
-// 累計EXPから、今のレベルを計算して返す（100 ごとに 1 上がる。Lv1 から始まる）
+// level から次のレベルに上がるのに必要なEXPを返す
+// （Lv1 は 100、そこから1レベルごとに EXP_GROWTH 倍。小数は四捨五入する）
+function getExpToNext(level) {
+  return Math.round(FIRST_LEVEL_EXP * Math.pow(EXP_GROWTH, level - 1));
+}
+
+// 累計EXPから、今のレベルと、そのレベルの中で貯まっているEXPを計算して返す
+function getLevelInfo() {
+  let level = 1; // Lv1 から始まる
+  let restExp = totalExp; // まだレベルアップに使っていないEXP
+
+  // 次のレベルに必要なEXPが足りている間、レベルを1つずつ上げていく
+  while (restExp >= getExpToNext(level)) {
+    restExp = restExp - getExpToNext(level);
+    level = level + 1;
+  }
+  return { level: level, currentExp: restExp };
+}
+
+// 累計EXPから、今のレベルを計算して返す
 function getLevel() {
-  return Math.floor(totalExp / EXP_PER_LEVEL) + 1;
+  return getLevelInfo().level;
 }
 
 // レベルから、称号とアイコンを決めて返す
@@ -321,17 +343,19 @@ function getTitle(level) {
 
 // ステータス（アイコン・称号・レベル・経験値バー）を画面に表示し直す
 function renderStatus() {
-  const level = getLevel();
+  const info = getLevelInfo();
+  const level = info.level;
   const title = getTitle(level);
 
-  // 今のレベルの中で、どれだけ貯まっているか（0〜99）
-  const currentExp = totalExp % EXP_PER_LEVEL;
+  // 今のレベルの中で、どれだけ貯まっているか・次のレベルまでにいくつ必要か
+  const currentExp = info.currentExp;
+  const needExp = getExpToNext(level);
 
   statusIcon.textContent = title.icon;
   statusName.textContent = title.name;
   statusLevel.textContent = level; // 丸の中には数字だけを出す
-  expBarFill.style.width = (currentExp / EXP_PER_LEVEL) * 100 + "%";
-  expText.textContent = currentExp + " / " + EXP_PER_LEVEL + " EXP";
+  expBarFill.style.width = (currentExp / needExp) * 100 + "%";
+  expText.textContent = currentExp + " / " + needExp + " EXP";
 
   // 今の称号に合ったキャラクターを描き直す
   drawHero();
