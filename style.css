@@ -275,7 +275,8 @@ h1 {
   display: flex;
   justify-content: center;
   align-items: flex-end; /* キャラを下に寄せて、丘の上に立たせる */
-  height: 200px;
+  position: relative; /* 星を、この箱の中の決まった位置に重ねるため */
+  height: 212px; /* 上に星を置くすき間を作るため、少し高くしています */
   padding-bottom: 10px;
   margin-bottom: 16px;
   border: 3px solid #1e2040;
@@ -299,6 +300,27 @@ h1 {
     radial-gradient(ellipse 70% 62px at 85% 100%, #8bd16a 97%, transparent 100%),
     /* 空（上がこい青、下に行くほど明るい水色） */
     linear-gradient(#3d9be9, #bfe8ff 80%);
+}
+
+/* ランクの星（景色の上のほう・真ん中に重ねて置く） */
+.rank-stars {
+  position: absolute;
+  top: 4px;
+  left: 0;
+  width: 100%;
+  margin: 0;
+  text-align: center;
+  font-size: 18px;
+  letter-spacing: 2px;
+  color: rgba(255, 255, 255, 0.7); /* ☆（残り）の色：うすい白 */
+
+  /* 明るい空や雲の上でも見えるように、紺色のふちどりを付ける */
+  text-shadow: 0 0 2px #1e2040, 0 0 2px #1e2040, 0 0 3px #1e2040;
+}
+
+/* 今のランクの ★（金色） */
+.rank-star-on {
+  color: #ffd84a;
 }
 
 /* 勇者のドット絵（16×16マスの絵を、10倍の大きさに広げて表示する） */

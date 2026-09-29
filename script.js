@@ -37,6 +37,9 @@ const expText = document.getElementById("exp-text");
 // 今日の撃破数を表示する場所
 const todayCountText = document.getElementById("today-count");
 
+// ランクの星を表示する場所
+const rankStars = document.getElementById("rank-stars");
+
 // 演出用の部品（画面全体にかぶさる板・演出の文字・揺らすアプリの画面）
 const effectOverlay = document.getElementById("effect-overlay");
 const effectText = document.getElementById("effect-text");
@@ -387,6 +390,36 @@ function getTitle(level) {
   return TITLES[TITLES.length - 1]; // 念のため（表の一番下＝Lv1 の称号）
 }
 
+// 今のレベルが、称号の表の何番目のランクかを数えて返す（見習い冒険者が 1、神話の勇者が 7）
+// 「何レベルから」を満たしている称号の数が、そのままランクになります
+function getRank(level) {
+  let rank = 0;
+  for (let i = 0; i < TITLES.length; i++) {
+    if (level >= TITLES[i].minLevel) {
+      rank = rank + 1;
+    }
+  }
+  return rank;
+}
+
+// ランクの星を表示し直す（今のランクの数だけ金色の ★、残りはうすい ☆）
+function renderRankStars(level) {
+  const rank = getRank(level);
+
+  // いったん空にしてから、星を1つずつ足す
+  rankStars.innerHTML = "";
+  for (let i = 0; i < TITLES.length; i++) {
+    const star = document.createElement("span");
+    if (i < rank) {
+      star.textContent = "★";
+      star.className = "rank-star-on";
+    } else {
+      star.textContent = "☆";
+    }
+    rankStars.appendChild(star);
+  }
+}
+
 // ステータス（アイコン・称号・レベル・経験値バー）を画面に表示し直す
 function renderStatus() {
   const info = getLevelInfo();
@@ -405,6 +438,9 @@ function renderStatus() {
 
   // 今日の撃破数を表示し直す
   renderTodayCount();
+
+  // ランクの星を表示し直す
+  renderRankStars(level);
 
   // 今の称号に合ったキャラクターを描き直す
   drawHero();
