@@ -57,6 +57,7 @@ const PLAYER_KEY = "tasclear-player";
 // 1レベル上がるのに必要なEXP
 const EXP_PER_LEVEL = 100;
 
+
 // レベルアップの演出を出すまでの待ち時間の番号（途中でやめるときに使う）
 let levelUpTimer = null;
 
@@ -78,12 +79,74 @@ const SCALE_NOTES = [
 // ドレミの1音ずつの間（秒）。小さくするほど速く「なでる」感じになる
 const NOTE_GAP = 0.06;
 
-// 勇者のドット絵の設計図（16×16マス）
+// 設計図の文字と、塗る色の対応表
+const HERO_COLORS = {
+  K: "#222222", // ふちどり（黒）
+  H: "#8b4513", // 髪（茶色）
+  S: "#f5c89a", // はだ
+  E: "#222222", // 目
+  M: "#c0392b", // 口（赤）
+  B: "#2e6bd6", // よろい（青）
+  Y: "#d4a017", // 金色
+  G: "#8b5a2b", // 剣の持ち手・木の棒（茶色）
+  W: "#d0d8e0", // 剣の刃（銀色）
+  N: "#e8c35a", // 麦わら帽子
+  C: "#a0703c", // 服・革（明るい茶色）
+  L: "#6b4423", // 革・ベルト（こげ茶色）
+  P: "#b8c0c8", // 銀のよろい
+  D: "#7a8490", // 銀のよろいの影（こい灰色）
+  R: "#c0392b", // 赤いよろい・マント
+  Q: "#8e1f16", // 赤いよろいの影（こい赤）
+  O: "#e8eef5", // 白いよろい・白い飾り
+  V: "#ffe066", // 光（光の輪・光る剣）
+};
+
+// 見習い冒険者のドット絵の設計図（16×16マス）
 // 1文字が1マスで、文字によって塗る色が決まります（「.」は塗らない）
-// この表を書きかえると、勇者の見た目を変えられます
-const HERO_PIXELS = [
-  ".............W..",
-  "....KKKKK....W..",
+// 麦わら帽子・茶色の服・木の棒
+const PIXELS_NOVICE = [
+  "................",
+  "....KKKKK.......",
+  "...KNNNNNK......",
+  ".KKNNNNNNNKK.G..",
+  "..KHSSSSSHK..G..",
+  "..KSESSSESK..G..",
+  "..KSSSSSSSK..G..",
+  "...KSSMSSK...G..",
+  "..KKCCCCCKK..G..",
+  ".KSCCCCCCCSSSG..",
+  ".KSCCCCCCCK..G..",
+  "..KCCCCCCCK..G..",
+  "..KLLLLLLLK..G..",
+  "...KCCKCCK...G..",
+  "...KCCKCCK......",
+  "..KKKK.KKKK.....",
+];
+
+// 戦士：茶色い髪・革のよろい・短い剣
+const PIXELS_WARRIOR = [
+  "................",
+  "....KKKKK.......",
+  "...KHHHHHK......",
+  "..KHHHHHHHK..W..",
+  "..KHSSSSSHK..W..",
+  "..KSESSSESK..W..",
+  "..KSSSSSSSK..W..",
+  "...KSSMSSK..YYY.",
+  "..KKLLLLLKK..G..",
+  ".KSLLCCCLLSSSG..",
+  ".KSLLLCLLLK..G..",
+  "..KLLLLLLLK.....",
+  "..KCCCCCCCK.....",
+  "...KLLKLLK......",
+  "...KLLKLLK......",
+  "..KKKK.KKKK.....",
+];
+
+// 勇者：青いよろい・剣・小さな王冠
+const PIXELS_HERO = [
+  "....Y.Y.Y....W..",
+  "....YYYYY....W..",
   "...KHHHHHK...W..",
   "..KHHHHHHHK..W..",
   "..KHSSSSSHK..W..",
@@ -100,29 +163,112 @@ const HERO_PIXELS = [
   "..KKKK.KKKK.....",
 ];
 
-// 設計図の文字と、塗る色の対応表
-const HERO_COLORS = {
-  K: "#222222", // ふちどり（黒）
-  H: "#8b4513", // 髪（茶色）
-  S: "#f5c89a", // はだ
-  E: "#222222", // 目
-  M: "#c0392b", // 口（赤）
-  B: "#2e6bd6", // よろい（青）
-  Y: "#d4a017", // 金色の飾り・剣のつば
-  G: "#8b5a2b", // 剣の持ち手（茶色）
-  W: "#d0d8e0", // 剣の刃（銀色）
-};
+// 聖騎士：銀のかぶと・銀のよろい・盾（左）・剣（右）
+const PIXELS_PALADIN = [
+  "................",
+  "....KKKKK.......",
+  "...KPPPPPK......",
+  "..KPPPPPPPK..W..",
+  "..KPDDDDDPK..W..",
+  "..KPSESESPK..W..",
+  "..KPSSSSSPK..W..",
+  "...KPSMSPK..YYY.",
+  "KKKKPPPPPKK..G..",
+  "KBYBKPPPPPSSSG..",
+  "KYYYKPPPPPK..G..",
+  "KBYBKPPPPPK.....",
+  "KBYBKDDDDDK.....",
+  ".KKKPPKPPK......",
+  "...KPPKPPK......",
+  "..KKKK.KKKK.....",
+];
+
+// 竜殺しの勇者：角の付いたかぶと・赤いよろい・大きな剣
+const PIXELS_DRAGON_SLAYER = [
+  "..Y.....Y...WW..",
+  "..YKKKKKY...WW..",
+  "...KDDDDDK..WW..",
+  "..KDDDDDDDK.WW..",
+  "..KDSSSSSDK.WW..",
+  "..KSESSSESK.WW..",
+  "..KSSSSSSSK.WW..",
+  "...KSSMSSK.YYYY.",
+  "..KKRRRRRKK.GG..",
+  ".KSRRQQQRRSSGG..",
+  ".KSRRRQRRRK.GG..",
+  "..KRRRRRRRK.....",
+  "..KQQQQQQQK.....",
+  "...KRRKRRK......",
+  "...KRRKRRK......",
+  "..KKKK.KKKK.....",
+];
+
+// 伝説の英雄：金のよろい・赤いマント・剣
+const PIXELS_LEGEND = [
+  ".............W..",
+  "....KKKKK....W..",
+  "...KHHHHHK...W..",
+  "..KHHHHHHHK..W..",
+  "..KHSSSSSHK..W..",
+  "..KSESSSESK..W..",
+  "..KSSSSSSSK..W..",
+  "...KSSMSSK..YYY.",
+  ".RKKYYYYYKKR.G..",
+  "RKSYYOOOYYSSSG..",
+  "RKSYYYOYYYKR.G..",
+  "RRKYYYYYYYKRR...",
+  "RRKLLLLLLLKRR...",
+  "RR.KYYKYYK.RR...",
+  ".R.KYYKYYK.R....",
+  "..KKKK.KKKK.....",
+];
+
+// 神話の勇者：頭の上に光の輪・金色の髪・白と金のよろい・光る剣
+const PIXELS_MYTH = [
+  "...VVVVVVV...V..",
+  "....KKKKK....V..",
+  "...KYYYYYK...V..",
+  "..KYYYYYYYK..V..",
+  "..KYSSSSSYK..V..",
+  "..KSESSSESK..V..",
+  "..KSSSSSSSK..V..",
+  "...KSSMSSK..YYY.",
+  "..KKOOOOOKK..G..",
+  ".KSOOYYYOOSSSG..",
+  ".KSOOOYOOOK..G..",
+  "..KOOOOOOOK.....",
+  "..KYYYYYYYK.....",
+  "...KOOKOOK......",
+  "...KOOKOOK......",
+  "..KKKK.KKKK.....",
+];
+
+// 称号（二つ名）の表。minLevel は「何レベルから」、pixels はキャラクターの設計図
+// 高いレベルから順に書きます。1行足すと、称号を増やせます
+const TITLES = [
+  { minLevel: 20, icon: "✨", name: "神話の勇者", pixels: PIXELS_MYTH },
+  { minLevel: 15, icon: "🌟", name: "伝説の英雄", pixels: PIXELS_LEGEND },
+  { minLevel: 10, icon: "🐉", name: "竜殺しの勇者", pixels: PIXELS_DRAGON_SLAYER },
+  { minLevel: 7, icon: "🛡️", name: "聖騎士", pixels: PIXELS_PALADIN },
+  { minLevel: 5, icon: "👑", name: "勇者", pixels: PIXELS_HERO },
+  { minLevel: 3, icon: "⚔️", name: "戦士", pixels: PIXELS_WARRIOR },
+  { minLevel: 1, icon: "🧑‍🌾", name: "見習い冒険者", pixels: PIXELS_NOVICE },
+];
 
 // --- 関数 ---
 
-// 勇者のドット絵を描く
+// 今の称号に合ったキャラクターのドット絵を描く
 function drawHero() {
   const pen = heroCanvas.getContext("2d"); // 絵を描くための道具
+  const pixels = getTitle(getLevel()).pixels; // 今の称号の設計図
+
+  // 前に描いた絵を消す
+  pen.clearRect(0, 0, heroCanvas.width, heroCanvas.height);
 
   // 上から1行ずつ、左から1マスずつ見ていく（y は何行目、x は何マス目）
-  for (let y = 0; y < HERO_PIXELS.length; y++) {
-    for (let x = 0; x < HERO_PIXELS[y].length; x++) {
-      const color = HERO_COLORS[HERO_PIXELS[y][x]];
+  for (let y = 0; y < pixels.length; y++) {
+    for (let x = 0; x < pixels[y].length; x++) {
+      const color = HERO_COLORS[pixels[y][x]];
 
       // 色が決まっているマスだけ、1マス分の四角を塗る
       if (color) {
@@ -163,14 +309,14 @@ function getLevel() {
 }
 
 // レベルから、称号とアイコンを決めて返す
+// TITLES の表を上から見ていき、「何レベルから」を満たす最初の行を使う
 function getTitle(level) {
-  if (level >= 5) {
-    return { icon: "👑", name: "勇者" };
+  for (let i = 0; i < TITLES.length; i++) {
+    if (level >= TITLES[i].minLevel) {
+      return TITLES[i];
+    }
   }
-  if (level >= 3) {
-    return { icon: "⚔️", name: "戦士" };
-  }
-  return { icon: "🧑‍🌾", name: "見習い冒険者" };
+  return TITLES[TITLES.length - 1]; // 念のため（表の一番下＝Lv1 の称号）
 }
 
 // ステータス（アイコン・称号・レベル・経験値バー）を画面に表示し直す
@@ -186,6 +332,9 @@ function renderStatus() {
   statusLevel.textContent = level; // 丸の中には数字だけを出す
   expBarFill.style.width = (currentExp / EXP_PER_LEVEL) * 100 + "%";
   expText.textContent = currentExp + " / " + EXP_PER_LEVEL + " EXP";
+
+  // 今の称号に合ったキャラクターを描き直す
+  drawHero();
 }
 
 // quests 配列を localStorage に保存する
@@ -657,7 +806,4 @@ renderQuests();
 
 // 保存しておいた累計EXPを取り出して、ステータスを表示する
 loadPlayer();
-renderStatus();
-
-// 勇者のドット絵を描く
-drawHero();
+renderStatus(); // この中で、キャラクターのドット絵も描きます
