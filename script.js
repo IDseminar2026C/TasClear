@@ -71,11 +71,17 @@ const FIRST_LEVEL_EXP = 100;
 const EXP_GROWTH = 1.1;
 
 
-// レベルアップの演出を出すまでの待ち時間の番号（途中でやめるときに使う）
-let levelUpTimer = null;
+// 演出の順番待ちの列（前の演出が終わってから、次の演出を出す）
+// 1つの演出は { play: 演出を出す関数, duration: 演出の長さ（ミリ秒） } の形
+let effectQueue = [];
 
-// お祝いの演出を出すまでの待ち時間の番号（途中でやめるときに使う）
-let celebrateTimer = null;
+// 今、演出が出ているかどうか
+let isEffectPlaying = false;
+
+// 演出の長さ（ミリ秒。1000 で 1秒）
+const DEFEAT_EFFECT_TIME = 1000; // 撃破
+const LEVELUP_EFFECT_TIME = 1500; // レベルアップ
+const CELEBRATE_EFFECT_TIME = 1500; // お祝い
 
 // 何体撃破するごとにお祝いを出すか
 const CELEBRATE_EVERY = 5;
@@ -615,26 +621,51 @@ function playLevelUpSound() {
   }
 }
 
-// 撃破の演出を出す（光る・揺れる・「撃破！ +〇 EXP」の文字が出る）
-function playDefeatEffect(exp) {
-  // 待っているレベルアップ・お祝いの演出があれば、やめる（演出が重ならないように）
-  clearTimeout(levelUpTimer);
-  clearTimeout(celebrateTimer);
+// 演出を順番待ちの列のいちばん後ろに並べる
+// 何も出ていなければ、すぐに出す
+function addEffect(play, duration) {
+  effectQueue.push({ play: play, duration: duration });
+  if (!isEffectPlaying) {
+    playNextEffect();
+  }
+}
+
+// 列の先頭の演出を出して、その長さの分だけ待ってから、次の演出へ進む
+function playNextEffect() {
+  // 列が空なら、演出はおしまい
+  if (effectQueue.length === 0) {
+    isEffectPlaying = false;
+    return;
+  }
+
+  isEffectPlaying = true;
+  const effect = effectQueue.shift(); // 列の先頭を取り出す
+  effect.play();
+  setTimeout(playNextEffect, effect.duration);
+}
+
+// 演出用の板から、すべての演出の目印を外す（演出の見た目が混ざらないように）
+function clearEffectClasses() {
+  effectOverlay.classList.remove("is-playing");
   effectOverlay.classList.remove("is-levelup");
   effectOverlay.classList.remove("is-celebrate");
+}
 
+// 撃破の演出を出す（音が鳴り、光る・揺れる・「撃破！ +〇 EXP」の文字が出る）
+function playDefeatEffect(exp) {
+  clearEffectClasses();
+  playSlashSound();
   effectText.textContent = "⚔️ 撃破！ +" + exp + " EXP";
   restartAnimation(effectOverlay, "is-playing");
   restartAnimation(container, "is-shaking");
 }
 
 // レベルアップの演出を出す（虹色にぴかぴか光って、レベルと称号が出る）
-function playLevelUpEffect() {
-  const level = getLevel();
+// level は、上がったあとのレベル（列に並べたときのレベルを使う）
+function playLevelUpEffect(level) {
   const title = getTitle(level);
 
-  // 撃破の演出の目印を外してから、レベルアップの演出を動かす
-  effectOverlay.classList.remove("is-playing");
+  clearEffectClasses();
   effectText.textContent =
     "🎉 レベルアップ！ Lv " + level + "\n" + title.icon + " " + title.name;
   restartAnimation(effectOverlay, "is-levelup");
@@ -645,11 +676,30 @@ function playLevelUpEffect() {
 
 // お祝いの演出を出す（金色にふわっと光って、「🏆 今日 〇体 撃破！」が出る）
 function playCelebrateEffect(count) {
-  // ほかの演出の目印を外してから、お祝いの演出を動かす
-  effectOverlay.classList.remove("is-playing");
-  effectOverlay.classList.remove("is-levelup");
+  clearEffectClasses();
   effectText.textContent = "🏆 今日 " + count + "体 撃破！\nすばらしい！";
   restartAnimation(effectOverlay, "is-celebrate");
+}
+
+// 撃破したときの演出を、撃破 → レベルアップ → お祝い の順に列に並べる
+// exp は獲得EXP、isLevelUp はレベルが上がったか、level と count は撃破したあとのレベルと今日の撃破数
+function addDefeatEffects(exp, isLevelUp, level, count) {
+  addEffect(function () {
+    playDefeatEffect(exp);
+  }, DEFEAT_EFFECT_TIME);
+
+  if (isLevelUp) {
+    addEffect(function () {
+      playLevelUpEffect(level);
+    }, LEVELUP_EFFECT_TIME);
+  }
+
+  // 今日の撃破数が5の倍数（5体・10体・15体…）なら、お祝いも並べる
+  if (count % CELEBRATE_EVERY === 0) {
+    addEffect(function () {
+      playCelebrateEffect(count);
+    }, CELEBRATE_EFFECT_TIME);
+  }
 }
 
 // クエスト1つ分の撃破ボタンを作って返す
@@ -669,38 +719,12 @@ function createDefeatButton(quest, index, text, className) {
     completeQuest(index);
     renderQuests();
     renderStatus();
-    playSlashSound();
-    playDefeatEffect(quest.exp);
 
-    // レベルが上がっていたら、撃破の演出が終わる 1秒後 にレベルアップの演出を出す
-    const isLevelUp = getLevel() > levelBefore;
-    if (isLevelUp) {
-      levelUpTimer = setTimeout(playLevelUpEffect, 1000);
-    }
-
-    // 今日の撃破数が5の倍数なら、お祝いの演出を出す予約をする
-    scheduleCelebrate(isLevelUp);
+    // 撃破・レベルアップ・お祝いの演出を、順番待ちの列に並べる
+    const levelAfter = getLevel();
+    addDefeatEffects(quest.exp, levelAfter > levelBefore, levelAfter, todayCount);
   });
   return button;
-}
-
-// 今日の撃破数が5の倍数（5体・10体・15体…）なら、お祝いの演出を出す予約をする
-// isLevelUp は、今回の撃破でレベルが上がったかどうか
-function scheduleCelebrate(isLevelUp) {
-  if (todayCount % CELEBRATE_EVERY !== 0) {
-    return;
-  }
-
-  // 撃破の演出（1秒）のあと。レベルアップもあるときは、その演出（1.5秒）のあと
-  let wait = 1000;
-  if (isLevelUp) {
-    wait = 2500;
-  }
-
-  const count = todayCount; // 予約した時点の撃破数を覚えておく
-  celebrateTimer = setTimeout(function () {
-    playCelebrateEffect(count);
-  }, wait);
 }
 
 // 「撃破済み」の目印を作って返す
