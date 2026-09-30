@@ -104,6 +104,12 @@ let selectedQuests = [];
 // 本日のタスクに並べるクエストの数（まだ撃破していないクエストを、上からこの数だけ）
 const TODAY_MAX = 5;
 
+// クエストを追加したときに、レアなクエストになる確率（1 / 50 = 50回に1回くらい）
+const RARE_CHANCE = 1 / 50;
+
+// レアなクエストの獲得EXP
+const RARE_EXP = 100;
+
 // 今、モンスターが点滅して消えている途中かどうか
 let isMonsterDying = false;
 
@@ -165,6 +171,9 @@ const HERO_COLORS = {
   F: "#6aa84f", // ゴブリンの肌（緑）
   U: "#f4c06a", // ドラゴンのおなか（うすいオレンジ）
   X: "#6b2150", // ドラゴンのつばさ（こい赤紫）
+  A: "#f2c230", // ゴールデンスライムの体（金色）
+  J: "#fff4b0", // ゴールデンスライムのつや（うすい黄色）
+  T: "#ffffff", // キラキラ（白）
 };
 
 // 見習い冒険者のドット絵の設計図（16×16マス）
@@ -390,10 +399,38 @@ const MONSTERS = [
   { minExp: 0, name: "スライム", pixels: PIXELS_SLIME, isBoss: false },
 ];
 
+// ゴールデンスライムのドット絵の設計図（金色のスライム。まわりにキラキラ）
+const PIXELS_GOLDEN_SLIME = [
+  "..T.............",
+  ".TTT.......T....",
+  "..T.......TTT...",
+  "...........T....",
+  "................",
+  ".......KK.......",
+  "......KAAK......",
+  ".....KAJAAK.....",
+  "....KAJAAAAK..T.",
+  "...KAAAAAAAAKTTT",
+  "..KAEAAAEAAAAKT.",
+  "..KAAAAAAAAAAK..",
+  "..KAAAMMAAAAAK..",
+  "..KAAAAAAAAAAK..",
+  "...KAAAAAAAAK...",
+  "....KKKKKKKK....",
+];
+
+// レアなクエストのときに出すモンスター
+const RARE_MONSTER = { name: "ゴールデンスライム", pixels: PIXELS_GOLDEN_SLIME, isBoss: false };
+
 // --- 関数 ---
 
-// 本日のタスクのEXPから、出すモンスターを決めて返す
-function getMonster(exp) {
+// 本日のタスクのクエストから、出すモンスターを決めて返す
+// レアなクエストならゴールデンスライム、それ以外は EXP で決める
+function getMonster(quest) {
+  if (quest.rare) {
+    return RARE_MONSTER;
+  }
+  const exp = quest.exp;
   for (let i = 0; i < MONSTERS.length; i++) {
     if (exp >= MONSTERS[i].minExp) {
       return MONSTERS[i];
@@ -414,7 +451,7 @@ function renderMonster(index) {
     monsterCanvas.hidden = true;
     return;
   }
-  const monster = getMonster(quests[index].exp);
+  const monster = getMonster(quests[index]);
   monsterCanvas.hidden = false;
 
   // ボスのモンスターだけ、少し大きく表示する目印を付ける（ボスでなければ外す）
@@ -1263,6 +1300,13 @@ function createQuestItem(quest, index) {
     item.appendChild(createDoneLabel());
   }
 
+  // レアなクエストなら、EXP の前に「✨」を付けて、金色の札のように見せる
+  // （一覧は幅がせまいので、「✨レア」の札は付けずに、EXP の表示だけで知らせる）
+  if (quest.rare) {
+    exp.textContent = "✨" + quest.exp + " EXP";
+    exp.classList.add("is-rare-exp");
+  }
+
   item.appendChild(exp);
   item.appendChild(createDeleteButton(index));
   return item;
@@ -1323,6 +1367,11 @@ function createTodayItem(quest, index) {
   nameLine.className = "today-name-line";
   if (!isDefeatLocked) {
     nameLine.appendChild(createSelectCheckbox(quest));
+  }
+
+  // レアなクエストなら、クエスト名の前に「✨レア」の目印を付ける
+  if (quest.rare) {
+    nameLine.appendChild(createRareLabel());
   }
   nameLine.appendChild(createQuestName(quest, index, "p", "today-name")); // 押すと名前を直せる
   item.appendChild(nameLine);
@@ -1456,14 +1505,43 @@ function toggleOtherQuests() {
 
 // 新しいクエストを追加する
 function addQuest(questName) {
+  // 50回に1回くらいの確率で、レアなクエストにする
+  // （Math.random() は 0 以上 1 未満のランダムな数。それが RARE_CHANCE より小さければレア）
+  const isRare = Math.random() < RARE_CHANCE;
+
   const newQuest = {
     name: questName,
     exp: getRandomExp(20, 30), // 20〜30 のランダムな獲得EXP
     done: false,
+    rare: isRare, // レアなクエストかどうか
   };
+
+  // レアなクエストなら、EXP を 100 にして、「あらわれた！」の演出を出す
+  if (isRare) {
+    newQuest.exp = RARE_EXP;
+    addRareAppearEffect();
+  }
+
   quests.push(newQuest);
   saveQuests();
   console.log("クエストを追加しました", newQuest);
+}
+
+// レアなクエストが出たときの演出を列に並べる（金色にふわっと光って、「あらわれた！」が出る）
+function addRareAppearEffect() {
+  addEffect(function () {
+    clearEffectClasses();
+    effectText.textContent = "✨ レアモンスターがあらわれた！\n" + RARE_MONSTER.name + "（" + RARE_EXP + " EXP）";
+    restartAnimation(effectOverlay, "is-celebrate"); // お祝いと同じ、金色にふわっと光る見た目
+  }, CELEBRATE_EFFECT_TIME);
+}
+
+// 「✨レア」の目印を作って返す
+function createRareLabel() {
+  const label = document.createElement("span");
+  label.className = "rare-label";
+  label.textContent = "✨レア";
+  return label;
 }
 
 // index 番目のクエストを完了（撃破済み）にする
