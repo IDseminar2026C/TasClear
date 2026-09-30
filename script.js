@@ -92,6 +92,15 @@ const CELEBRATE_EVERY = 5;
 // 今、撃破ボタンを隠しているかどうか（レベルアップの演出が終わるまで隠す）
 let isDefeatLocked = false;
 
+// 今、モンスターが点滅して消えている途中かどうか
+let isMonsterDying = false;
+
+// モンスターが消え終わるまでの待ち時間の番号（連打したとき、やり直すために使う）
+let monsterDyingTimer = null;
+
+// モンスターが点滅して消えるまでの長さ（ミリ秒。style.css の monster-blink の長さと合わせる）
+const MONSTER_DYING_TIME = 500;
+
 // 音を作るための道具（最初に撃破したときに1回だけ用意する）
 let audioContext = null;
 
@@ -373,12 +382,35 @@ function getMonster(exp) {
 // 本日のタスクのモンスターを描く（本日のタスクがないときは隠す）
 // index は、本日のタスクが quests 配列の何番目か（ないときは -1）
 function renderMonster(index) {
+  // 点滅して消えている途中は、描き直さずに待つ（消え終わったら描き直す）
+  if (isMonsterDying) {
+    return;
+  }
+
   if (index === -1) {
     monsterCanvas.hidden = true;
     return;
   }
   monsterCanvas.hidden = false;
   drawPixels(monsterCanvas, getMonster(quests[index].exp).pixels);
+}
+
+// 撃破されたモンスターを、点滅させて消す
+// 消え終わったら、次の本日のタスクのモンスターを描く
+function defeatMonster() {
+  isMonsterDying = true;
+  restartAnimation(monsterCanvas, "is-dying");
+
+  // 連打したときは、待ち時間を最初からやり直す
+  clearTimeout(monsterDyingTimer);
+  monsterDyingTimer = setTimeout(finishMonsterDefeat, MONSTER_DYING_TIME);
+}
+
+// モンスターが消え終わったら、次の本日のタスクのモンスターを描く
+function finishMonsterDefeat() {
+  isMonsterDying = false;
+  monsterCanvas.classList.remove("is-dying");
+  renderMonster(findTodayIndex());
 }
 
 // 今の称号に合ったキャラクターのドット絵を描く
@@ -833,6 +865,11 @@ function createDefeatButton(quest, index, text, className) {
   button.addEventListener("click", function () {
     // 撃破する前のレベルを覚えておく
     const levelBefore = getLevel();
+
+    // 本日のタスクを撃破したときだけ、モンスターを点滅させて消す
+    if (index === findTodayIndex()) {
+      defeatMonster();
+    }
 
     completeQuest(index);
     renderQuests();

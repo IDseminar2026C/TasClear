@@ -345,6 +345,43 @@ h1 {
   display: none;
 }
 
+/* 撃破されたモンスター：チカチカ点滅しながら消える
+   （forwards を付けると、アニメーションが終わったあとも消えたままになる） */
+.monster-canvas.is-dying {
+  animation: monster-blink 0.5s forwards;
+}
+
+/* 点滅しながら、だんだん薄くなる動き（0.5秒で4回点滅） */
+@keyframes monster-blink {
+  0% {
+    opacity: 1;
+  }
+  12% {
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  37% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.8;
+  }
+  62% {
+    opacity: 0;
+  }
+  75% {
+    opacity: 0.5;
+  }
+  87% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
 /* 本日のタスクのカード */
 .today-card {
   margin-bottom: 12px;
