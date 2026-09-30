@@ -423,40 +423,68 @@ h1 {
 
 /* 本日のタスクの中身（太い枠で囲む） */
 .today-quest {
-  padding: 16px;
-  text-align: center;
+  padding: 4px 10px;
   border: 3px solid #1e2040;
   border-radius: 0 8px 8px 8px;
   background-color: #f5f1e6;
 }
 
-/* 本日のタスクのクエスト名（大きく表示。長くてもはみ出さない） */
+/* 本日のタスクのクエスト1つ分（最大5つを縦に並べる） */
+.today-item {
+  padding: 10px 0;
+}
+
+/* 2つ目からのクエストの上に、点線を引いて区切る */
+.today-item + .today-item {
+  border-top: 2px dashed #d8cfb8;
+}
+
+/* 「選ぶ」チェックボックスとクエスト名を横に並べる行 */
+.today-name-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+/* 本日のタスクのクエスト名（残りの幅いっぱいに広げる。長くてもはみ出さない） */
 .today-name {
+  flex: 1;
+  min-width: 0;
   margin: 0;
-  font-size: 22px;
+  font-size: 18px;
   font-weight: bold;
   overflow-wrap: anywhere;
 }
 
+/* 「（〇 EXP get）」と、ボタンを横に並べる行（入りきらないときは折り返す） */
+.today-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 /* 「（〇 EXP get）」の文字 */
 .today-exp {
-  margin: 4px 0 12px;
+  margin: 0;
+  font-size: 14px;
   font-weight: bold;
   color: #a87d0f;
 }
 
-/* チェックボックスと削除ボタンを横に並べる */
+/* 撃破ボタンと削除ボタンを横に並べる */
 .today-actions {
   display: flex;
-  justify-content: center;
   align-items: center;
-  gap: 16px;
+  gap: 8px;
 }
 
-/* 本日のタスクの、大きな「⚔️ 撃破する」ボタン（金色） */
+/* 本日のタスクの「⚔️ 撃破する」ボタン（金色） */
 .today-defeat-button {
-  padding: 10px 24px;
-  font-size: 18px;
+  padding: 6px 10px;
+  font-size: 14px;
   font-weight: bold;
   background-color: #d4a017;
   color: #ffffff;
@@ -465,11 +493,11 @@ h1 {
   cursor: pointer;
 }
 
-/* 撃破ボタンを隠している間に、代わりに出す「🎉 レベルアップ中…」
-   （撃破ボタンと同じくらいの大きさにして、カードの形が変わらないようにする） */
+/* 撃破ボタンを隠している間に、代わりに出す「レベルアップ中…」
+   （撃破ボタンと同じくらいの大きさにして、行の形が変わらないようにする） */
 .today-waiting {
-  padding: 10px 16px;
-  font-size: 18px;
+  padding: 6px 4px;
+  font-size: 14px;
   font-weight: bold;
   color: #a87d0f;
 }
@@ -482,6 +510,8 @@ h1 {
 /* 撃破していないクエストが無いときのメッセージ */
 .today-empty {
   margin: 0;
+  padding: 12px 0;
+  text-align: center;
   color: #666666;
 }
 
@@ -496,6 +526,46 @@ h1 {
   background: none;
   border: none;
   cursor: pointer;
+}
+
+/* まとめて撃破するクエストを選ぶチェックボックス（少し大きくして押しやすくする） */
+.select-checkbox {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  cursor: pointer;
+}
+
+/* 「選んだ〇体をまとめて撃破」のボタン（撃破ボタンと同じ金色の系統） */
+.bulk-defeat-button {
+  display: block;
+  width: 100%;
+  margin: 0 0 12px; /* 本日のタスクのカードのすぐ下に置くので、下にだけ余白を付ける */
+  padding: 10px;
+  font-size: 16px;
+  font-weight: bold;
+  background-color: #d4a017;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+/* 見えないようにする設定（hidden）を、上の display より優先させる */
+.bulk-defeat-button[hidden] {
+  display: none;
+}
+
+/* マウスを乗せたときの見た目（押せるときだけ） */
+.bulk-defeat-button:hover:enabled {
+  background-color: #a87d0f;
+}
+
+/* 押せないとき（1つも選んでいないとき・レベルアップ中）は薄く表示する */
+.bulk-defeat-button:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 /* 「撃破済みをまとめて削除」のボタン（削除ボタンと同じ赤色の系統） */

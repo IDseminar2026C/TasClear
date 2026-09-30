@@ -27,6 +27,9 @@ const clearDoneButton = document.getElementById("clear-done-button");
 // 「レベルをリセット」のボタン
 const resetLevelButton = document.getElementById("reset-level-button");
 
+// 「選んだ〇体をまとめて撃破」のボタン
+const bulkDefeatButton = document.getElementById("bulk-defeat-button");
+
 // 勇者のドット絵を描く場所
 const heroCanvas = document.getElementById("hero-canvas");
 
@@ -94,6 +97,12 @@ const CELEBRATE_EVERY = 5;
 
 // 今、撃破ボタンを隠しているかどうか（レベルアップの演出が終わるまで隠す）
 let isDefeatLocked = false;
+
+// チェックボックスで選んだクエスト（まとめて撃破するため。保存はしない）
+let selectedQuests = [];
+
+// 本日のタスクに並べるクエストの数（まだ撃破していないクエストを、上からこの数だけ）
+const TODAY_MAX = 5;
 
 // 今、モンスターが点滅して消えている途中かどうか
 let isMonsterDying = false;
@@ -933,11 +942,12 @@ function pushEffect(effect) {
 }
 
 // 撃破の演出を列に並べる
+// count は撃破した体数、exp はその合計EXP
 // 列のいちばん後ろが「まだ出ていない撃破の演出」なら、新しく並べずに、体数とEXPを足してまとめる
-function addDefeatEffect(exp) {
+function addDefeatEffect(count, exp) {
   const last = effectQueue[effectQueue.length - 1]; // 列のいちばん後ろ（無ければ undefined）
   if (last && last.isDefeat) {
-    last.defeatCount = last.defeatCount + 1;
+    last.defeatCount = last.defeatCount + count;
     last.defeatExp = last.defeatExp + exp;
     return;
   }
@@ -945,7 +955,7 @@ function addDefeatEffect(exp) {
   // まとめられないときは、新しい撃破の演出を並べる
   const effect = {
     isDefeat: true, // 撃破の演出かどうか（まとめるときの目印）
-    defeatCount: 1, // まとめた体数
+    defeatCount: count, // まとめた体数
     defeatExp: exp, // まとめたEXPの合計
     duration: DEFEAT_EFFECT_TIME,
     play: function () {
@@ -1024,30 +1034,54 @@ function lockDefeat() {
 }
 
 // 隠していた撃破ボタンを、また出す
+// ただし、まだ出ていないレベルアップの演出が列に残っているときは、隠したままにする
 function unlockDefeat() {
+  for (let i = 0; i < effectQueue.length; i++) {
+    if (effectQueue[i].isLevelUp) {
+      return;
+    }
+  }
   isDefeatLocked = false;
   renderQuests();
 }
 
-// 撃破したときの演出を、撃破 → レベルアップ → お祝い の順に列に並べる
-// exp は獲得EXP、isLevelUp はレベルが上がったか、level と count は撃破したあとのレベルと今日の撃破数
-function addDefeatEffects(exp, isLevelUp, level, count) {
-  addDefeatEffect(exp);
-
-  if (isLevelUp) {
-    // レベルアップの演出が終わるまで、撃破ボタンを隠す
-    lockDefeat();
-    addEffect(function () {
+// レベルアップの演出を列に並べる（演出が終わるまで、撃破ボタンを隠す）
+// level は、上がったあとのレベル
+function addLevelUpEffect(level) {
+  lockDefeat();
+  pushEffect({
+    isLevelUp: true, // レベルアップの演出かどうか（ボタンを出してよいか調べるときの目印）
+    duration: LEVELUP_EFFECT_TIME,
+    play: function () {
       playLevelUpEffect(level);
       setTimeout(unlockDefeat, LEVELUP_EFFECT_TIME); // 演出が終わったら、ボタンをまた出す
-    }, LEVELUP_EFFECT_TIME);
+    },
+  });
+}
+
+// お祝いの演出を列に並べる（count は今日の撃破数）
+function addCelebrateEffect(count) {
+  addEffect(function () {
+    playCelebrateEffect(count);
+  }, CELEBRATE_EFFECT_TIME);
+}
+
+// 撃破したときの演出を、撃破 → レベルアップ → お祝い の順に列に並べる
+// defeatCount は撃破した体数、exp はその合計EXP
+// levelBefore・levelAfter は撃破する前と後のレベル、countBefore・countAfter は撃破する前と後の今日の撃破数
+function addDefeatEffects(defeatCount, exp, levelBefore, levelAfter, countBefore, countAfter) {
+  addDefeatEffect(defeatCount, exp);
+
+  // 上がったレベルの数だけ、レベルアップの演出を1つずつ並べる（例：Lv2 → Lv3 → Lv4）
+  for (let level = levelBefore + 1; level <= levelAfter; level++) {
+    addLevelUpEffect(level);
   }
 
-  // 今日の撃破数が5の倍数（5体・10体・15体…）なら、お祝いも並べる
-  if (count % CELEBRATE_EVERY === 0) {
-    addEffect(function () {
-      playCelebrateEffect(count);
-    }, CELEBRATE_EFFECT_TIME);
+  // 今日の撃破数が 5の倍数（5体・10体・15体…）を通り過ぎた数だけ、お祝いを並べる
+  for (let count = countBefore + 1; count <= countAfter; count++) {
+    if (count % CELEBRATE_EVERY === 0) {
+      addCelebrateEffect(count);
+    }
   }
 }
 
@@ -1062,8 +1096,10 @@ function createDefeatButton(quest, index, text, className) {
 
   // 押されたら、そのクエストを撃破済みにして表示し直す
   button.addEventListener("click", function () {
-    // 撃破する前のレベルを覚えておく
+    // 撃破する前のレベルと今日の撃破数を覚えておく（日付が変わっていたら、先に 0 に戻す）
+    resetTodayCountIfNewDay();
     const levelBefore = getLevel();
+    const countBefore = todayCount;
 
     // 本日のタスクを撃破したときだけ、モンスターを点滅させて消す
     if (index === findTodayIndex()) {
@@ -1075,10 +1111,72 @@ function createDefeatButton(quest, index, text, className) {
     renderStatus();
 
     // 撃破・レベルアップ・お祝いの演出を、順番待ちの列に並べる
-    const levelAfter = getLevel();
-    addDefeatEffects(quest.exp, levelAfter > levelBefore, levelAfter, todayCount);
+    addDefeatEffects(1, quest.exp, levelBefore, getLevel(), countBefore, todayCount);
   });
   return button;
+}
+
+// 選んだクエストをまとめて撃破する
+function defeatSelectedQuests() {
+  const targets = selectedQuests.slice(); // 選んだクエストの写し
+  if (targets.length === 0) {
+    return;
+  }
+
+  // 撃破する前のレベルと今日の撃破数を覚えておく（日付が変わっていたら、先に 0 に戻す）
+  resetTodayCountIfNewDay();
+  const levelBefore = getLevel();
+  const countBefore = todayCount;
+
+  // 本日のタスクのいちばん上のクエストが入っていたら、モンスターを点滅させて消す
+  if (targets.includes(quests[findTodayIndex()])) {
+    defeatMonster();
+  }
+
+  // 選んだクエストを1つずつ撃破して、EXPの合計を数える
+  let totalGain = 0;
+  for (let i = 0; i < targets.length; i++) {
+    completeQuest(quests.indexOf(targets[i]));
+    totalGain = totalGain + targets[i].exp;
+  }
+
+  // 選んだ状態を空にして、表示し直す
+  selectedQuests = [];
+  renderQuests();
+  renderStatus();
+
+  // 撃破（まとめて1つ）→ 上がったレベルの数だけレベルアップ → お祝い の順に並べる
+  addDefeatEffects(targets.length, totalGain, levelBefore, getLevel(), countBefore, todayCount);
+}
+
+// クエスト1つ分の「選ぶ」チェックボックスを作って返す（まとめて撃破するクエストを選ぶため）
+function createSelectCheckbox(quest) {
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.className = "select-checkbox";
+  checkbox.checked = selectedQuests.includes(quest);
+
+  // チェックを付けたら選んだクエストに入れ、外したら取り除く
+  checkbox.addEventListener("change", function () {
+    if (checkbox.checked) {
+      selectedQuests.push(quest);
+    } else {
+      selectedQuests = selectedQuests.filter(function (selected) {
+        return selected !== quest;
+      });
+    }
+    renderBulkDefeatButton();
+  });
+  return checkbox;
+}
+
+// 「選んだ〇体をまとめて撃破」ボタンの文字と、押せる・押せないを表示し直す
+function renderBulkDefeatButton() {
+  const count = selectedQuests.length;
+  bulkDefeatButton.textContent = "⚔️ 選んだ " + count + "体 をまとめて撃破";
+
+  // 1つも選んでいないとき・レベルアップ中は押せなくする
+  bulkDefeatButton.disabled = count === 0 || isDefeatLocked;
 }
 
 // 「撃破済み」の目印を作って返す
@@ -1151,8 +1249,10 @@ function createQuestItem(quest, index) {
   exp.className = "quest-exp";
   exp.textContent = quest.exp + " EXP";
 
-  // まだ撃破していなければ、左に小さな撃破ボタンを置く（隠しているときは置かない）
+  // まだ撃破していなければ、左に「選ぶ」チェックボックスと小さな撃破ボタンを置く
+  // （レベルアップの演出の間は、どちらも置かない）
   if (!quest.done && !isDefeatLocked) {
+    item.appendChild(createSelectCheckbox(quest));
     item.appendChild(createDefeatButton(quest, index, "撃破", "defeat-button"));
   }
 
@@ -1168,7 +1268,7 @@ function createQuestItem(quest, index) {
   return item;
 }
 
-// 「本日のタスク」にするクエストが、quests 配列の何番目かを返す
+// 本日のタスクの「いちばん上」のクエストが、quests 配列の何番目かを返す（モンスターを決めるのに使う）
 // （まだ撃破していない一番上のクエスト。1つも無いときは -1 を返す）
 function findTodayIndex() {
   for (let i = 0; i < quests.length; i++) {
@@ -1179,13 +1279,26 @@ function findTodayIndex() {
   return -1;
 }
 
+// 「本日のタスク」にするクエストが、quests 配列の何番目かを並べて返す
+// （まだ撃破していないクエストを、上から最大 TODAY_MAX 個。1つも無いときは空の配列）
+function findTodayIndexes() {
+  const indexes = [];
+  for (let i = 0; i < quests.length; i++) {
+    if (!quests[i].done && indexes.length < TODAY_MAX) {
+      indexes.push(i);
+    }
+  }
+  return indexes;
+}
+
 // 「本日のタスク」のカードの中身を作って表示する
-function renderToday(index) {
+// indexes は、本日のタスクにするクエストが quests 配列の何番目か（最大5つ）
+function renderToday(indexes) {
   // いったん中身を空にする
   todayQuest.innerHTML = "";
 
   // 撃破していないクエストが無いときは、メッセージだけ出す
-  if (index === -1) {
+  if (indexes.length === 0) {
     const empty = document.createElement("p");
     empty.className = "today-empty";
     empty.textContent = "未撃破のクエストはありません";
@@ -1193,48 +1306,74 @@ function renderToday(index) {
     return;
   }
 
-  const quest = quests[index];
+  // クエストを1つずつ行にして並べる
+  for (let i = 0; i < indexes.length; i++) {
+    todayQuest.appendChild(createTodayItem(quests[indexes[i]], indexes[i]));
+  }
+}
 
-  // クエスト名（大きく表示。押すと名前を直せる）
-  const name = createQuestName(quest, index, "p", "today-name");
+// 本日のタスクのクエスト1つ分の行を作って返す
+function createTodayItem(quest, index) {
+  const item = document.createElement("div");
+  item.className = "today-item";
 
-  // 「（〇 EXP get）」
+  // 「選ぶ」チェックボックスとクエスト名を横に並べる行
+  // （チェックボックスは、レベルアップの演出の間は置かない）
+  const nameLine = document.createElement("div");
+  nameLine.className = "today-name-line";
+  if (!isDefeatLocked) {
+    nameLine.appendChild(createSelectCheckbox(quest));
+  }
+  nameLine.appendChild(createQuestName(quest, index, "p", "today-name")); // 押すと名前を直せる
+  item.appendChild(nameLine);
+
+  // 「（〇 EXP get）」と、ボタンを横に並べる行
+  const row = document.createElement("div");
+  row.className = "today-row";
+
   const exp = document.createElement("p");
   exp.className = "today-exp";
   exp.textContent = "（" + quest.exp + " EXP get）";
+  row.appendChild(exp);
 
   // 撃破ボタンと削除ボタンを横に並べる箱
   const actions = document.createElement("div");
   actions.className = "today-actions";
 
-  // 大きな「⚔️ 撃破する」ボタン（隠しているときは、代わりに「レベルアップ中…」を出す）
+  // 「⚔️ 撃破する」ボタン（隠しているときは、代わりに「レベルアップ中…」を出す）
   if (isDefeatLocked) {
     const waiting = document.createElement("span");
     waiting.className = "today-waiting";
-    waiting.textContent = "🎉 レベルアップ中…";
+    waiting.textContent = "レベルアップ中…";
     actions.appendChild(waiting);
   } else {
     actions.appendChild(createDefeatButton(quest, index, "⚔️ 撃破する", "today-defeat-button"));
   }
   actions.appendChild(createDeleteButton(index));
+  row.appendChild(actions);
 
-  todayQuest.appendChild(name);
-  todayQuest.appendChild(exp);
-  todayQuest.appendChild(actions);
+  item.appendChild(row);
+  return item;
 }
 
 // 画面のクエスト表示（本日のタスクと、他のタスクの一覧）をすべて表示し直す
 function renderQuests() {
-  const todayIndex = findTodayIndex();
-  renderToday(todayIndex);
-  renderMonster(todayIndex);
+  const todayIndexes = findTodayIndexes(); // 本日のタスク（最大5つ）
+  renderToday(todayIndexes);
+  renderMonster(findTodayIndex()); // モンスターは、本日のタスクのいちばん上のクエストの分
+
+  // 選んだクエストのうち、まだあって未撃破のものだけを残す
+  // （削除したもの・撃破したものは、選んだ状態から外す）
+  selectedQuests = selectedQuests.filter(function (quest) {
+    return quests.includes(quest) && !quest.done;
+  });
 
   // 他のタスクの一覧を、いったん空にする
   questList.innerHTML = "";
 
-  // 1回目：まだ撃破していないクエストを先に並べる（本日のタスクは除く）
+  // 1回目：まだ撃破していないクエストを先に並べる（本日のタスクの分は除く）
   for (let i = 0; i < quests.length; i++) {
-    if (i !== todayIndex && !quests[i].done) {
+    if (!todayIndexes.includes(i) && !quests[i].done) {
       questList.appendChild(createQuestItem(quests[i], i));
     }
   }
@@ -1248,6 +1387,9 @@ function renderQuests() {
 
   // 撃破済みが0件なら、まとめて削除のボタンを押せなくする
   clearDoneButton.disabled = countDoneQuests() === 0;
+
+  // まとめて撃破のボタンを表示し直す
+  renderBulkDefeatButton();
 }
 
 // 撃破済みのクエストが何件あるか数えて返す
@@ -1381,6 +1523,9 @@ otherToggle.addEventListener("click", toggleOtherQuests);
 
 // 「レベルをリセット」のボタンが押されたとき
 resetLevelButton.addEventListener("click", resetLevel);
+
+// 「選んだ〇体をまとめて撃破」のボタンが押されたとき
+bulkDefeatButton.addEventListener("click", defeatSelectedQuests);
 
 // 「撃破済みをまとめて削除」のボタンが押されたとき
 clearDoneButton.addEventListener("click", function () {
