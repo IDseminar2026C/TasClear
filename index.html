@@ -22,7 +22,13 @@
 
     <!-- ヘッダー：アプリのロゴ -->
     <header>
-      <h1>⚔️ タスクリア</h1>
+      <!-- ロゴと、音のボタンを横に並べる箱 -->
+      <div class="title-row">
+        <h1>⚔️ タスクリア</h1>
+
+        <!-- 押すと、効果音を消したり戻したりします（🔊 鳴る ／ 🔇 消している） -->
+        <button id="sound-button" class="sound-button" type="button" aria-label="効果音を消す">🔊</button>
+      </div>
 
       <!-- プレイヤーのステータス。中身は JavaScript で書き換えます -->
       <!-- 左：アイコン、真ん中：レベル、右：経験値バー の順に横に並べます -->
@@ -68,10 +74,10 @@
       <!-- ランクの星（★ が今のランク、☆ が残り）。中身は JavaScript で書き換えます -->
       <p id="rank-stars" class="rank-stars">★☆☆☆☆☆☆</p>
 
-      <canvas id="hero-canvas" class="hero-canvas" width="16" height="16" aria-label="勇者のドット絵"></canvas>
+      <canvas id="hero-canvas" class="hero-canvas" width="32" height="32" aria-label="勇者のドット絵"></canvas>
 
       <!-- 本日のタスクのモンスター（本日のタスクがないときは隠す）。絵は JavaScript で描きます -->
-      <canvas id="monster-canvas" class="monster-canvas" width="16" height="16" aria-label="モンスターのドット絵" hidden></canvas>
+      <canvas id="monster-canvas" class="monster-canvas" width="32" height="32" aria-label="モンスターのドット絵" hidden></canvas>
     </div>
 
     <!-- クエスト（タスク）の入力フォーム -->
@@ -109,7 +115,17 @@
       <!-- ガチャ：コインを使ってアイテムを引く -->
       <section class="gacha-card">
         <h2 class="gacha-title">🎰 ガチャ</h2>
-        <button id="gacha-button" class="gacha-button" type="button" disabled>🎰 ガチャを引く（🪙50）</button>
+        <button id="gacha-button" class="gacha-button" type="button" disabled>🎰 1回引く（🪙50）</button>
+        <button id="gacha-ten-button" class="gacha-button gacha-ten-button" type="button" disabled>🎰 10連ガチャ（🪙500）</button>
+
+        <!-- 前回の結果（1回なら大きく1つ、10連なら10個）。中身は JavaScript で作ります -->
+        <h3 class="gacha-subtitle">― 前回の結果 ―</h3>
+        <p id="gacha-result-empty" class="gacha-result-empty">まだ引いていません</p>
+        <ul id="gacha-result-list" class="gacha-result-list"></ul>
+
+        <!-- 出る確率の表。中身は JavaScript で作ります -->
+        <h3 class="gacha-subtitle">― 出る確率 ―</h3>
+        <ul id="gacha-rate-list" class="gacha-rate-list"></ul>
       </section>
     </div>
 
@@ -123,8 +139,9 @@
         <p id="equip-summary" class="equip-summary">そうび：頭 ― ／ 武器 ― ／ 盾 ― ／ 足 ― ／ アクセ ―</p>
         <p class="equip-help">持っているアイテムを押すと、装備できます（もう一度押すと、はずします）</p>
 
-        <p id="collection-count" class="collection-count">図鑑 0 / 12</p>
-        <ul id="collection-list" class="collection-list"></ul>
+        <p id="collection-count" class="collection-count">図鑑 0 / 48</p>
+        <!-- ランクごとの見出しとアイテムの一覧。中身は JavaScript で作ります -->
+        <div id="collection-list"></div>
       </section>
     </div>
 

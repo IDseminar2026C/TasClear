@@ -30,6 +30,9 @@ const resetLevelButton = document.getElementById("reset-level-button");
 // 「選んだ〇体をまとめて撃破」のボタン
 const bulkDefeatButton = document.getElementById("bulk-defeat-button");
 
+// 効果音を消したり戻したりするボタン
+const soundButton = document.getElementById("sound-button");
+
 // 画面を切りかえるタブのボタン（3つ）と、画面の箱（3つ）
 const pageTabs = document.querySelectorAll(".page-tab");
 const pages = document.querySelectorAll(".page");
@@ -40,6 +43,12 @@ const gachaButton = document.getElementById("gacha-button");
 const collectionCount = document.getElementById("collection-count");
 const collectionList = document.getElementById("collection-list");
 const equipSummary = document.getElementById("equip-summary");
+
+// 10連ガチャのボタン、前回の結果、確率の表の部品
+const gachaTenButton = document.getElementById("gacha-ten-button");
+const gachaResultList = document.getElementById("gacha-result-list");
+const gachaResultEmpty = document.getElementById("gacha-result-empty");
+const gachaRateList = document.getElementById("gacha-rate-list");
 
 // 勇者のドット絵を描く場所
 const heroCanvas = document.getElementById("hero-canvas");
@@ -137,29 +146,79 @@ const COIN_PER_RARE_DEFEAT = 50;
 // ガチャ1回に使うコイン
 const GACHA_COST = 50;
 
+// 10連ガチャに使うコイン
+const GACHA_TEN_COST = 500;
+
+// 前回のガチャで出たアイテム（1回なら1つ、10連なら10個。保存はしない）
+let lastGachaResults = [];
+
+// 効果音を消しているかどうか（true なら、どの効果音も鳴らさない）
+let isMuted = false;
+
 // ガチャのランク。chance は出る確率（3つ足すと 1 になるようにする）
 const GACHA_RANKS = [
-  { rank: 1, stars: "★", name: "ノーマル", chance: 0.6 },
+  { rank: 1, stars: "★", name: "ノーマル", chance: 0.65 },
   { rank: 2, stars: "★★", name: "レア", chance: 0.3 },
-  { rank: 3, stars: "★★★", name: "スーパーレア", chance: 0.1 },
+  { rank: 3, stars: "★★★", name: "スーパーレア", chance: 0.05 },
 ];
 
 // ガチャで出るアイテムの表。id は保存するときの名前、rank はランク（1〜3）
 // slot は装備する部位（"head" 頭・"weapon" 武器・"shield" 盾・"feet" 足・"accessory" アクセサリー）
 // slot が null のアイテムは道具なので、装備できない
 const GACHA_ITEMS = [
+  // ★ ノーマル（20種類）
   { id: "wood-stick", icon: "🪵", name: "木の棒", rank: 1, slot: "weapon" },
   { id: "cloth-hat", icon: "🧢", name: "布のぼうし", rank: 1, slot: "head" },
   { id: "travel-boots", icon: "👢", name: "旅人のブーツ", rank: 1, slot: "feet" },
   { id: "herb", icon: "🧪", name: "やくそう", rank: 1, slot: null },
   { id: "bread", icon: "🥖", name: "パン", rank: 1, slot: null },
+  { id: "apple", icon: "🍎", name: "りんご", rank: 1, slot: null },
+  { id: "rice-ball", icon: "🍙", name: "おにぎり", rank: 1, slot: null },
+  { id: "cheese", icon: "🧀", name: "チーズ", rank: 1, slot: null },
+  { id: "milk", icon: "🥛", name: "ミルク", rank: 1, slot: null },
+  { id: "meat", icon: "🍖", name: "骨付き肉", rank: 1, slot: null },
+  { id: "candle", icon: "🕯️", name: "ろうそく", rank: 1, slot: null },
+  { id: "compass", icon: "🧭", name: "コンパス", rank: 1, slot: null },
+  { id: "old-map", icon: "🗺️", name: "古い地図", rank: 1, slot: null },
+  { id: "rusty-key", icon: "🔑", name: "さびた鍵", rank: 1, slot: null },
+  { id: "copper-coin", icon: "🪙", name: "銅貨", rank: 1, slot: null },
+  { id: "leather-gloves", icon: "🧤", name: "革の手袋", rank: 1, slot: "accessory" },
+  { id: "scarf", icon: "🧣", name: "マフラー", rank: 1, slot: "accessory" },
+  { id: "leather-boots", icon: "🥾", name: "革のブーツ", rank: 1, slot: "feet" },
+  { id: "hand-axe", icon: "🪓", name: "手おの", rank: 1, slot: "weapon" },
+  { id: "lantern", icon: "🏮", name: "ランタン", rank: 1, slot: null },
+
+  // ★★ レア（16種類）
   { id: "steel-sword", icon: "🗡️", name: "鋼の剣", rank: 2, slot: "weapon" },
   { id: "iron-shield", icon: "🛡️", name: "鉄の盾", rank: 2, slot: "shield" },
   { id: "hunter-bow", icon: "🏹", name: "狩人の弓", rank: 2, slot: "weapon" },
   { id: "power-ring", icon: "💍", name: "力の指輪", rank: 2, slot: "accessory" },
+  { id: "iron-helmet", icon: "🪖", name: "鉄のかぶと", rank: 2, slot: "head" },
+  { id: "trident", icon: "🔱", name: "三つ又の槍", rank: 2, slot: "weapon" },
+  { id: "boomerang", icon: "🪃", name: "ブーメラン", rank: 2, slot: null },
+  { id: "magic-scroll", icon: "📜", name: "魔法の巻物", rank: 2, slot: null },
+  { id: "charm", icon: "🧿", name: "守りのお守り", rank: 2, slot: "accessory" },
+  { id: "blue-gem", icon: "💎", name: "青い宝石", rank: 2, slot: null },
+  { id: "honey", icon: "🍯", name: "はちみつ", rank: 2, slot: null },
+  { id: "adventure-bag", icon: "🎒", name: "冒険者のかばん", rank: 2, slot: null },
+  { id: "magic-potion", icon: "⚗️", name: "魔法の薬", rank: 2, slot: null },
+  { id: "magic-staff", icon: "🪄", name: "魔法の杖", rank: 2, slot: "weapon" },
+  { id: "wizard-hat", icon: "🎩", name: "魔法使いの帽子", rank: 2, slot: "head" },
+  { id: "swift-shoes", icon: "👞", name: "疾風のくつ", rank: 2, slot: "feet" },
+
+  // ★★★ スーパーレア（12種類）
   { id: "legend-sword", icon: "⚔️", name: "伝説の剣", rank: 3, slot: "weapon" },
   { id: "king-crown", icon: "👑", name: "王者の冠", rank: 3, slot: "head" },
   { id: "sage-crystal", icon: "🔮", name: "賢者の水晶", rank: 3, slot: "accessory" },
+  { id: "dragon-scale", icon: "🐉", name: "竜のうろこ", rank: 3, slot: null },
+  { id: "unicorn-horn", icon: "🦄", name: "ユニコーンの角", rank: 3, slot: null },
+  { id: "phoenix-feather", icon: "🪶", name: "不死鳥の羽", rank: 3, slot: null },
+  { id: "star-fragment", icon: "🌟", name: "星のかけら", rank: 3, slot: null },
+  { id: "moon-drop", icon: "🌙", name: "月のしずく", rank: 3, slot: null },
+  { id: "sun-crest", icon: "☀️", name: "太陽の紋章", rank: 3, slot: null },
+  { id: "ancient-pot", icon: "🏺", name: "古代のつぼ", rank: 3, slot: null },
+  { id: "forbidden-book", icon: "📕", name: "禁断の書", rank: 3, slot: null },
+  { id: "sky-orb", icon: "💠", name: "天空の宝珠", rank: 3, slot: null },
 ];
 
 // 装備する部位の表（図鑑の「そうび：…」に、この順で並べる）
@@ -199,6 +258,26 @@ const EQUIP_SPRITES = {
   "travel-boots": { x: 3, y: 13, rows: [".bb.bb.", ".bb.bb.", "bbb.bbb"] }, // 茶色のブーツ
   "power-ring": { x: 2, y: 10, rows: ["Y"] }, // 左手の金の指輪
   "sage-crystal": { x: 0, y: 3, rows: [".p.", "pIp", ".p."] }, // 左の空中にうかぶ紫の水晶
+
+  // ここから下は、ガチャを48種類にしたときに足した装備の絵
+  "iron-helmet": { x: 2, y: 1, rows: ["..KKKKK..", ".KsssssK.", "KsDDDDDsK"] }, // 銀のかぶと（ぼうしの形ちがい）
+  "wizard-hat": { x: 2, y: 0, rows: ["....K....", "...KpK...", "..KpppK..", "KpppppppK"] }, // 紫のとんがり帽子
+  "hand-axe": { x: 13, y: 3, rows: ["Gss", "Gss", "G..", "G..", "G..", "G..", "G..", "G..", "G.."] }, // 手おの
+  "trident": {
+    x: 11,
+    y: 0,
+    rows: ["s.s.s", "sssss", "..s..", "..G..", "..G..", "..G..", "..G..", "..G..", "..G..", "..G..", "..G.."], // 三つ又の槍
+  },
+  "magic-staff": {
+    x: 12,
+    y: 1,
+    rows: [".p.", "pIp", ".p.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G."], // 先に紫の玉が付いた杖
+  },
+  "leather-boots": { x: 3, y: 13, rows: [".CC.CC.", ".CC.CC.", "CCC.CCC"] }, // 明るい茶色のブーツ（旅人のブーツの色ちがい）
+  "swift-shoes": { x: 3, y: 13, rows: [".FF.FF.", ".FF.FF.", "FFF.FFF"] }, // 緑のくつ（旅人のブーツの色ちがい）
+  "leather-gloves": { x: 2, y: 9, rows: ["L.........L", "L.........."] }, // 両手の茶色の手袋
+  "scarf": { x: 4, y: 8, rows: ["RRRRR", "....R"] }, // 首の赤いマフラー
+  "charm": { x: 5, y: 9, rows: [".T.", "TBT", ".T."] }, // 胸の青いお守り
 };
 
 // 今、モンスターが点滅して消えている途中かどうか
@@ -589,57 +668,147 @@ function finishMonsterDefeat() {
 }
 
 // 今の称号に合ったキャラクターのドット絵を描く
+// 絵は、次の3つの段階で描きます
+//   1. 16×16マスの「色の表」を作る（設計図に、装備の絵を重ねる）
+//   2. Scale2x という方法で、32×32マスに広げて、ななめのギザギザをなめらかにする
+//   3. 32×32マスの色の表を、canvas に塗る
+
+// 今の称号に合ったキャラクターのドット絵を、装備を重ねて描く
 function drawHero() {
-  drawPixels(heroCanvas, getTitle(getLevel()).pixels);
-  drawEquipment();
+  paintGrid(heroCanvas, scale2x(makeHeroGrid()));
 }
 
-// 装備しているアイテムの絵を、キャラのドット絵に重ねて描く
-function drawEquipment() {
-  const pen = heroCanvas.getContext("2d");
+// 設計図（pixels）のドット絵を、なめらかに広げて canvas に描く（モンスターに使う）
+function drawPixels(canvas, pixels) {
+  paintGrid(canvas, scale2x(makeColorGrid(pixels)));
+}
+
+// キャラクターの16×16の色の表を作り、装備しているアイテムの絵を重ねて返す
+function makeHeroGrid() {
+  const grid = makeColorGrid(getTitle(getLevel()).pixels);
 
   // 武器を装備しているときは、キャラがもともと持っている武器（右側）を先に消す
   if (equipped.weapon) {
-    pen.clearRect(12, 0, 4, 9); // 右上（剣の刃やつばのあたり）
-    pen.clearRect(13, 9, 3, 5); // 右下（持ち手のあたり。腕は消さない）
+    clearGridArea(grid, 12, 0, 4, 9); // 右上（剣の刃やつばのあたり）
+    clearGridArea(grid, 13, 9, 3, 5); // 右下（持ち手のあたり。腕は消さない）
   }
 
   // 頭の装備をしているときは、もともとの王冠や光の輪がはみ出さないように、いちばん上の1行（頭の上）を先に消す
   if (equipped.head) {
-    pen.clearRect(0, 0, 12, 1);
+    clearGridArea(grid, 0, 0, 12, 1);
   }
 
-  // 部位ごとに、装備しているアイテムの絵を描く
+  // 部位ごとに、装備しているアイテムの絵を重ねる
   for (let i = 0; i < EQUIP_SLOTS.length; i++) {
     const itemId = equipped[EQUIP_SLOTS[i].slot];
     if (itemId) {
       const sprite = EQUIP_SPRITES[itemId];
-      paintPixels(pen, sprite.rows, sprite.x, sprite.y);
+      overlayOnGrid(grid, sprite.rows, sprite.x, sprite.y);
+    }
+  }
+  return grid;
+}
+
+// 設計図（文字の表）から、色の表を作って返す
+// 色の表は grid[y][x] で「上から y 行目・左から x マス目」の色。塗らないマスは null
+function makeColorGrid(pixels) {
+  const grid = [];
+  for (let y = 0; y < pixels.length; y++) {
+    const row = [];
+    for (let x = 0; x < pixels[y].length; x++) {
+      row.push(HERO_COLORS[pixels[y][x]] || null); // 「.」など、色の決まっていない文字は null
+    }
+    grid.push(row);
+  }
+  return grid;
+}
+
+// 色の表の、左から x・上から y の場所から、横 width・縦 height のマスを「塗らない」にする
+function clearGridArea(grid, x, y, width, height) {
+  for (let row = y; row < y + height; row++) {
+    for (let col = x; col < x + width; col++) {
+      grid[row][col] = null;
     }
   }
 }
 
-// 設計図（pixels）どおりに、canvas にドット絵を描く
-function drawPixels(canvas, pixels) {
-  const pen = canvas.getContext("2d"); // 絵を描くための道具
-
-  // 前に描いた絵を消してから、左上（0, 0）から描く
-  pen.clearRect(0, 0, canvas.width, canvas.height);
-  paintPixels(pen, pixels, 0, 0);
+// 設計図（rows）の絵を、色の表の左から left・上から top の場所に重ねる
+// （「.」のマスは重ねないので、下の絵がそのまま残る）
+function overlayOnGrid(grid, rows, left, top) {
+  for (let y = 0; y < rows.length; y++) {
+    for (let x = 0; x < rows[y].length; x++) {
+      const color = HERO_COLORS[rows[y][x]];
+      if (color) {
+        grid[top + y][left + x] = color;
+      }
+    }
+  }
 }
 
-// 設計図（pixels）の色を、左から left マス・上から top マスの場所から塗る
-// （「.」のマスは塗らないので、下の絵がそのまま残る）
-function paintPixels(pen, pixels, left, top) {
-  // 上から1行ずつ、左から1マスずつ見ていく（y は何行目、x は何マス目）
-  for (let y = 0; y < pixels.length; y++) {
-    for (let x = 0; x < pixels[y].length; x++) {
-      const color = HERO_COLORS[pixels[y][x]];
+// 色の表の、左から x・上から y のマスの色を返す
+// 表の外を聞かれたときは、いちばん近いはしのマスの色を返す（Scale2x で、はしを見るため）
+function getGridColor(grid, x, y) {
+  const safeY = Math.min(Math.max(y, 0), grid.length - 1);
+  const safeX = Math.min(Math.max(x, 0), grid[safeY].length - 1);
+  return grid[safeY][safeX];
+}
 
+// Scale2x：色の表を、たて・よこ2倍に広げて返す（ななめのギザギザをなめらかにする）
+// 1マスを2×2の4マスにするとき、上下左右のマスの色を見て、角のマスの色を決めます
+//   上と左が同じ色（で、右・下とはちがう）なら、左上の角をその色にする … のように、4つの角を決める
+function scale2x(grid) {
+  const result = [];
+  for (let y = 0; y < grid.length; y++) {
+    const topRow = []; // 広げたあとの、上の行
+    const bottomRow = []; // 広げたあとの、下の行
+
+    for (let x = 0; x < grid[y].length; x++) {
+      const center = grid[y][x];
+      const up = getGridColor(grid, x, y - 1);
+      const down = getGridColor(grid, x, y + 1);
+      const left = getGridColor(grid, x - 1, y);
+      const right = getGridColor(grid, x + 1, y);
+
+      // 4つの角の色を決める（条件に当てはまらなければ、もとのマスの色のまま）
+      let topLeft = center;
+      let topRight = center;
+      let bottomLeft = center;
+      let bottomRight = center;
+      if (up !== down && left !== right) {
+        if (left === up) {
+          topLeft = left;
+        }
+        if (up === right) {
+          topRight = right;
+        }
+        if (left === down) {
+          bottomLeft = left;
+        }
+        if (down === right) {
+          bottomRight = right;
+        }
+      }
+
+      topRow.push(topLeft, topRight);
+      bottomRow.push(bottomLeft, bottomRight);
+    }
+    result.push(topRow, bottomRow);
+  }
+  return result;
+}
+
+// 色の表を、canvas に塗る（前に描いた絵は消してから塗る）
+function paintGrid(canvas, grid) {
+  const pen = canvas.getContext("2d"); // 絵を描くための道具
+  pen.clearRect(0, 0, canvas.width, canvas.height);
+
+  // 上から1行ずつ、左から1マスずつ見ていく（y は何行目、x は何マス目）
+  for (let y = 0; y < grid.length; y++) {
+    for (let x = 0; x < grid[y].length; x++) {
       // 色が決まっているマスだけ、1マス分の四角を塗る
-      if (color) {
-        pen.fillStyle = color;
-        pen.fillRect(left + x, top + y, 1, 1);
+      if (grid[y][x]) {
+        pen.fillStyle = grid[y][x];
+        pen.fillRect(x, y, 1, 1);
       }
     }
   }
@@ -677,6 +846,7 @@ function savePlayer() {
     coins: coins,
     items: items,
     equipped: equipped,
+    muted: isMuted,
   };
   localStorage.setItem(PLAYER_KEY, JSON.stringify(player));
 }
@@ -699,6 +869,7 @@ function loadPlayer() {
     coins = player.coins || 0; // 前の形の保存データには無いので、そのときは 0
     items = player.items || {};
     equipped = player.equipped || {};
+    isMuted = player.muted === true; // 前の形の保存データには無いので、そのときは「鳴らす」
     console.log("プレイヤーの状態を読み込みました", player);
   } catch (error) {
     console.log("プレイヤーの保存データが壊れていたので、0 から始めます");
@@ -708,6 +879,7 @@ function loadPlayer() {
     coins = 0;
     items = {};
     equipped = {};
+    isMuted = false;
   }
 }
 
@@ -927,6 +1099,11 @@ function playClangSound(audio) {
 
 // 剣で切る音（シュッ＋キンッ）を鳴らす
 function playSlashSound() {
+  // 効果音を消しているときは、鳴らさない
+  if (isMuted) {
+    return;
+  }
+
   // 音が鳴らせないブラウザでも、撃破そのものは止まらないように try で囲みます
   try {
     const audio = getAudioContext();
@@ -1019,6 +1196,11 @@ function playThudSound(audio) {
 
 // ボスを倒したような、低くて重い剣の音（ズバッ＋ゴォン＋ドンッ）を鳴らす
 function playHeavySlashSound() {
+  // 効果音を消しているときは、鳴らさない
+  if (isMuted) {
+    return;
+  }
+
   // 音が鳴らせないブラウザでも、撃破そのものは止まらないように try で囲みます
   try {
     const audio = getAudioContext();
@@ -1055,6 +1237,11 @@ function playPianoNote(audio, frequency, start) {
 
 // ドレミファソラシドを、鍵盤をなでるように素早く順に鳴らす
 function playLevelUpSound() {
+  // 効果音を消しているときは、鳴らさない
+  if (isMuted) {
+    return;
+  }
+
   // 音が鳴らせないブラウザでも、レベルアップの演出は止まらないように try で囲みます
   try {
     const audio = getAudioContext();
@@ -1097,6 +1284,11 @@ function playBrassNote(audio, frequency, start, length) {
 
 // お祝いのファンファーレ「タ・タ・タ・ジャーン♪」を鳴らす
 function playFanfareSound() {
+  // 効果音を消しているときは、鳴らさない
+  if (isMuted) {
+    return;
+  }
+
   // 音が鳴らせないブラウザでも、お祝いの演出は止まらないように try で囲みます
   try {
     const audio = getAudioContext();
@@ -1137,6 +1329,11 @@ function playBellNote(audio, frequency, start, length) {
 
 // レアモンスターがあらわれたときの「キラキラリーン♪」を鳴らす
 function playSparkleSound() {
+  // 効果音を消しているときは、鳴らさない
+  if (isMuted) {
+    return;
+  }
+
   // 音が鳴らせないブラウザでも、演出は止まらないように try で囲みます
   try {
     const audio = getAudioContext();
@@ -1857,16 +2054,130 @@ function drawGacha() {
     return;
   }
 
-  // コインを使って、アイテムを1つ出し、持っている数を1つ増やす
+  // コインを使って、アイテムを1つ出す
   coins = coins - GACHA_COST;
-  const item = pickGachaItem();
-  items[item.id] = (items[item.id] || 0) + 1;
+  const item = drawOneItem();
   savePlayer();
+
+  // 前回の結果に出して、演出で知らせる（順番待ちの列に並べる）
+  lastGachaResults = [item];
   renderGacha();
   console.log("ガチャを引きました", item);
-
-  // 出たアイテムを演出で知らせる（順番待ちの列に並べる）
   addGachaEffect(item);
+}
+
+// アイテムを1つ出して、持っている数を1つ増やし、出たアイテムを返す（1回引く・10連で使う）
+function drawOneItem() {
+  const item = pickGachaItem();
+  items[item.id] = (items[item.id] || 0) + 1;
+  return item;
+}
+
+// 10連ガチャを引く（コインが足りないときは何もしない）
+function drawGachaTen() {
+  if (coins < GACHA_TEN_COST) {
+    return;
+  }
+
+  // コインを使って、アイテムを10個出す
+  coins = coins - GACHA_TEN_COST;
+  const results = [];
+  for (let i = 0; i < 10; i++) {
+    results.push(drawOneItem());
+  }
+  savePlayer();
+
+  // 前回の結果に10個出して、まとめた演出で知らせる
+  lastGachaResults = results;
+  renderGacha();
+  console.log("10連ガチャを引きました", results);
+  addGachaTenEffect(results);
+}
+
+// 10連ガチャの演出を列に並べる（「🎰 10連ガチャ！ ★★★×1 ★★×3 ★×6」のように、ランクごとの数を出す）
+function addGachaTenEffect(results) {
+  // ランクごとに、いくつ出たか数える（counts[3] が ★★★ の数）
+  const counts = { 1: 0, 2: 0, 3: 0 };
+  for (let i = 0; i < results.length; i++) {
+    counts[results[i].rank] = counts[results[i].rank] + 1;
+  }
+
+  addEffect(function () {
+    clearEffectClasses();
+    effectText.textContent =
+      "🎰 10連ガチャ！\n★★★×" + counts[3] + "  ★★×" + counts[2] + "  ★×" + counts[1];
+    restartAnimation(effectOverlay, "is-celebrate");
+
+    // ★★★ が1つでもあればファンファーレ、なければキラキラの音
+    if (counts[3] > 0) {
+      playFanfareSound();
+    } else {
+      playSparkleSound();
+    }
+  }, CELEBRATE_EFFECT_TIME);
+}
+
+// 前回の結果に出す、アイテム1つ分を作って返す
+function createResultItem(item) {
+  const cell = document.createElement("li");
+  cell.className = "collection-item rank-" + item.rank;
+
+  const icon = document.createElement("span");
+  icon.className = "collection-icon";
+  icon.textContent = item.icon;
+
+  const label = document.createElement("span");
+  label.className = "collection-name";
+  label.textContent = item.name + " " + getRankStars(item.rank);
+
+  cell.appendChild(icon);
+  cell.appendChild(label);
+  return cell;
+}
+
+// 前回の結果を表示し直す（1回のときは大きく1つ、10連のときは5個ずつ2段）
+function renderGachaResult() {
+  gachaResultList.innerHTML = "";
+
+  // まだ引いていないときは、説明だけ出す
+  if (lastGachaResults.length === 0) {
+    gachaResultList.className = "gacha-result-list";
+    gachaResultEmpty.hidden = false;
+    return;
+  }
+  gachaResultEmpty.hidden = true;
+
+  // 1つだけのときは、大きく見せる目印を付ける
+  if (lastGachaResults.length === 1) {
+    gachaResultList.className = "gacha-result-list is-single";
+  } else {
+    gachaResultList.className = "gacha-result-list";
+  }
+
+  for (let i = 0; i < lastGachaResults.length; i++) {
+    gachaResultList.appendChild(createResultItem(lastGachaResults[i]));
+  }
+}
+
+// 確率の表を表示し直す（GACHA_RANKS と GACHA_ITEMS の表から計算する）
+function renderGachaRates() {
+  gachaRateList.innerHTML = "";
+  for (let i = 0; i < GACHA_RANKS.length; i++) {
+    const rank = GACHA_RANKS[i];
+
+    // そのランクのアイテムが何種類あるか数えて、1つあたりの確率を出す
+    const kinds = GACHA_ITEMS.filter(function (item) {
+      return item.rank === rank.rank;
+    }).length;
+    const each = (rank.chance / kinds) * 100;
+
+    const row = document.createElement("li");
+    row.className = "gacha-rate rank-" + rank.rank;
+    row.textContent =
+      rank.stars + " " + rank.name + "　" + Math.round(rank.chance * 100) + "%" +
+      "（" + kinds + "種類・1つあたり 約" + Math.round(each * 10) / 10 + "%）";
+    gachaRateList.appendChild(row);
+  }
 }
 
 // ガチャで出たアイテムの演出を列に並べる（金色にふわっと光って、「〇〇 をゲット！」が出る）
@@ -1962,27 +2273,85 @@ function getEquipSummary() {
   return "そうび：" + parts.join(" ／ ");
 }
 
+// アイテムの一覧（list）のうち、持っているものが何種類あるか数えて返す
+function countOwnedItems(list) {
+  let owned = 0;
+  for (let i = 0; i < list.length; i++) {
+    if (items[list[i].id]) {
+      owned = owned + 1;
+    }
+  }
+  return owned;
+}
+
+// 図鑑の、1つのランク分のまとまりを作って返す（「★★ レア 3 / 16」の見出しと、アイテムの一覧）
+function createCollectionGroup(rank) {
+  const group = document.createElement("div");
+
+  // そのランクのアイテムだけを取り出す
+  const rankItems = GACHA_ITEMS.filter(function (item) {
+    return item.rank === rank.rank;
+  });
+
+  const heading = document.createElement("h3");
+  heading.className = "collection-heading rank-" + rank.rank;
+  heading.textContent = rank.stars + " " + rank.name + "　" + countOwnedItems(rankItems) + " / " + rankItems.length;
+  group.appendChild(heading);
+
+  const list = document.createElement("ul");
+  list.className = "collection-list";
+  for (let i = 0; i < rankItems.length; i++) {
+    list.appendChild(createCollectionItem(rankItems[i]));
+  }
+  group.appendChild(list);
+  return group;
+}
+
 // コインの表示、ガチャのボタン、図鑑を表示し直す
 function renderGacha() {
   coinText.textContent = "🪙 " + coins + " コイン";
 
   // コインが足りないときは、ガチャのボタンを押せなくする
-  gachaButton.textContent = "🎰 ガチャを引く（🪙" + GACHA_COST + "）";
+  gachaButton.textContent = "🎰 1回引く（🪙" + GACHA_COST + "）";
   gachaButton.disabled = coins < GACHA_COST;
+  gachaTenButton.textContent = "🎰 10連ガチャ（🪙" + GACHA_TEN_COST + "）";
+  gachaTenButton.disabled = coins < GACHA_TEN_COST;
 
-  // 図鑑：何種類集めたかと、アイテムの一覧
-  let owned = 0;
+  // 前回の結果と、確率の表
+  renderGachaResult();
+  renderGachaRates();
+
+  // 図鑑：ランクごとに見出しを付けて、アイテムの一覧を並べる
   collectionList.innerHTML = "";
-  for (let i = 0; i < GACHA_ITEMS.length; i++) {
-    if (items[GACHA_ITEMS[i].id]) {
-      owned = owned + 1;
-    }
-    collectionList.appendChild(createCollectionItem(GACHA_ITEMS[i]));
+  for (let i = 0; i < GACHA_RANKS.length; i++) {
+    collectionList.appendChild(createCollectionGroup(GACHA_RANKS[i]));
   }
-  collectionCount.textContent = "図鑑 " + owned + " / " + GACHA_ITEMS.length;
+
+  // 全部で何種類集めたか
+  collectionCount.textContent = "図鑑 " + countOwnedItems(GACHA_ITEMS) + " / " + GACHA_ITEMS.length;
 
   // 今の装備
   equipSummary.textContent = getEquipSummary();
+}
+
+// 効果音を消す・戻す（押すたびに切りかえて、保存する）
+function toggleSound() {
+  isMuted = !isMuted;
+  savePlayer();
+  renderSoundButton();
+}
+
+// 音のボタンの絵文字と見た目を、今の状態に合わせる（🔊 鳴る ／ 🔇 消している）
+function renderSoundButton() {
+  if (isMuted) {
+    soundButton.textContent = "🔇";
+    soundButton.setAttribute("aria-label", "効果音を鳴らす");
+    soundButton.classList.add("is-muted");
+  } else {
+    soundButton.textContent = "🔊";
+    soundButton.setAttribute("aria-label", "効果音を消す");
+    soundButton.classList.remove("is-muted");
+  }
 }
 
 // 画面を切りかえる（pageId の画面だけを見せて、ほかの画面は隠す）
@@ -2143,8 +2512,14 @@ resetLevelButton.addEventListener("click", resetLevel);
 // 「選んだ〇体をまとめて撃破」のボタンが押されたとき
 bulkDefeatButton.addEventListener("click", defeatSelectedQuests);
 
-// 「ガチャを引く」のボタンが押されたとき
+// 「1回引く」のボタンが押されたとき
 gachaButton.addEventListener("click", drawGacha);
+
+// 「10連ガチャ」のボタンが押されたとき
+gachaTenButton.addEventListener("click", drawGachaTen);
+
+// 音のボタンが押されたとき
+soundButton.addEventListener("click", toggleSound);
 
 // 画面を切りかえるタブが押されたとき（タブに書いてある data-page の画面を見せる）
 for (let i = 0; i < pageTabs.length; i++) {
@@ -2169,3 +2544,6 @@ renderQuests();
 loadPlayer();
 resetTodayCountIfNewDay(); // 前に開いた日と違えば、今日の撃破数を 0 に戻す
 renderStatus(); // この中で、キャラクターのドット絵も描きます
+
+// 保存しておいた音の設定に合わせて、音のボタンを表示する
+renderSoundButton();

@@ -44,6 +44,41 @@ h1 {
   padding-bottom: 8px;
 }
 
+/* ロゴと音のボタンを横に並べる箱（金色の線は、ロゴではなくこの箱の下に引く） */
+.title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 3px solid #d4a017;
+}
+
+/* 箱の中のロゴ（線と余白は、箱のほうに付けたので消す） */
+.title-row h1 {
+  margin: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+/* 音のボタン（丸い形） */
+.sound-button {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  font-size: 20px;
+  background-color: #f5f1e6;
+  border: 2px solid #1e2040;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+/* 音を消しているとき（少し薄くする） */
+.sound-button.is-muted {
+  opacity: 0.5;
+}
+
 /* 入力フォーム（入力欄とボタンを横に並べる） */
 .quest-form {
   display: flex;
@@ -459,7 +494,7 @@ h1 {
   color: #ffd84a;
 }
 
-/* 勇者のドット絵（16×16マスの絵を、10倍の大きさに広げて表示する） */
+/* 勇者のドット絵（32×32マスの絵を、5倍の大きさに広げて表示する） */
 .hero-canvas {
   width: 160px;
   height: 160px;
@@ -468,14 +503,14 @@ h1 {
   image-rendering: pixelated;
 }
 
-/* モンスターのドット絵（16×16マスの絵を、7倍の大きさに広げる。キャラより少し小さい） */
+/* モンスターのドット絵（32×32マスの絵を、3.5倍の大きさに広げる。キャラより少し小さい） */
 .monster-canvas {
   width: 112px;
   height: 112px;
   image-rendering: pixelated;
 }
 
-/* ボスのモンスター（ドラゴン）は、少し大きく表示する（8倍） */
+/* ボスのモンスター（ドラゴン）は、少し大きく表示する（4倍） */
 .monster-canvas.is-boss {
   width: 128px;
   height: 128px;
@@ -1100,4 +1135,97 @@ h1 {
   background-color: #1e2040;
   color: #ffffff;
   border-radius: 4px;
+}
+
+/* 10連ガチャのボタン（1回引くボタンの下に、すき間をあけて置く。こい色で目立たせる） */
+.gacha-ten-button {
+  margin-top: 8px;
+  background-color: #1e2040;
+}
+
+/* マウスを乗せたときの見た目（押せるときだけ） */
+.gacha-ten-button:hover:enabled {
+  background-color: #3a3d6e;
+}
+
+/* 「― 前回の結果 ―」「― 出る確率 ―」の小見出し */
+.gacha-subtitle {
+  margin: 16px 0 6px;
+  font-size: 14px;
+  text-align: center;
+  color: #555555;
+}
+
+/* まだ引いていないときの説明 */
+.gacha-result-empty {
+  margin: 0;
+  font-size: 13px;
+  text-align: center;
+  color: #888888;
+}
+
+/* 前回の結果の一覧（5個ずつ並べる） */
+.gacha-result-list {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* 1つだけのとき（1回引いたとき）は、真ん中に大きく見せる */
+.gacha-result-list.is-single {
+  grid-template-columns: 120px;
+  justify-content: center;
+}
+
+.gacha-result-list.is-single .collection-icon {
+  font-size: 48px;
+}
+
+.gacha-result-list.is-single .collection-name {
+  font-size: 14px;
+  font-weight: bold;
+}
+
+/* 確率の表 */
+.gacha-rate-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 13px;
+}
+
+/* 確率の表の1行分（ランクの色の線を左に付ける） */
+.gacha-rate {
+  margin-bottom: 4px;
+  padding: 4px 8px;
+  background-color: #ffffff;
+  border-left: 5px solid #cccccc;
+  border-radius: 4px;
+}
+
+.gacha-rate.rank-2 {
+  border-left-color: #2e6bd6;
+}
+
+.gacha-rate.rank-3 {
+  border-left-color: #d4a017;
+}
+
+/* 図鑑の、ランクごとの見出し（「★★ レア 3 / 16」。ランクの色の線を左に付ける） */
+.collection-heading {
+  margin: 12px 0 6px;
+  padding-left: 8px;
+  font-size: 14px;
+  border-left: 5px solid #cccccc;
+}
+
+.collection-heading.rank-2 {
+  border-left-color: #2e6bd6;
+}
+
+.collection-heading.rank-3 {
+  border-left-color: #d4a017;
 }
