@@ -46,6 +46,9 @@
 
           <!-- 今日の撃破数 -->
           <p id="today-count" class="today-count">今日 0体 撃破</p>
+
+          <!-- 持っているコイン -->
+          <p id="coin-text" class="coin-text">🪙 0 コイン</p>
         </div>
       </div>
     </header>
@@ -85,6 +88,16 @@
 
     <!-- 撃破済みのクエストをまとめて消すボタン（一覧が開いているときだけ見える） -->
     <button id="clear-done-button" class="clear-done-button" type="button">撃破済みをまとめて削除</button>
+
+    <!-- ガチャ：コインを使ってアイテムを引く。持っているアイテムは図鑑に並べる -->
+    <section class="gacha-card">
+      <h2 class="gacha-title">🎰 ガチャ</h2>
+      <button id="gacha-button" class="gacha-button" type="button" disabled>🎰 ガチャを引く（🪙50）</button>
+
+      <!-- 図鑑（何種類集めたかと、アイテムの一覧）。中身は JavaScript で作ります -->
+      <p id="collection-count" class="collection-count">図鑑 0 / 12</p>
+      <ul id="collection-list" class="collection-list"></ul>
+    </section>
 
     <!-- レベルを Lv1 に戻すボタン（まちがえて押さないように、いちばん下に小さく置く） -->
     <button id="reset-level-button" class="reset-level-button" type="button">レベルをリセット</button>

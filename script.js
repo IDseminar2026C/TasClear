@@ -30,6 +30,12 @@ const resetLevelButton = document.getElementById("reset-level-button");
 // 「選んだ〇体をまとめて撃破」のボタン
 const bulkDefeatButton = document.getElementById("bulk-defeat-button");
 
+// コインの表示、ガチャのボタン、図鑑の部品
+const coinText = document.getElementById("coin-text");
+const gachaButton = document.getElementById("gacha-button");
+const collectionCount = document.getElementById("collection-count");
+const collectionList = document.getElementById("collection-list");
+
 // 勇者のドット絵を描く場所
 const heroCanvas = document.getElementById("hero-canvas");
 
@@ -112,6 +118,42 @@ const RARE_EXP = 100;
 
 // ピン止めできるクエストの数の上限
 const PIN_MAX = 5;
+
+// 持っているコインの数
+let coins = 0;
+
+// 持っているアイテムと、その数（{ "wood-stick": 2, "iron-shield": 1 } のような形）
+let items = {};
+
+// 撃破したときにもらえるコイン（ふつうのクエスト・レアなクエスト）
+const COIN_PER_DEFEAT = 10;
+const COIN_PER_RARE_DEFEAT = 50;
+
+// ガチャ1回に使うコイン
+const GACHA_COST = 50;
+
+// ガチャのランク。chance は出る確率（3つ足すと 1 になるようにする）
+const GACHA_RANKS = [
+  { rank: 1, stars: "★", name: "ノーマル", chance: 0.6 },
+  { rank: 2, stars: "★★", name: "レア", chance: 0.3 },
+  { rank: 3, stars: "★★★", name: "スーパーレア", chance: 0.1 },
+];
+
+// ガチャで出るアイテムの表。id は保存するときの名前、rank はランク（1〜3）
+const GACHA_ITEMS = [
+  { id: "wood-stick", icon: "🪵", name: "木の棒", rank: 1 },
+  { id: "cloth-hat", icon: "🧢", name: "布のぼうし", rank: 1 },
+  { id: "travel-boots", icon: "👢", name: "旅人のブーツ", rank: 1 },
+  { id: "herb", icon: "🧪", name: "やくそう", rank: 1 },
+  { id: "bread", icon: "🥖", name: "パン", rank: 1 },
+  { id: "steel-sword", icon: "🗡️", name: "鋼の剣", rank: 2 },
+  { id: "iron-shield", icon: "🛡️", name: "鉄の盾", rank: 2 },
+  { id: "hunter-bow", icon: "🏹", name: "狩人の弓", rank: 2 },
+  { id: "power-ring", icon: "💍", name: "力の指輪", rank: 2 },
+  { id: "legend-sword", icon: "⚔️", name: "伝説の剣", rank: 3 },
+  { id: "king-crown", icon: "👑", name: "王者の冠", rank: 3 },
+  { id: "sage-crystal", icon: "🔮", name: "賢者の水晶", rank: 3 },
+];
 
 // 今、モンスターが点滅して消えている途中かどうか
 let isMonsterDying = false;
@@ -551,6 +593,8 @@ function savePlayer() {
     totalExp: totalExp,
     todayCount: todayCount,
     todayDate: todayDate,
+    coins: coins,
+    items: items,
   };
   localStorage.setItem(PLAYER_KEY, JSON.stringify(player));
 }
@@ -570,12 +614,16 @@ function loadPlayer() {
     totalExp = player.totalExp || 0;
     todayCount = player.todayCount || 0; // 前の形の保存データには無いので、そのときは 0
     todayDate = player.todayDate || "";
+    coins = player.coins || 0; // 前の形の保存データには無いので、そのときは 0
+    items = player.items || {};
     console.log("プレイヤーの状態を読み込みました", player);
   } catch (error) {
     console.log("プレイヤーの保存データが壊れていたので、0 から始めます");
     totalExp = 0;
     todayCount = 0;
     todayDate = "";
+    coins = 0;
+    items = {};
   }
 }
 
@@ -662,6 +710,9 @@ function renderStatus() {
 
   // 今日の撃破数を表示し直す
   renderTodayCount();
+
+  // コインとガチャ（ボタン・図鑑）を表示し直す
+  renderGacha();
 
   // ランクの星を表示し直す
   renderRankStars(level);
@@ -1688,6 +1739,116 @@ function clearDoneQuests() {
   console.log("撃破済みのクエストをまとめて削除しました", count + "件");
 }
 
+// ガチャのランクを、確率どおりに1つ選んで返す
+// （0 以上 1 未満のランダムな数を出し、確率を順に足していって、それをこえたところのランクにする）
+function pickGachaRank() {
+  const dice = Math.random();
+  let total = 0;
+  for (let i = 0; i < GACHA_RANKS.length; i++) {
+    total = total + GACHA_RANKS[i].chance;
+    if (dice < total) {
+      return GACHA_RANKS[i];
+    }
+  }
+  return GACHA_RANKS[0]; // 念のため（計算の誤差でどれにも入らなかったとき）
+}
+
+// ランクを決めてから、そのランクのアイテムの中から1つを同じ確率で選んで返す
+function pickGachaItem() {
+  const rank = pickGachaRank();
+  const candidates = GACHA_ITEMS.filter(function (item) {
+    return item.rank === rank.rank;
+  });
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
+
+// ランク（1〜3）の★を返す
+function getRankStars(rank) {
+  return GACHA_RANKS[rank - 1].stars;
+}
+
+// ガチャを1回引く（コインが足りないときは何もしない）
+function drawGacha() {
+  if (coins < GACHA_COST) {
+    return;
+  }
+
+  // コインを使って、アイテムを1つ出し、持っている数を1つ増やす
+  coins = coins - GACHA_COST;
+  const item = pickGachaItem();
+  items[item.id] = (items[item.id] || 0) + 1;
+  savePlayer();
+  renderGacha();
+  console.log("ガチャを引きました", item);
+
+  // 出たアイテムを演出で知らせる（順番待ちの列に並べる）
+  addGachaEffect(item);
+}
+
+// ガチャで出たアイテムの演出を列に並べる（金色にふわっと光って、「〇〇 をゲット！」が出る）
+function addGachaEffect(item) {
+  addEffect(function () {
+    clearEffectClasses();
+    effectText.textContent = "🎰 " + item.icon + " " + item.name + " をゲット！\n" + getRankStars(item.rank);
+    restartAnimation(effectOverlay, "is-celebrate");
+
+    // ★★★ はファンファーレ、それ以外はキラキラの音
+    if (item.rank === 3) {
+      playFanfareSound();
+    } else {
+      playSparkleSound();
+    }
+  }, CELEBRATE_EFFECT_TIME);
+}
+
+// 図鑑のアイテム1つ分を作って返す（持っていなければ ❓ にする）
+function createCollectionItem(item) {
+  const cell = document.createElement("li");
+  cell.className = "collection-item rank-" + item.rank;
+  const count = items[item.id] || 0;
+
+  if (count === 0) {
+    cell.classList.add("is-unknown");
+    cell.textContent = "❓";
+    cell.title = "まだ持っていません（" + getRankStars(item.rank) + "）";
+    return cell;
+  }
+
+  // 絵文字と、その下に名前と数（2つ以上なら「×2」）
+  const icon = document.createElement("span");
+  icon.className = "collection-icon";
+  icon.textContent = item.icon;
+
+  const label = document.createElement("span");
+  label.className = "collection-name";
+  label.textContent = item.name + (count >= 2 ? " ×" + count : "");
+
+  cell.appendChild(icon);
+  cell.appendChild(label);
+  cell.title = item.name + "（" + getRankStars(item.rank) + "）";
+  return cell;
+}
+
+// コインの表示、ガチャのボタン、図鑑を表示し直す
+function renderGacha() {
+  coinText.textContent = "🪙 " + coins + " コイン";
+
+  // コインが足りないときは、ガチャのボタンを押せなくする
+  gachaButton.textContent = "🎰 ガチャを引く（🪙" + GACHA_COST + "）";
+  gachaButton.disabled = coins < GACHA_COST;
+
+  // 図鑑：何種類集めたかと、アイテムの一覧
+  let owned = 0;
+  collectionList.innerHTML = "";
+  for (let i = 0; i < GACHA_ITEMS.length; i++) {
+    if (items[GACHA_ITEMS[i].id]) {
+      owned = owned + 1;
+    }
+    collectionList.appendChild(createCollectionItem(GACHA_ITEMS[i]));
+  }
+  collectionCount.textContent = "図鑑 " + owned + " / " + GACHA_ITEMS.length;
+}
+
 // レベルを Lv1 に戻す（確認してから）
 // 累計EXPだけを 0 にして、クエストの一覧と今日の撃破数はそのまま残す
 function resetLevel() {
@@ -1777,6 +1938,13 @@ function completeQuest(index) {
   resetTodayCountIfNewDay();
   todayCount = todayCount + 1;
 
+  // コインを足す（レアなクエストは多めにもらえる）
+  if (quests[index].rare) {
+    coins = coins + COIN_PER_RARE_DEFEAT;
+  } else {
+    coins = coins + COIN_PER_DEFEAT;
+  }
+
   savePlayer();
   console.log("累計EXP", totalExp, "今日の撃破数", todayCount);
 }
@@ -1820,6 +1988,9 @@ resetLevelButton.addEventListener("click", resetLevel);
 
 // 「選んだ〇体をまとめて撃破」のボタンが押されたとき
 bulkDefeatButton.addEventListener("click", defeatSelectedQuests);
+
+// 「ガチャを引く」のボタンが押されたとき
+gachaButton.addEventListener("click", drawGacha);
 
 // 「撃破済みをまとめて削除」のボタンが押されたとき
 clearDoneButton.addEventListener("click", function () {

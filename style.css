@@ -922,3 +922,112 @@ h1 {
     background-color: rgba(240, 201, 74, 0);
   }
 }
+
+/* 持っているコイン（今日の撃破数の下に、右にそろえる） */
+.coin-text {
+  margin: 2px 0 0;
+  font-size: 14px;
+  font-weight: bold;
+  color: #ffffff;
+  text-align: right;
+}
+
+/* ガチャのカード */
+.gacha-card {
+  margin-top: 20px;
+  padding: 12px;
+  border: 3px solid #1e2040;
+  border-radius: 8px;
+  background-color: #f5f1e6;
+}
+
+/* 「🎰 ガチャ」の見出し */
+.gacha-title {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+/* 「ガチャを引く」のボタン（金色） */
+.gacha-button {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  font-size: 16px;
+  font-weight: bold;
+  background-color: #d4a017;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* マウスを乗せたときの見た目（押せるときだけ） */
+.gacha-button:hover:enabled {
+  background-color: #a87d0f;
+}
+
+/* コインが足りないときは、薄くして押せなくする */
+.gacha-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* 「図鑑 〇 / 12」の文字 */
+.collection-count {
+  margin: 12px 0 6px;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+/* 図鑑のアイテムの一覧（4つずつ並べて、入りきらなければ次の行へ） */
+.collection-list {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr); /* 同じ幅で4列にする */
+  gap: 6px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* 図鑑のアイテム1つ分（ランクの色の枠で囲む） */
+.collection-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 64px;
+  padding: 4px 2px;
+  background-color: #ffffff;
+  border: 2px solid #cccccc;
+  border-radius: 6px;
+  text-align: center;
+}
+
+/* ランクごとの枠の色（★ 灰色、★★ 青、★★★ 金色） */
+.collection-item.rank-2 {
+  border-color: #2e6bd6;
+}
+
+.collection-item.rank-3 {
+  border-color: #d4a017;
+  background-color: #fff8dc;
+}
+
+/* まだ持っていないアイテム（❓ を薄く表示する） */
+.collection-item.is-unknown {
+  font-size: 22px;
+  opacity: 0.4;
+}
+
+/* 図鑑のアイテムの絵文字 */
+.collection-icon {
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+/* 図鑑のアイテムの名前と数（長くても枠からはみ出さない） */
+.collection-name {
+  font-size: 11px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
