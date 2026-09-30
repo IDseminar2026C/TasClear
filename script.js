@@ -143,6 +143,7 @@ const HERO_COLORS = {
   I: "#bfe3ff", // スライムのつや（明るい水色）
   F: "#6aa84f", // ゴブリンの肌（緑）
   U: "#f4c06a", // ドラゴンのおなか（うすいオレンジ）
+  X: "#6b2150", // ドラゴンのつばさ（こい赤紫）
 };
 
 // 見習い冒険者のドット絵の設計図（16×16マス）
@@ -339,32 +340,33 @@ const PIXELS_GOBLIN = [
   "..KKKK.KKKK.....",
 ];
 
-// ドラゴン：赤い小さな竜・つばさ・しっぽ
+// ドラゴン：とがった角・光る黄色い目・キバの見える大きな口・大きなつばさ・ツメ
+// マスをいっぱいに使って、ボスらしく強そうにしています
 const PIXELS_DRAGON = [
-  "................",
-  "................",
-  "........KK......",
-  "..KK...KQQK.....",
-  ".KRRK.KQQQQK....",
-  "KRERRKKQQQQQK...",
-  "KRRRRRKQQQQQQK..",
-  "KMMRRRRKKQQQQK..",
-  ".KKKRRRRRKKKK...",
-  "...KRUURRRRK....",
-  "...KRUURRRRRK...",
-  "...KRUURRRRRRK..",
-  "...KRUURRKRRRRK.",
-  "...KRRKRRK.KRRRK",
-  "...KRRKRRK...KK.",
-  "..KKKK.KKKK.....",
+  ".K..K.....KK....",
+  ".KK.KK...KXXK...",
+  "..KKRKK.KXXXXK..",
+  ".KRRRRRKXXXXXXK.",
+  "KRVKRRRKXXQXXXXK",
+  "KRRRRRRRKXXQXXXK",
+  "KOROROQRRKXXQXXK",
+  "KMMMMMKQRRKXXQXK",
+  "KOROROKRRRRKXXK.",
+  ".KKKKKRRUURRKK..",
+  "....KQRUUURRRK..",
+  "...KQRRUUURRRRK.",
+  "...KQRRUURRKRRRK",
+  "...KQRRRRRK.KRRK",
+  "..KQQKKQQK...KK.",
+  ".KOKOK.KOKOK....",
 ];
 
-// モンスターの表。minExp は「本日のタスクのEXPが何から」
+// モンスターの表。minExp は「本日のタスクのEXPが何から」、isBoss は少し大きく表示するか
 // EXP が多い（大変な）クエストほど、強そうなモンスターになります。高いEXPから順に書きます
 const MONSTERS = [
-  { minExp: 28, name: "ドラゴン", pixels: PIXELS_DRAGON },
-  { minExp: 24, name: "ゴブリン", pixels: PIXELS_GOBLIN },
-  { minExp: 0, name: "スライム", pixels: PIXELS_SLIME },
+  { minExp: 28, name: "ドラゴン", pixels: PIXELS_DRAGON, isBoss: true },
+  { minExp: 24, name: "ゴブリン", pixels: PIXELS_GOBLIN, isBoss: false },
+  { minExp: 0, name: "スライム", pixels: PIXELS_SLIME, isBoss: false },
 ];
 
 // --- 関数 ---
@@ -391,8 +393,16 @@ function renderMonster(index) {
     monsterCanvas.hidden = true;
     return;
   }
+  const monster = getMonster(quests[index].exp);
   monsterCanvas.hidden = false;
-  drawPixels(monsterCanvas, getMonster(quests[index].exp).pixels);
+
+  // ボスのモンスターだけ、少し大きく表示する目印を付ける（ボスでなければ外す）
+  if (monster.isBoss) {
+    monsterCanvas.classList.add("is-boss");
+  } else {
+    monsterCanvas.classList.remove("is-boss");
+  }
+  drawPixels(monsterCanvas, monster.pixels);
 }
 
 // 撃破されたモンスターを、点滅させて消す

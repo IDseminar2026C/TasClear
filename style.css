@@ -340,6 +340,12 @@ h1 {
   image-rendering: pixelated;
 }
 
+/* ボスのモンスター（ドラゴン）は、少し大きく表示する（8倍） */
+.monster-canvas.is-boss {
+  width: 128px;
+  height: 128px;
+}
+
 /* 見えないようにする設定（hidden）を、確実に効かせる */
 .monster-canvas[hidden] {
   display: none;
