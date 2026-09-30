@@ -122,6 +122,15 @@ const SCALE_NOTES = [
 // ドレミの1音ずつの間（秒）。小さくするほど速く「なでる」感じになる
 const NOTE_GAP = 0.06;
 
+// お祝いのファンファーレ「タ・タ・タ・ジャーン♪」の表
+// frequencies は同時に鳴らす音の高さ、start は鳴らし始める時刻（秒）、length は長さ（秒）
+const FANFARE_NOTES = [
+  { frequencies: [392.0], start: 0.0, length: 0.1 }, // タ（ソ）
+  { frequencies: [392.0], start: 0.13, length: 0.1 }, // タ（ソ）
+  { frequencies: [392.0], start: 0.26, length: 0.1 }, // タ（ソ）
+  { frequencies: [523.25, 659.25, 783.99], start: 0.4, length: 0.8 }, // ジャーン（ド・ミ・ソ）
+];
+
 // 設計図の文字と、塗る色の対応表
 const HERO_COLORS = {
   K: "#222222", // ふちどり（黒）
@@ -862,6 +871,53 @@ function playLevelUpSound() {
   }
 }
 
+// ラッパっぽい音を1つ鳴らす
+// frequency は音の高さ、start は鳴らし始める時刻（秒）、length は長さ（秒）
+function playBrassNote(audio, frequency, start, length) {
+  // ラッパっぽい、少しとがった音（「sawtooth」＝のこぎりの歯の形の波）を使う
+  const tone = audio.createOscillator();
+  tone.type = "sawtooth";
+  tone.frequency.setValueAtTime(frequency, start);
+
+  // とがりすぎないように、高すぎる音をけずって、やわらかくする
+  const filter = audio.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.setValueAtTime(2000, start);
+
+  // 音の大きさ（耳に強すぎないよう小さめ。すぐに大きくなり、最後に小さくして消す）
+  const volume = audio.createGain();
+  volume.gain.setValueAtTime(0.01, start);
+  volume.gain.exponentialRampToValueAtTime(0.12, start + 0.02);
+  volume.gain.setValueAtTime(0.12, start + length * 0.6);
+  volume.gain.exponentialRampToValueAtTime(0.01, start + length);
+
+  // 音のもと → けずる → 大きさ → スピーカー の順につなぐ
+  tone.connect(filter);
+  filter.connect(volume);
+  volume.connect(audio.destination);
+  tone.start(start);
+  tone.stop(start + length);
+}
+
+// お祝いのファンファーレ「タ・タ・タ・ジャーン♪」を鳴らす
+function playFanfareSound() {
+  // 音が鳴らせないブラウザでも、お祝いの演出は止まらないように try で囲みます
+  try {
+    const audio = getAudioContext();
+    const now = audio.currentTime;
+
+    // 表の1行ずつ、同時に鳴らす音をすべて鳴らす
+    for (let i = 0; i < FANFARE_NOTES.length; i++) {
+      const note = FANFARE_NOTES[i];
+      for (let j = 0; j < note.frequencies.length; j++) {
+        playBrassNote(audio, note.frequencies[j], now + note.start, note.length);
+      }
+    }
+  } catch (error) {
+    console.log("お祝いの音を鳴らせませんでした", error);
+  }
+}
+
 // 演出を順番待ちの列のいちばん後ろに並べる
 // 何も出ていなければ、すぐに出す
 function addEffect(play, duration) {
@@ -956,6 +1012,9 @@ function playCelebrateEffect(count) {
   clearEffectClasses();
   effectText.textContent = "🏆 今日 " + count + "体 撃破！\nすばらしい！";
   restartAnimation(effectOverlay, "is-celebrate");
+
+  // 「タ・タ・タ・ジャーン♪」を鳴らす
+  playFanfareSound();
 }
 
 // 撃破ボタンを隠す（レベルアップの演出を見逃さないように）
