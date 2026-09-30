@@ -275,6 +275,7 @@ h1 {
   display: flex;
   justify-content: center;
   align-items: flex-end; /* キャラを下に寄せて、丘の上に立たせる */
+  gap: 4px; /* キャラとモンスターのあいだ */
   position: relative; /* 星を、この箱の中の決まった位置に重ねるため */
   height: 212px; /* 上に星を置くすき間を作るため、少し高くしています */
   padding-bottom: 10px;
@@ -330,6 +331,18 @@ h1 {
 
   /* 広げたときにぼやけず、ドットがくっきり見えるようにする */
   image-rendering: pixelated;
+}
+
+/* モンスターのドット絵（16×16マスの絵を、7倍の大きさに広げる。キャラより少し小さい） */
+.monster-canvas {
+  width: 112px;
+  height: 112px;
+  image-rendering: pixelated;
+}
+
+/* 見えないようにする設定（hidden）を、確実に効かせる */
+.monster-canvas[hidden] {
+  display: none;
 }
 
 /* 本日のタスクのカード */

@@ -27,6 +27,9 @@ const clearDoneButton = document.getElementById("clear-done-button");
 // 勇者のドット絵を描く場所
 const heroCanvas = document.getElementById("hero-canvas");
 
+// モンスターのドット絵を描く場所
+const monsterCanvas = document.getElementById("monster-canvas");
+
 // ステータス表示の部品（アイコン・称号・レベル・経験値バー・経験値の数字）
 const statusIcon = document.getElementById("status-icon");
 const statusName = document.getElementById("status-name");
@@ -127,6 +130,10 @@ const HERO_COLORS = {
   Q: "#8e1f16", // 赤いよろいの影（こい赤）
   O: "#e8eef5", // 白いよろい・白い飾り
   V: "#ffe066", // 光（光の輪・光る剣）
+  Z: "#3d8ef0", // スライムの体（青）
+  I: "#bfe3ff", // スライムのつや（明るい水色）
+  F: "#6aa84f", // ゴブリンの肌（緑）
+  U: "#f4c06a", // ドラゴンのおなか（うすいオレンジ）
 };
 
 // 見習い冒険者のドット絵の設計図（16×16マス）
@@ -283,15 +290,108 @@ const TITLES = [
   { minLevel: 1, icon: "🧑‍🌾", name: "見習い冒険者", pixels: PIXELS_NOVICE },
 ];
 
+// スライムのドット絵の設計図（左にいるキャラの方を向いている）
+const PIXELS_SLIME = [
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  ".......KK.......",
+  "......KZZK......",
+  ".....KZIZZK.....",
+  "....KZIZZZZK....",
+  "...KZZZZZZZZK...",
+  "..KZEZZZEZZZZK..",
+  "..KZZZZZZZZZZK..",
+  "..KZZZMMZZZZZK..",
+  "..KZZZZZZZZZZK..",
+  "...KZZZZZZZZK...",
+  "....KKKKKKKK....",
+];
+
+// ゴブリン：緑の肌・とがった耳・こん棒
+const PIXELS_GOBLIN = [
+  "................",
+  "....KKKKK...GG..",
+  "KK.KFFFFFK.KGGG.",
+  "KFKFFFFFFFKFGGG.",
+  "..KFEFFEFFK.GG..",
+  "..KFFFFFFFK.GG..",
+  "..KFMOMOMFK.GG..",
+  "...KFFFFFK..GG..",
+  "..KKCCCCCKK.FF..",
+  ".KFCCCCCCCFFFK..",
+  ".KFCCCCCCCK.....",
+  "..KCCCCCCCK.....",
+  "..KLLLLLLLK.....",
+  "...KFFKFFK......",
+  "...KFFKFFK......",
+  "..KKKK.KKKK.....",
+];
+
+// ドラゴン：赤い小さな竜・つばさ・しっぽ
+const PIXELS_DRAGON = [
+  "................",
+  "................",
+  "........KK......",
+  "..KK...KQQK.....",
+  ".KRRK.KQQQQK....",
+  "KRERRKKQQQQQK...",
+  "KRRRRRKQQQQQQK..",
+  "KMMRRRRKKQQQQK..",
+  ".KKKRRRRRKKKK...",
+  "...KRUURRRRK....",
+  "...KRUURRRRRK...",
+  "...KRUURRRRRRK..",
+  "...KRUURRKRRRRK.",
+  "...KRRKRRK.KRRRK",
+  "...KRRKRRK...KK.",
+  "..KKKK.KKKK.....",
+];
+
+// モンスターの表。minExp は「本日のタスクのEXPが何から」
+// EXP が多い（大変な）クエストほど、強そうなモンスターになります。高いEXPから順に書きます
+const MONSTERS = [
+  { minExp: 28, name: "ドラゴン", pixels: PIXELS_DRAGON },
+  { minExp: 24, name: "ゴブリン", pixels: PIXELS_GOBLIN },
+  { minExp: 0, name: "スライム", pixels: PIXELS_SLIME },
+];
+
 // --- 関数 ---
+
+// 本日のタスクのEXPから、出すモンスターを決めて返す
+function getMonster(exp) {
+  for (let i = 0; i < MONSTERS.length; i++) {
+    if (exp >= MONSTERS[i].minExp) {
+      return MONSTERS[i];
+    }
+  }
+  return MONSTERS[MONSTERS.length - 1]; // 念のため（表の一番下＝スライム）
+}
+
+// 本日のタスクのモンスターを描く（本日のタスクがないときは隠す）
+// index は、本日のタスクが quests 配列の何番目か（ないときは -1）
+function renderMonster(index) {
+  if (index === -1) {
+    monsterCanvas.hidden = true;
+    return;
+  }
+  monsterCanvas.hidden = false;
+  drawPixels(monsterCanvas, getMonster(quests[index].exp).pixels);
+}
 
 // 今の称号に合ったキャラクターのドット絵を描く
 function drawHero() {
-  const pen = heroCanvas.getContext("2d"); // 絵を描くための道具
-  const pixels = getTitle(getLevel()).pixels; // 今の称号の設計図
+  drawPixels(heroCanvas, getTitle(getLevel()).pixels);
+}
+
+// 設計図（pixels）どおりに、canvas にドット絵を描く
+function drawPixels(canvas, pixels) {
+  const pen = canvas.getContext("2d"); // 絵を描くための道具
 
   // 前に描いた絵を消す
-  pen.clearRect(0, 0, heroCanvas.width, heroCanvas.height);
+  pen.clearRect(0, 0, canvas.width, canvas.height);
 
   // 上から1行ずつ、左から1マスずつ見ていく（y は何行目、x は何マス目）
   for (let y = 0; y < pixels.length; y++) {
@@ -851,6 +951,7 @@ function renderToday(index) {
 function renderQuests() {
   const todayIndex = findTodayIndex();
   renderToday(todayIndex);
+  renderMonster(todayIndex);
 
   // 他のタスクの一覧を、いったん空にする
   questList.innerHTML = "";
