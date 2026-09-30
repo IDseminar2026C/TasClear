@@ -110,6 +110,9 @@ const RARE_CHANCE = 1 / 50;
 // レアなクエストの獲得EXP
 const RARE_EXP = 100;
 
+// ピン止めできるクエストの数の上限
+const PIN_MAX = 5;
+
 // 今、モンスターが点滅して消えている途中かどうか
 let isMonsterDying = false;
 
@@ -1270,15 +1273,84 @@ function renameQuest(index) {
 
 // index 番目から step の向き（-1 なら上、1 なら下）に見ていき、
 // いちばん近い「まだ撃破していないクエスト」が何番目かを返す（無いときは -1）
+// ただし、ピン止めしているかどうかがちがうクエストとは入れ替えないので、そのときも -1 を返す
 function findUndoneNeighbor(index, step) {
   let i = index + step;
   while (i >= 0 && i < quests.length) {
     if (!quests[i].done) {
-      return i;
+      if (isPinned(quests[i]) === isPinned(quests[index])) {
+        return i;
+      }
+      return -1; // ピン止めの境目なので、ここより先には動かせない
     }
     i = i + step;
   }
   return -1;
+}
+
+// クエストがピン止めされているかどうかを返す（前の保存データには pinned が無いので、そのときは false）
+function isPinned(quest) {
+  return quest.pinned === true;
+}
+
+// ピン止めしている、まだ撃破していないクエストの数を返す
+function countPinned() {
+  let count = 0;
+  for (let i = 0; i < quests.length; i++) {
+    if (isPinned(quests[i]) && !quests[i].done) {
+      count = count + 1;
+    }
+  }
+  return count;
+}
+
+// index 番目のクエストを、ピン止めする・ピン止めをやめる
+// ピン止めしたら「ピン止めしたクエストのいちばん下」へ、やめたら「ピン止めしていないクエストのいちばん上」へ移す
+function togglePin(index) {
+  const quest = quests[index];
+
+  // すでに上限まで（5つ）ピン止めしているときは、新しくピン止めしない
+  if (!isPinned(quest) && countPinned() >= PIN_MAX) {
+    return;
+  }
+
+  // いったん取り出して、ピン止めの印を切りかえる
+  quests.splice(index, 1);
+  quest.pinned = !isPinned(quest);
+
+  // ピン止めしている未撃破のクエストのうち、いちばん下のもののすぐ後ろに入れる
+  let position = 0;
+  for (let i = 0; i < quests.length; i++) {
+    if (isPinned(quests[i]) && !quests[i].done) {
+      position = i + 1;
+    }
+  }
+  quests.splice(position, 0, quest);
+
+  saveQuests();
+  renderQuests();
+  console.log("ピン止めを切りかえました", quest);
+}
+
+// 📌ボタンを作って返す（押すとピン止めする・やめる）
+function createPinButton(quest, index) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "pin-button";
+  button.textContent = "📌";
+
+  // ピン止め中なら、ピンを濃く表示する目印を付ける
+  if (isPinned(quest)) {
+    button.classList.add("is-pinned");
+  }
+
+  // 上限まで（5つ）ピン止めしているときは、ピン止めしていないクエストのボタンを押せなくする
+  button.disabled = !isPinned(quest) && countPinned() >= PIN_MAX;
+
+  button.addEventListener("click", function () {
+    togglePin(index);
+  });
+  return button;
 }
 
 // index 番目のクエストを、1つ上（step が -1）か1つ下（step が 1）の未撃破のクエストと入れ替えて保存する
@@ -1340,43 +1412,63 @@ function createQuestItem(quest, index) {
     item.classList.add("is-done");
   }
 
-  // タスク名（押すと名前を直せる）
-  const name = createQuestName(quest, index, "span", "quest-name");
+  // ピン止め中なら、行を少し黄色くする目印を付ける
+  if (isPinned(quest) && !quest.done) {
+    item.classList.add("is-pinned");
+  }
 
-  // 獲得EXP
+  // 1行を2段に分ける（上の段：名前とEXP、下の段：ボタン）
+  item.appendChild(createQuestItemTop(quest, index));
+  item.appendChild(createQuestItemBottom(quest, index));
+  return item;
+}
+
+// 他のタスクの一覧の、上の段を作って返す（クエスト名・目印・獲得EXP）
+function createQuestItemTop(quest, index) {
+  const top = document.createElement("div");
+  top.className = "quest-top";
+
+  // タスク名（押すと名前を直せる）
+  top.appendChild(createQuestName(quest, index, "span", "quest-name"));
+
+  // 撃破済みなら「撃破済み」の目印を出す
+  if (quest.done) {
+    top.appendChild(createDoneLabel());
+  }
+
+  // 獲得EXP（レアなクエストなら、前に「✨」を付けて、金色の札のように見せる）
   const exp = document.createElement("span");
   exp.className = "quest-exp";
   exp.textContent = quest.exp + " EXP";
-
-  // まだ撃破していなければ、左はしに縦に重ねた▲▼ボタンを置く
-  if (!quest.done) {
-    item.appendChild(createMoveButtons(index, true));
-  }
-
-  // まだ撃破していなければ、「選ぶ」チェックボックスと小さな撃破ボタンを置く
-  // （レベルアップの演出の間は、どちらも置かない）
-  if (!quest.done && !isDefeatLocked) {
-    item.appendChild(createSelectCheckbox(quest));
-    item.appendChild(createDefeatButton(quest, index, "撃破", "defeat-button"));
-  }
-
-  item.appendChild(name);
-
-  // 撃破済みなら「撃破済み」の目印を出す（撃破ボタンは出さない）
-  if (quest.done) {
-    item.appendChild(createDoneLabel());
-  }
-
-  // レアなクエストなら、EXP の前に「✨」を付けて、金色の札のように見せる
-  // （一覧は幅がせまいので、「✨レア」の札は付けずに、EXP の表示だけで知らせる）
   if (quest.rare) {
     exp.textContent = "✨" + quest.exp + " EXP";
     exp.classList.add("is-rare-exp");
   }
+  top.appendChild(exp);
+  return top;
+}
 
-  item.appendChild(exp);
-  item.appendChild(createDeleteButton(index));
-  return item;
+// 他のタスクの一覧の、下の段を作って返す（▲▼・📌・チェックボックス・撃破ボタン・削除ボタン）
+function createQuestItemBottom(quest, index) {
+  const bottom = document.createElement("div");
+  bottom.className = "quest-bottom";
+
+  // まだ撃破していなければ、▲▼ボタンと📌ボタンを置く
+  if (!quest.done) {
+    bottom.appendChild(createMoveButtons(index, false));
+    bottom.appendChild(createPinButton(quest, index));
+  }
+
+  // まだ撃破していなければ、「選ぶ」チェックボックスと撃破ボタンを置く
+  // （レベルアップの演出の間は、どちらも置かない）
+  if (!quest.done && !isDefeatLocked) {
+    bottom.appendChild(createSelectCheckbox(quest));
+    bottom.appendChild(createDefeatButton(quest, index, "撃破", "defeat-button"));
+  }
+
+  // 削除ボタンは、いつも右はしに置く
+  bottom.appendChild(createDeleteButton(index));
+  return bottom;
 }
 
 // 本日のタスクの「いちばん上」のクエストが、quests 配列の何番目かを返す（モンスターを決めるのに使う）
@@ -1441,7 +1533,13 @@ function createTodayItem(quest, index) {
     nameLine.appendChild(createRareLabel());
   }
   nameLine.appendChild(createQuestName(quest, index, "p", "today-name")); // 押すと名前を直せる
+  nameLine.appendChild(createPinButton(quest, index)); // 📌ボタン
   nameLine.appendChild(createMoveButtons(index, false)); // 右はしに、横に並べた▲▼ボタン
+
+  // ピン止め中なら、行を少し黄色くする目印を付ける
+  if (isPinned(quest)) {
+    item.classList.add("is-pinned");
+  }
   item.appendChild(nameLine);
 
   // 「（〇 EXP get）」と、ボタンを横に並べる行
@@ -1619,6 +1717,7 @@ function completeQuest(index) {
     return;
   }
   quests[index].done = true;
+  quests[index].pinned = false; // 撃破したら、ピン止めの数から外す
   saveQuests();
   console.log("クエストを撃破しました", quests[index]);
 

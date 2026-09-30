@@ -85,17 +85,35 @@ h1 {
   margin: 0;
 }
 
-/* クエスト1行分 */
+/* クエスト1行分（上の段と下の段を、縦に2段に重ねる） */
 .quest-item {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
   padding: 10px 12px;
   margin-bottom: 8px;
   background-color: #f5f1e6;
   border-left: 5px solid #d4a017;
   border-radius: 6px;
+}
+
+/* 上の段（クエスト名・目印・獲得EXPを横に並べる） */
+.quest-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 下の段（▲▼・📌・チェックボックス・撃破ボタン・削除ボタンを横に並べる） */
+.quest-bottom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 下の段の削除ボタンは、右はしに寄せる（左の余白を auto にすると、右に寄る） */
+.quest-bottom .delete-button {
+  margin-left: auto;
 }
 
 /* クエスト名（長い名前でも折り返してはみ出さない） */
@@ -209,6 +227,46 @@ h1 {
 .move-button:disabled {
   opacity: 0.3;
   cursor: default;
+}
+
+/* 📌ボタン（ピン止めしていないときは、灰色で薄く表示する） */
+.pin-button {
+  flex-shrink: 0;
+  width: 26px;
+  height: 24px;
+  padding: 0;
+  font-size: 13px;
+  background-color: #ffffff;
+  border: 1px solid #cccccc;
+  border-radius: 4px;
+  cursor: pointer;
+  filter: grayscale(1); /* 色をなくして灰色にする */
+  opacity: 0.5;
+}
+
+/* ピン止め中の📌ボタン（色を戻して、金色の枠を付ける） */
+.pin-button.is-pinned {
+  filter: none;
+  opacity: 1;
+  border: 2px solid #d4a017;
+}
+
+/* 上限まで（5つ）ピン止めしているときの、押せない📌ボタン */
+.pin-button:disabled {
+  opacity: 0.2;
+  cursor: default;
+}
+
+/* ピン止め中のクエストの行（少し黄色くする） */
+.today-item.is-pinned,
+.quest-item.is-pinned {
+  background-color: #fff3c4;
+}
+
+/* 本日のタスクでは、黄色をカードの左右のはしまで広げる（カードの余白 10px の分だけ外に出す） */
+.today-item.is-pinned {
+  margin: 0 -10px;
+  padding: 10px;
 }
 
 /* 「✨レア」の目印（金色の小さな札） */
