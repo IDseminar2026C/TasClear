@@ -492,17 +492,42 @@ h1 {
 
 /* 撃破したとき：板が白くピカッと光る */
 .effect-overlay.is-playing {
-  animation: flash 0.4s;
+  animation: flash 0.25s;
 }
 
-/* 撃破したとき：文字が飛び出して消える */
+/* 撃破したとき：文字がすばやく飛び出して消える */
 .effect-overlay.is-playing .effect-text {
-  animation: pop-text 1s;
+  animation: pop-text-quick 0.5s;
 }
 
 /* 撃破したとき：アプリの画面がガタガタッと揺れる */
 .container.is-shaking {
-  animation: shake 0.3s;
+  animation: shake 0.2s;
+}
+
+/* 撃破用の、すばやい文字の動き
+   （すぐに大きく出て、0.3秒ほどはっきり見せてから消える） */
+@keyframes pop-text-quick {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  15% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  80% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
 }
 
 /* フラッシュの動き（白くなって、すぐ透明に戻る） */

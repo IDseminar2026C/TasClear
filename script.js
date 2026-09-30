@@ -79,7 +79,7 @@ let effectQueue = [];
 let isEffectPlaying = false;
 
 // 演出の長さ（ミリ秒。1000 で 1秒）
-const DEFEAT_EFFECT_TIME = 1000; // 撃破
+const DEFEAT_EFFECT_TIME = 500; // 撃破（style.css の撃破のアニメーションの長さと合わせる）
 const LEVELUP_EFFECT_TIME = 1500; // レベルアップ
 const CELEBRATE_EFFECT_TIME = 1500; // お祝い
 
