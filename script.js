@@ -149,6 +149,18 @@ const FANFARE_NOTES = [
   { frequencies: [523.25, 659.25, 783.99], start: 0.4, length: 0.8 }, // ジャーン（ド・ミ・ソ）
 ];
 
+// レアモンスターがあらわれたときの「キラキラリーン♪」の表
+// frequency は音の高さ、start は鳴らし始める時刻（秒）、length は余韻が消えるまでの長さ（秒）
+const SPARKLE_NOTES = [
+  { frequency: 1046.5, start: 0.0, length: 0.35 }, // 高いド
+  { frequency: 1318.51, start: 0.05, length: 0.35 }, // 高いミ
+  { frequency: 1567.98, start: 0.1, length: 0.35 }, // 高いソ
+  { frequency: 2093.0, start: 0.15, length: 0.35 }, // もっと高いド
+  { frequency: 2637.02, start: 0.2, length: 0.35 }, // もっと高いミ
+  { frequency: 3135.96, start: 0.25, length: 0.35 }, // もっと高いソ
+  { frequency: 4186.01, start: 0.3, length: 0.6 }, // いちばん高いド（リーン♪と長めにのばす）
+];
+
 // 設計図の文字と、塗る色の対応表
 const HERO_COLORS = {
   K: "#222222", // ふちどり（黒）
@@ -967,6 +979,42 @@ function playFanfareSound() {
   }
 }
 
+// 鈴のような、高くて澄んだ音を1つ鳴らす
+// frequency は音の高さ、start は鳴らし始める時刻（秒）、length は余韻が消えるまでの長さ（秒）
+function playBellNote(audio, frequency, start, length) {
+  // 澄んだ音（「sine」）を使う
+  const tone = audio.createOscillator();
+  tone.type = "sine";
+  tone.frequency.setValueAtTime(frequency, start);
+
+  // 音の大きさ（耳にきつくないよう小さめ。鳴った瞬間がいちばん大きく、すぐ小さくなって余韻が残る）
+  const volume = audio.createGain();
+  volume.gain.setValueAtTime(0.01, start);
+  volume.gain.exponentialRampToValueAtTime(0.1, start + 0.005);
+  volume.gain.exponentialRampToValueAtTime(0.001, start + length);
+
+  // 音のもと → 大きさ → スピーカー の順につなぐ
+  tone.connect(volume);
+  volume.connect(audio.destination);
+  tone.start(start);
+  tone.stop(start + length);
+}
+
+// レアモンスターがあらわれたときの「キラキラリーン♪」を鳴らす
+function playSparkleSound() {
+  // 音が鳴らせないブラウザでも、演出は止まらないように try で囲みます
+  try {
+    const audio = getAudioContext();
+    const now = audio.currentTime;
+    for (let i = 0; i < SPARKLE_NOTES.length; i++) {
+      const note = SPARKLE_NOTES[i];
+      playBellNote(audio, note.frequency, now + note.start, note.length);
+    }
+  } catch (error) {
+    console.log("キラキラの音を鳴らせませんでした", error);
+  }
+}
+
 // 演出を順番待ちの列のいちばん後ろに並べる
 // 何も出ていなければ、すぐに出す
 function addEffect(play, duration) {
@@ -1699,6 +1747,7 @@ function addRareAppearEffect() {
     clearEffectClasses();
     effectText.textContent = "✨ レアモンスターがあらわれた！\n" + RARE_MONSTER.name + "（" + RARE_EXP + " EXP）";
     restartAnimation(effectOverlay, "is-celebrate"); // お祝いと同じ、金色にふわっと光る見た目
+    playSparkleSound(); // 「キラキラリーン♪」を鳴らす
   }, CELEBRATE_EFFECT_TIME);
 }
 
