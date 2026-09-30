@@ -86,6 +86,9 @@ const CELEBRATE_EFFECT_TIME = 1500; // お祝い
 // 何体撃破するごとにお祝いを出すか
 const CELEBRATE_EVERY = 5;
 
+// 今、撃破ボタンを隠しているかどうか（レベルアップの演出が終わるまで隠す）
+let isDefeatLocked = false;
+
 // 音を作るための道具（最初に撃破したときに1回だけ用意する）
 let audioContext = null;
 
@@ -681,6 +684,18 @@ function playCelebrateEffect(count) {
   restartAnimation(effectOverlay, "is-celebrate");
 }
 
+// 撃破ボタンを隠す（レベルアップの演出を見逃さないように）
+function lockDefeat() {
+  isDefeatLocked = true;
+  renderQuests();
+}
+
+// 隠していた撃破ボタンを、また出す
+function unlockDefeat() {
+  isDefeatLocked = false;
+  renderQuests();
+}
+
 // 撃破したときの演出を、撃破 → レベルアップ → お祝い の順に列に並べる
 // exp は獲得EXP、isLevelUp はレベルが上がったか、level と count は撃破したあとのレベルと今日の撃破数
 function addDefeatEffects(exp, isLevelUp, level, count) {
@@ -689,8 +704,11 @@ function addDefeatEffects(exp, isLevelUp, level, count) {
   }, DEFEAT_EFFECT_TIME);
 
   if (isLevelUp) {
+    // レベルアップの演出が終わるまで、撃破ボタンを隠す
+    lockDefeat();
     addEffect(function () {
       playLevelUpEffect(level);
+      setTimeout(unlockDefeat, LEVELUP_EFFECT_TIME); // 演出が終わったら、ボタンをまた出す
     }, LEVELUP_EFFECT_TIME);
   }
 
@@ -755,8 +773,8 @@ function createQuestItem(quest, index) {
   exp.className = "quest-exp";
   exp.textContent = quest.exp + " EXP";
 
-  // まだ撃破していなければ、左に小さな撃破ボタンを置く
-  if (!quest.done) {
+  // まだ撃破していなければ、左に小さな撃破ボタンを置く（隠しているときは置かない）
+  if (!quest.done && !isDefeatLocked) {
     item.appendChild(createDefeatButton(quest, index, "撃破", "defeat-button"));
   }
 
@@ -809,13 +827,19 @@ function renderToday(index) {
   exp.className = "today-exp";
   exp.textContent = "（" + quest.exp + " EXP get）";
 
-  // 大きな「⚔️ 撃破する」ボタン
-  const defeatButton = createDefeatButton(quest, index, "⚔️ 撃破する", "today-defeat-button");
-
   // 撃破ボタンと削除ボタンを横に並べる箱
   const actions = document.createElement("div");
   actions.className = "today-actions";
-  actions.appendChild(defeatButton);
+
+  // 大きな「⚔️ 撃破する」ボタン（隠しているときは、代わりに「レベルアップ中…」を出す）
+  if (isDefeatLocked) {
+    const waiting = document.createElement("span");
+    waiting.className = "today-waiting";
+    waiting.textContent = "🎉 レベルアップ中…";
+    actions.appendChild(waiting);
+  } else {
+    actions.appendChild(createDefeatButton(quest, index, "⚔️ 撃破する", "today-defeat-button"));
+  }
   actions.appendChild(createDeleteButton(index));
 
   todayQuest.appendChild(name);

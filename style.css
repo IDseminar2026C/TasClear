@@ -392,6 +392,15 @@ h1 {
   cursor: pointer;
 }
 
+/* 撃破ボタンを隠している間に、代わりに出す「🎉 レベルアップ中…」
+   （撃破ボタンと同じくらいの大きさにして、カードの形が変わらないようにする） */
+.today-waiting {
+  padding: 10px 16px;
+  font-size: 18px;
+  font-weight: bold;
+  color: #a87d0f;
+}
+
 /* マウスを大きな撃破ボタンに乗せたときだけの見た目 */
 .today-defeat-button:hover {
   background-color: #a87d0f;
