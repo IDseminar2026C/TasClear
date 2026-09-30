@@ -106,6 +106,23 @@ h1 {
   overflow-wrap: anywhere;
 }
 
+/* 押すと名前を直せるクエスト名（マウスを乗せると指の形になる） */
+.editable-name {
+  cursor: pointer;
+}
+
+/* マウスを乗せたときだけ、下に線を引いて押せることを知らせる */
+.editable-name:hover {
+  text-decoration: underline;
+}
+
+/* クエスト名のうしろの、小さな ✏️ */
+.edit-icon {
+  margin-left: 4px;
+  font-size: 0.75em; /* まわりの文字の 0.75倍の大きさ */
+  opacity: 0.6;
+}
+
 /* 獲得EXPの表示 */
 .quest-exp {
   flex-shrink: 0;

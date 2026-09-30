@@ -732,6 +732,99 @@ function playSlashSound() {
   }
 }
 
+// 低くて重い「ズバッ」という、大きな剣で風を切る音を鳴らす（まとめて撃破したとき用）
+// ふつうの「シュッ」より低い音から、さらに低く下げて、少し長めにしています
+function playHeavySwooshSound(audio) {
+  const now = audio.currentTime; // 今の時刻（秒）
+  const duration = 0.35; // 音の長さ（秒）
+
+  // ザーッという音のもとを作る
+  const noiseData = audio.createBuffer(1, audio.sampleRate * duration, audio.sampleRate);
+  const samples = noiseData.getChannelData(0);
+  for (let i = 0; i < samples.length; i++) {
+    samples[i] = Math.random() * 2 - 1;
+  }
+  const noise = audio.createBufferSource();
+  noise.buffer = noiseData;
+
+  // 聞こえる音の高さをしぼる（低い音 → もっと低い音 へ動かす）
+  const filter = audio.createBiquadFilter();
+  filter.type = "bandpass";
+  filter.frequency.setValueAtTime(1500, now);
+  filter.frequency.exponentialRampToValueAtTime(200, now + duration);
+
+  // 音の大きさ（だんだん小さくして消す）
+  const volume = audio.createGain();
+  volume.gain.setValueAtTime(0.8, now);
+  volume.gain.exponentialRampToValueAtTime(0.01, now + duration);
+
+  // 音のもと → しぼる → 大きさ → スピーカー の順につなぐ
+  noise.connect(filter);
+  filter.connect(volume);
+  volume.connect(audio.destination);
+  noise.start(now);
+}
+
+// 「ゴォン」という、低くて重い金属の響きを鳴らす
+// 高さが少しずれた2つの音を重ねると、金属らしい響きになります
+function playHeavyClangSound(audio) {
+  const start = audio.currentTime + 0.08; // 「ズバッ」の少しあとに鳴らす
+  const duration = 0.6; // 響きが消えるまでの長さ（秒）
+  const frequencies = [220, 331]; // 重ねる2つの音の高さ
+
+  for (let i = 0; i < frequencies.length; i++) {
+    const tone = audio.createOscillator();
+    tone.type = "triangle";
+    tone.frequency.setValueAtTime(frequencies[i], start);
+
+    // 音の大きさ（鳴った瞬間がいちばん大きく、ゆっくり小さくなる）
+    const volume = audio.createGain();
+    volume.gain.setValueAtTime(0.2, start);
+    volume.gain.exponentialRampToValueAtTime(0.01, start + duration);
+
+    tone.connect(volume);
+    volume.connect(audio.destination);
+    tone.start(start);
+    tone.stop(start + duration);
+  }
+}
+
+// 「ドンッ」という、おなかに響く低い音を鳴らす（地面に振り下ろしたような感じ）
+// 小さなスピーカーでも聞こえるように、150ヘルツから55ヘルツへ下げています
+function playThudSound(audio) {
+  const start = audio.currentTime + 0.05;
+  const duration = 0.4; // 音の長さ（秒）
+
+  // 低い音を出すもと（音の高さを、すばやく下げる）
+  const tone = audio.createOscillator();
+  tone.type = "sine";
+  tone.frequency.setValueAtTime(150, start);
+  tone.frequency.exponentialRampToValueAtTime(55, start + 0.3);
+
+  // 音の大きさ（鳴った瞬間がいちばん大きく、すぐに小さくなる）
+  const volume = audio.createGain();
+  volume.gain.setValueAtTime(0.9, start);
+  volume.gain.exponentialRampToValueAtTime(0.01, start + duration);
+
+  tone.connect(volume);
+  volume.connect(audio.destination);
+  tone.start(start);
+  tone.stop(start + duration);
+}
+
+// ボスを倒したような、低くて重い剣の音（ズバッ＋ゴォン＋ドンッ）を鳴らす
+function playHeavySlashSound() {
+  // 音が鳴らせないブラウザでも、撃破そのものは止まらないように try で囲みます
+  try {
+    const audio = getAudioContext();
+    playHeavySwooshSound(audio);
+    playHeavyClangSound(audio);
+    playThudSound(audio);
+  } catch (error) {
+    console.log("重い音を鳴らせませんでした", error);
+  }
+}
+
 // ピアノっぽい音を1つ鳴らす
 // frequency は音の高さ、start は鳴らし始める時刻（秒）
 function playPianoNote(audio, frequency, start) {
@@ -772,10 +865,38 @@ function playLevelUpSound() {
 // 演出を順番待ちの列のいちばん後ろに並べる
 // 何も出ていなければ、すぐに出す
 function addEffect(play, duration) {
-  effectQueue.push({ play: play, duration: duration });
+  pushEffect({ play: play, duration: duration });
+}
+
+// 演出（{ play, duration } の形）を列のいちばん後ろに並べる。何も出ていなければ、すぐに出す
+function pushEffect(effect) {
+  effectQueue.push(effect);
   if (!isEffectPlaying) {
     playNextEffect();
   }
+}
+
+// 撃破の演出を列に並べる
+// 列のいちばん後ろが「まだ出ていない撃破の演出」なら、新しく並べずに、体数とEXPを足してまとめる
+function addDefeatEffect(exp) {
+  const last = effectQueue[effectQueue.length - 1]; // 列のいちばん後ろ（無ければ undefined）
+  if (last && last.isDefeat) {
+    last.defeatCount = last.defeatCount + 1;
+    last.defeatExp = last.defeatExp + exp;
+    return;
+  }
+
+  // まとめられないときは、新しい撃破の演出を並べる
+  const effect = {
+    isDefeat: true, // 撃破の演出かどうか（まとめるときの目印）
+    defeatCount: 1, // まとめた体数
+    defeatExp: exp, // まとめたEXPの合計
+    duration: DEFEAT_EFFECT_TIME,
+    play: function () {
+      playDefeatEffect(effect.defeatCount, effect.defeatExp);
+    },
+  };
+  pushEffect(effect);
 }
 
 // 列の先頭の演出を出して、その長さの分だけ待ってから、次の演出へ進む
@@ -800,10 +921,18 @@ function clearEffectClasses() {
 }
 
 // 撃破の演出を出す（音が鳴り、光る・揺れる・「撃破！ +〇 EXP」の文字が出る）
-function playDefeatEffect(exp) {
+// count はまとめた体数、exp はまとめたEXPの合計
+function playDefeatEffect(count, exp) {
   clearEffectClasses();
-  playSlashSound();
-  effectText.textContent = "⚔️ 撃破！ +" + exp + " EXP";
+
+  // 1体ならいつもの「シュキンッ」、まとめて撃破したときは重い「ズバァン」
+  if (count >= 2) {
+    playHeavySlashSound();
+    effectText.textContent = "⚔️ " + count + "体 撃破！ +" + exp + " EXP";
+  } else {
+    playSlashSound();
+    effectText.textContent = "⚔️ 撃破！ +" + exp + " EXP";
+  }
   restartAnimation(effectOverlay, "is-playing");
   restartAnimation(container, "is-shaking");
 }
@@ -844,9 +973,7 @@ function unlockDefeat() {
 // 撃破したときの演出を、撃破 → レベルアップ → お祝い の順に列に並べる
 // exp は獲得EXP、isLevelUp はレベルが上がったか、level と count は撃破したあとのレベルと今日の撃破数
 function addDefeatEffects(exp, isLevelUp, level, count) {
-  addEffect(function () {
-    playDefeatEffect(exp);
-  }, DEFEAT_EFFECT_TIME);
+  addDefeatEffect(exp);
 
   if (isLevelUp) {
     // レベルアップの演出が終わるまで、撃破ボタンを隠す
@@ -903,6 +1030,50 @@ function createDoneLabel() {
   return label;
 }
 
+// 押すと名前を直せるクエスト名を作って返す（名前のうしろに ✏️ を付ける）
+// tagName は作る部品の種類（"span" や "p"）、className は見た目を決めるクラスの名前
+function createQuestName(quest, index, tagName, className) {
+  const name = document.createElement(tagName);
+  name.className = className + " editable-name";
+
+  // textContent を使うので、入力した文字はそのまま文字として表示されます
+  name.textContent = quest.name;
+
+  // 押せる場所だと分かるように、小さな ✏️ を付ける
+  const pencil = document.createElement("span");
+  pencil.className = "edit-icon";
+  pencil.textContent = "✏️";
+  name.appendChild(pencil);
+
+  // 押されたら、名前を直す
+  name.addEventListener("click", function () {
+    renameQuest(index);
+  });
+  return name;
+}
+
+// index 番目のクエストの名前を直す（入力の画面を出して、新しい名前を聞く）
+// 名前だけを変えて、EXP・撃破したかどうか・並び順は変えない
+function renameQuest(index) {
+  const input = prompt("新しいクエスト名を入力してください", quests[index].name);
+
+  // 「キャンセル」が押されたら、何もしない
+  if (input === null) {
+    return;
+  }
+
+  // 前後の空白を取り除いて、空っぽなら何もしない（追加のときと同じ決まり）
+  const newName = input.trim();
+  if (newName === "") {
+    return;
+  }
+
+  quests[index].name = newName;
+  saveQuests();
+  renderQuests();
+  console.log("クエスト名を直しました", quests[index]);
+}
+
 // クエスト1つ分の行（li）を作って返す
 function createQuestItem(quest, index) {
   const item = document.createElement("li");
@@ -913,10 +1084,8 @@ function createQuestItem(quest, index) {
     item.classList.add("is-done");
   }
 
-  // タスク名（textContent を使うので、入力した文字はそのまま文字として表示されます）
-  const name = document.createElement("span");
-  name.className = "quest-name";
-  name.textContent = quest.name;
+  // タスク名（押すと名前を直せる）
+  const name = createQuestName(quest, index, "span", "quest-name");
 
   // 獲得EXP
   const exp = document.createElement("span");
@@ -967,10 +1136,8 @@ function renderToday(index) {
 
   const quest = quests[index];
 
-  // クエスト名（大きく表示）
-  const name = document.createElement("p");
-  name.className = "today-name";
-  name.textContent = quest.name;
+  // クエスト名（大きく表示。押すと名前を直せる）
+  const name = createQuestName(quest, index, "p", "today-name");
 
   // 「（〇 EXP get）」
   const exp = document.createElement("p");
