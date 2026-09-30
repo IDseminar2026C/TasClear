@@ -24,6 +24,9 @@ const otherToggle = document.getElementById("other-toggle");
 // 「撃破済みをまとめて削除」のボタン
 const clearDoneButton = document.getElementById("clear-done-button");
 
+// 「レベルをリセット」のボタン
+const resetLevelButton = document.getElementById("reset-level-button");
+
 // 勇者のドット絵を描く場所
 const heroCanvas = document.getElementById("hero-canvas");
 
@@ -1054,6 +1057,20 @@ function clearDoneQuests() {
   console.log("撃破済みのクエストをまとめて削除しました", count + "件");
 }
 
+// レベルを Lv1 に戻す（確認してから）
+// 累計EXPだけを 0 にして、クエストの一覧と今日の撃破数はそのまま残す
+function resetLevel() {
+  const ok = confirm("レベルを Lv1 に戻しますか？ 貯めたEXPはすべて消えます。");
+  if (!ok) {
+    return;
+  }
+
+  totalExp = 0;
+  savePlayer();
+  renderStatus();
+  console.log("レベルをリセットしました");
+}
+
 // 「他のタスク」の一覧を、開いていれば閉じ、閉じていれば開く
 function toggleOtherQuests() {
   questList.hidden = !questList.hidden;
@@ -1135,6 +1152,9 @@ questForm.addEventListener("submit", function (event) {
 
 // 「他のタスク ▽」のボタンが押されたとき
 otherToggle.addEventListener("click", toggleOtherQuests);
+
+// 「レベルをリセット」のボタンが押されたとき
+resetLevelButton.addEventListener("click", resetLevel);
 
 // 「撃破済みをまとめて削除」のボタンが押されたとき
 clearDoneButton.addEventListener("click", function () {

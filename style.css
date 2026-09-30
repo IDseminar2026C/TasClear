@@ -513,6 +513,25 @@ h1 {
   cursor: default;
 }
 
+/* 「レベルをリセット」のボタン（まちがえて押さないように、右下に小さく・目立たない灰色で） */
+.reset-level-button {
+  display: block;
+  margin: 24px 0 0 auto; /* 左の余白を auto にすると、右に寄る */
+  padding: 4px 10px;
+  font-size: 12px;
+  background-color: #ffffff;
+  color: #888888;
+  border: 1px solid #cccccc;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+/* マウスを乗せたときの見た目 */
+.reset-level-button:hover {
+  color: #555555;
+  border-color: #888888;
+}
+
 /* 演出用の板（画面全体にかぶさる。ふだんは透明で見えない） */
 .effect-overlay {
   position: fixed;
