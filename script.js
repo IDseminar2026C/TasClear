@@ -1268,6 +1268,68 @@ function renameQuest(index) {
   console.log("クエスト名を直しました", quests[index]);
 }
 
+// index 番目から step の向き（-1 なら上、1 なら下）に見ていき、
+// いちばん近い「まだ撃破していないクエスト」が何番目かを返す（無いときは -1）
+function findUndoneNeighbor(index, step) {
+  let i = index + step;
+  while (i >= 0 && i < quests.length) {
+    if (!quests[i].done) {
+      return i;
+    }
+    i = i + step;
+  }
+  return -1;
+}
+
+// index 番目のクエストを、1つ上（step が -1）か1つ下（step が 1）の未撃破のクエストと入れ替えて保存する
+function moveQuest(index, step) {
+  const other = findUndoneNeighbor(index, step);
+  if (other === -1) {
+    return;
+  }
+
+  // 2つのクエストの場所を入れ替える
+  const temp = quests[index];
+  quests[index] = quests[other];
+  quests[other] = temp;
+
+  saveQuests();
+  renderQuests();
+}
+
+// ▲▼ボタンを1つ作って返す（step が -1 なら ▲、1 なら ▼）
+function createMoveButton(index, step) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "move-button";
+  if (step === -1) {
+    button.textContent = "▲";
+  } else {
+    button.textContent = "▼";
+  }
+
+  // 入れ替える相手がいない（いちばん上・いちばん下）ときは、押せなくする
+  button.disabled = findUndoneNeighbor(index, step) === -1;
+
+  button.addEventListener("click", function () {
+    moveQuest(index, step);
+  });
+  return button;
+}
+
+// ▲▼ボタンを2つまとめた箱を作って返す
+// isColumn が true なら縦に重ね、false なら横に並べる
+function createMoveButtons(index, isColumn) {
+  const box = document.createElement("span");
+  box.className = "move-buttons";
+  if (isColumn) {
+    box.classList.add("is-column");
+  }
+  box.appendChild(createMoveButton(index, -1));
+  box.appendChild(createMoveButton(index, 1));
+  return box;
+}
+
 // クエスト1つ分の行（li）を作って返す
 function createQuestItem(quest, index) {
   const item = document.createElement("li");
@@ -1286,7 +1348,12 @@ function createQuestItem(quest, index) {
   exp.className = "quest-exp";
   exp.textContent = quest.exp + " EXP";
 
-  // まだ撃破していなければ、左に「選ぶ」チェックボックスと小さな撃破ボタンを置く
+  // まだ撃破していなければ、左はしに縦に重ねた▲▼ボタンを置く
+  if (!quest.done) {
+    item.appendChild(createMoveButtons(index, true));
+  }
+
+  // まだ撃破していなければ、「選ぶ」チェックボックスと小さな撃破ボタンを置く
   // （レベルアップの演出の間は、どちらも置かない）
   if (!quest.done && !isDefeatLocked) {
     item.appendChild(createSelectCheckbox(quest));
@@ -1374,6 +1441,7 @@ function createTodayItem(quest, index) {
     nameLine.appendChild(createRareLabel());
   }
   nameLine.appendChild(createQuestName(quest, index, "p", "today-name")); // 押すと名前を直せる
+  nameLine.appendChild(createMoveButtons(index, false)); // 右はしに、横に並べた▲▼ボタン
   item.appendChild(nameLine);
 
   // 「（〇 EXP get）」と、ボタンを横に並べる行
