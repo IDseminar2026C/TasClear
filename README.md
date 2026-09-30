@@ -1,4 +1,5 @@
-<img width="1512" height="982" alt="スクリーンショット 2026-09-30 13 19 37" src="https://github.com/user-attachments/assets/db3bcf08-1971-423c-8220-ff2184aa0597" />
+<img width="1504" height="853" alt="スクリーンショット 2026-09-30 13 29 43" src="https://github.com/user-attachments/assets/f923e835-26d4-4b05-b124-4ffd422f1f97" />
+
 ⸻
 こんな人のためのアプリです
 
