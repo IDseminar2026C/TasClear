@@ -934,7 +934,7 @@ h1 {
 
 /* ガチャのカード */
 .gacha-card {
-  margin-top: 20px;
+  margin-top: 0; /* ガチャ画面・図鑑画面のいちばん上に置くので、上の余白はなし */
   padding: 12px;
   border: 3px solid #1e2040;
   border-radius: 8px;
@@ -1030,4 +1030,74 @@ h1 {
   font-size: 11px;
   line-height: 1.3;
   overflow-wrap: anywhere;
+}
+
+/* 画面を切りかえるタブ（3つを同じ幅で横に並べる） */
+.page-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  border-bottom: 3px solid #1e2040;
+}
+
+/* タブ1つ分（選んでいないときは、うすい色） */
+.page-tab {
+  flex: 1;
+  padding: 8px 4px;
+  font-size: 15px;
+  font-weight: bold;
+  background-color: #f5f1e6;
+  color: #1e2040;
+  border: none;
+  border-radius: 8px 8px 0 0;
+  cursor: pointer;
+}
+
+/* 選んでいるタブ（紺色で目立たせる） */
+.page-tab.is-active {
+  background-color: #1e2040;
+  color: #ffffff;
+}
+
+/* 見えないようにする設定（hidden）を、確実に効かせる */
+.page[hidden] {
+  display: none;
+}
+
+/* 今の装備「そうび：頭 👑 ／ 武器 🗡️ …」 */
+.equip-summary {
+  margin: 0 0 4px;
+  padding: 6px 8px;
+  font-size: 13px;
+  font-weight: bold;
+  background-color: #ffffff;
+  border-radius: 6px;
+}
+
+/* 装備のしかたの説明 */
+.equip-help {
+  margin: 0;
+  font-size: 12px;
+  color: #666666;
+}
+
+/* 装備できるアイテム（押せることが分かるように、指の形にする） */
+.collection-item.is-equippable {
+  cursor: pointer;
+}
+
+/* 装備中のアイテム（太い紺色の枠） */
+.collection-item.is-equipped {
+  border: 3px solid #1e2040;
+}
+
+/* 「装備中」の札 */
+.equipped-badge {
+  margin-top: 2px;
+  padding: 0 4px;
+  font-size: 10px;
+  font-weight: bold;
+  background-color: #1e2040;
+  color: #ffffff;
+  border-radius: 4px;
 }

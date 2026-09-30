@@ -53,6 +53,16 @@
       </div>
     </header>
 
+    <!-- 画面を切りかえるタブ（押すと、下の画面が入れかわります） -->
+    <nav class="page-tabs">
+      <button class="page-tab is-active" type="button" data-page="page-main">🏠 メイン</button>
+      <button class="page-tab" type="button" data-page="page-gacha">🎰 ガチャ</button>
+      <button class="page-tab" type="button" data-page="page-collection">📖 図鑑</button>
+    </nav>
+
+    <!-- ===== メイン画面 ===== -->
+    <div id="page-main" class="page">
+
     <!-- 主人公（勇者）のドット絵。絵は JavaScript で描きます -->
     <div class="hero-area">
       <!-- ランクの星（★ が今のランク、☆ が残り）。中身は JavaScript で書き換えます -->
@@ -89,18 +99,34 @@
     <!-- 撃破済みのクエストをまとめて消すボタン（一覧が開いているときだけ見える） -->
     <button id="clear-done-button" class="clear-done-button" type="button">撃破済みをまとめて削除</button>
 
-    <!-- ガチャ：コインを使ってアイテムを引く。持っているアイテムは図鑑に並べる -->
-    <section class="gacha-card">
-      <h2 class="gacha-title">🎰 ガチャ</h2>
-      <button id="gacha-button" class="gacha-button" type="button" disabled>🎰 ガチャを引く（🪙50）</button>
-
-      <!-- 図鑑（何種類集めたかと、アイテムの一覧）。中身は JavaScript で作ります -->
-      <p id="collection-count" class="collection-count">図鑑 0 / 12</p>
-      <ul id="collection-list" class="collection-list"></ul>
-    </section>
-
     <!-- レベルを Lv1 に戻すボタン（まちがえて押さないように、いちばん下に小さく置く） -->
     <button id="reset-level-button" class="reset-level-button" type="button">レベルをリセット</button>
+
+    </div>
+
+    <!-- ===== ガチャ画面（最初は隠す） ===== -->
+    <div id="page-gacha" class="page" hidden>
+      <!-- ガチャ：コインを使ってアイテムを引く -->
+      <section class="gacha-card">
+        <h2 class="gacha-title">🎰 ガチャ</h2>
+        <button id="gacha-button" class="gacha-button" type="button" disabled>🎰 ガチャを引く（🪙50）</button>
+      </section>
+    </div>
+
+    <!-- ===== 図鑑画面（最初は隠す） ===== -->
+    <div id="page-collection" class="page" hidden>
+      <!-- 図鑑（何種類集めたかと、アイテムの一覧）。中身は JavaScript で作ります -->
+      <section class="gacha-card">
+        <h2 class="gacha-title">📖 図鑑</h2>
+
+        <!-- 今の装備（持っているアイテムを押すと、装備する・はずす） -->
+        <p id="equip-summary" class="equip-summary">そうび：頭 ― ／ 武器 ― ／ 盾 ― ／ 足 ― ／ アクセ ―</p>
+        <p class="equip-help">持っているアイテムを押すと、装備できます（もう一度押すと、はずします）</p>
+
+        <p id="collection-count" class="collection-count">図鑑 0 / 12</p>
+        <ul id="collection-list" class="collection-list"></ul>
+      </section>
+    </div>
 
   </div>
 

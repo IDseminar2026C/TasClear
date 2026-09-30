@@ -30,11 +30,16 @@ const resetLevelButton = document.getElementById("reset-level-button");
 // 「選んだ〇体をまとめて撃破」のボタン
 const bulkDefeatButton = document.getElementById("bulk-defeat-button");
 
+// 画面を切りかえるタブのボタン（3つ）と、画面の箱（3つ）
+const pageTabs = document.querySelectorAll(".page-tab");
+const pages = document.querySelectorAll(".page");
+
 // コインの表示、ガチャのボタン、図鑑の部品
 const coinText = document.getElementById("coin-text");
 const gachaButton = document.getElementById("gacha-button");
 const collectionCount = document.getElementById("collection-count");
 const collectionList = document.getElementById("collection-list");
+const equipSummary = document.getElementById("equip-summary");
 
 // 勇者のドット絵を描く場所
 const heroCanvas = document.getElementById("hero-canvas");
@@ -140,20 +145,61 @@ const GACHA_RANKS = [
 ];
 
 // ガチャで出るアイテムの表。id は保存するときの名前、rank はランク（1〜3）
+// slot は装備する部位（"head" 頭・"weapon" 武器・"shield" 盾・"feet" 足・"accessory" アクセサリー）
+// slot が null のアイテムは道具なので、装備できない
 const GACHA_ITEMS = [
-  { id: "wood-stick", icon: "🪵", name: "木の棒", rank: 1 },
-  { id: "cloth-hat", icon: "🧢", name: "布のぼうし", rank: 1 },
-  { id: "travel-boots", icon: "👢", name: "旅人のブーツ", rank: 1 },
-  { id: "herb", icon: "🧪", name: "やくそう", rank: 1 },
-  { id: "bread", icon: "🥖", name: "パン", rank: 1 },
-  { id: "steel-sword", icon: "🗡️", name: "鋼の剣", rank: 2 },
-  { id: "iron-shield", icon: "🛡️", name: "鉄の盾", rank: 2 },
-  { id: "hunter-bow", icon: "🏹", name: "狩人の弓", rank: 2 },
-  { id: "power-ring", icon: "💍", name: "力の指輪", rank: 2 },
-  { id: "legend-sword", icon: "⚔️", name: "伝説の剣", rank: 3 },
-  { id: "king-crown", icon: "👑", name: "王者の冠", rank: 3 },
-  { id: "sage-crystal", icon: "🔮", name: "賢者の水晶", rank: 3 },
+  { id: "wood-stick", icon: "🪵", name: "木の棒", rank: 1, slot: "weapon" },
+  { id: "cloth-hat", icon: "🧢", name: "布のぼうし", rank: 1, slot: "head" },
+  { id: "travel-boots", icon: "👢", name: "旅人のブーツ", rank: 1, slot: "feet" },
+  { id: "herb", icon: "🧪", name: "やくそう", rank: 1, slot: null },
+  { id: "bread", icon: "🥖", name: "パン", rank: 1, slot: null },
+  { id: "steel-sword", icon: "🗡️", name: "鋼の剣", rank: 2, slot: "weapon" },
+  { id: "iron-shield", icon: "🛡️", name: "鉄の盾", rank: 2, slot: "shield" },
+  { id: "hunter-bow", icon: "🏹", name: "狩人の弓", rank: 2, slot: "weapon" },
+  { id: "power-ring", icon: "💍", name: "力の指輪", rank: 2, slot: "accessory" },
+  { id: "legend-sword", icon: "⚔️", name: "伝説の剣", rank: 3, slot: "weapon" },
+  { id: "king-crown", icon: "👑", name: "王者の冠", rank: 3, slot: "head" },
+  { id: "sage-crystal", icon: "🔮", name: "賢者の水晶", rank: 3, slot: "accessory" },
 ];
+
+// 装備する部位の表（図鑑の「そうび：…」に、この順で並べる）
+const EQUIP_SLOTS = [
+  { slot: "head", name: "頭" },
+  { slot: "weapon", name: "武器" },
+  { slot: "shield", name: "盾" },
+  { slot: "feet", name: "足" },
+  { slot: "accessory", name: "アクセ" },
+];
+
+// 今装備しているアイテム（{ head: "king-crown", weapon: "steel-sword" } のような形）
+let equipped = {};
+
+// 装備したときに、キャラのドット絵に重ねて描く絵
+// x・y は絵を置く場所（左上のマス）、rows は設計図（「.」は塗らない）
+const EQUIP_SPRITES = {
+  "cloth-hat": { x: 2, y: 1, rows: ["..KKKKK..", ".KBBBBBK.", "KBBBBBBBK"] }, // 青いぼうし
+  "king-crown": { x: 4, y: 0, rows: ["Y.Y.Y", "YYYYY"] }, // 金の冠
+  "wood-stick": { x: 13, y: 3, rows: ["G", "G", "G", "G", "G", "G", "G", "G", "G", "G", "G"] }, // 木の棒
+  "steel-sword": {
+    x: 12,
+    y: 0,
+    rows: [".s.", ".s.", ".s.", ".s.", ".s.", ".s.", ".s.", "YYY", ".G.", ".G.", ".G."], // 銀の剣
+  },
+  "hunter-bow": {
+    x: 12,
+    y: 2,
+    rows: [".G..", ".sG.", ".s.G", ".s.G", ".s.G", ".s.G", ".s.G", ".s.G", ".sG.", ".G.."], // 弓と弦
+  },
+  "legend-sword": {
+    x: 12,
+    y: 0,
+    rows: [".ll.", ".ll.", ".ll.", ".ll.", ".ll.", ".ll.", ".ll.", "YYYY", ".G..", ".G..", ".G.."], // 光る太い剣
+  },
+  "iron-shield": { x: 0, y: 8, rows: ["KKKKK", "KsDsK", "KDDDK", "KsDsK", "KsDsK", ".KKK."] }, // 鉄の盾
+  "travel-boots": { x: 3, y: 13, rows: [".bb.bb.", ".bb.bb.", "bbb.bbb"] }, // 茶色のブーツ
+  "power-ring": { x: 2, y: 10, rows: ["Y"] }, // 左手の金の指輪
+  "sage-crystal": { x: 0, y: 3, rows: [".p.", "pIp", ".p."] }, // 左の空中にうかぶ紫の水晶
+};
 
 // 今、モンスターが点滅して消えている途中かどうか
 let isMonsterDying = false;
@@ -231,6 +277,10 @@ const HERO_COLORS = {
   A: "#f2c230", // ゴールデンスライムの体（金色）
   J: "#fff4b0", // ゴールデンスライムのつや（うすい黄色）
   T: "#ffffff", // キラキラ（白）
+  s: "#aab4be", // 装備：鋼の剣・鉄の盾・弓の弦（銀色）
+  l: "#8fe3ff", // 装備：伝説の剣の刃（光る水色）
+  b: "#5a3a1e", // 装備：旅人のブーツ（こげ茶色）
+  p: "#9b59b6", // 装備：賢者の水晶（紫）
 };
 
 // 見習い冒険者のドット絵の設計図（16×16マス）
@@ -541,15 +591,46 @@ function finishMonsterDefeat() {
 // 今の称号に合ったキャラクターのドット絵を描く
 function drawHero() {
   drawPixels(heroCanvas, getTitle(getLevel()).pixels);
+  drawEquipment();
+}
+
+// 装備しているアイテムの絵を、キャラのドット絵に重ねて描く
+function drawEquipment() {
+  const pen = heroCanvas.getContext("2d");
+
+  // 武器を装備しているときは、キャラがもともと持っている武器（右側）を先に消す
+  if (equipped.weapon) {
+    pen.clearRect(12, 0, 4, 9); // 右上（剣の刃やつばのあたり）
+    pen.clearRect(13, 9, 3, 5); // 右下（持ち手のあたり。腕は消さない）
+  }
+
+  // 頭の装備をしているときは、もともとの王冠や光の輪がはみ出さないように、いちばん上の1行（頭の上）を先に消す
+  if (equipped.head) {
+    pen.clearRect(0, 0, 12, 1);
+  }
+
+  // 部位ごとに、装備しているアイテムの絵を描く
+  for (let i = 0; i < EQUIP_SLOTS.length; i++) {
+    const itemId = equipped[EQUIP_SLOTS[i].slot];
+    if (itemId) {
+      const sprite = EQUIP_SPRITES[itemId];
+      paintPixels(pen, sprite.rows, sprite.x, sprite.y);
+    }
+  }
 }
 
 // 設計図（pixels）どおりに、canvas にドット絵を描く
 function drawPixels(canvas, pixels) {
   const pen = canvas.getContext("2d"); // 絵を描くための道具
 
-  // 前に描いた絵を消す
+  // 前に描いた絵を消してから、左上（0, 0）から描く
   pen.clearRect(0, 0, canvas.width, canvas.height);
+  paintPixels(pen, pixels, 0, 0);
+}
 
+// 設計図（pixels）の色を、左から left マス・上から top マスの場所から塗る
+// （「.」のマスは塗らないので、下の絵がそのまま残る）
+function paintPixels(pen, pixels, left, top) {
   // 上から1行ずつ、左から1マスずつ見ていく（y は何行目、x は何マス目）
   for (let y = 0; y < pixels.length; y++) {
     for (let x = 0; x < pixels[y].length; x++) {
@@ -558,7 +639,7 @@ function drawPixels(canvas, pixels) {
       // 色が決まっているマスだけ、1マス分の四角を塗る
       if (color) {
         pen.fillStyle = color;
-        pen.fillRect(x, y, 1, 1);
+        pen.fillRect(left + x, top + y, 1, 1);
       }
     }
   }
@@ -595,6 +676,7 @@ function savePlayer() {
     todayDate: todayDate,
     coins: coins,
     items: items,
+    equipped: equipped,
   };
   localStorage.setItem(PLAYER_KEY, JSON.stringify(player));
 }
@@ -616,6 +698,7 @@ function loadPlayer() {
     todayDate = player.todayDate || "";
     coins = player.coins || 0; // 前の形の保存データには無いので、そのときは 0
     items = player.items || {};
+    equipped = player.equipped || {};
     console.log("プレイヤーの状態を読み込みました", player);
   } catch (error) {
     console.log("プレイヤーの保存データが壊れていたので、0 から始めます");
@@ -624,6 +707,7 @@ function loadPlayer() {
     todayDate = "";
     coins = 0;
     items = {};
+    equipped = {};
   }
 }
 
@@ -1826,7 +1910,56 @@ function createCollectionItem(item) {
   cell.appendChild(icon);
   cell.appendChild(label);
   cell.title = item.name + "（" + getRankStars(item.rank) + "）";
+
+  // 装備できない道具なら、ここでおしまい
+  if (item.slot === null) {
+    cell.title = cell.title + " 装備できない道具です";
+    return cell;
+  }
+
+  // 装備できるアイテムは、押すと装備する・はずす
+  cell.classList.add("is-equippable");
+  cell.addEventListener("click", function () {
+    toggleEquip(item);
+  });
+
+  // 装備中なら、「装備中」の札と太い枠を付ける
+  if (equipped[item.slot] === item.id) {
+    cell.classList.add("is-equipped");
+    const badge = document.createElement("span");
+    badge.className = "equipped-badge";
+    badge.textContent = "装備中";
+    cell.appendChild(badge);
+  }
   return cell;
+}
+
+// アイテムを装備する・はずす（同じ部位のアイテムを装備していたら、入れかえる）
+function toggleEquip(item) {
+  if (equipped[item.slot] === item.id) {
+    delete equipped[item.slot]; // もう装備しているので、はずす
+  } else {
+    equipped[item.slot] = item.id; // 装備する（同じ部位の前のアイテムと入れかわる）
+  }
+  savePlayer();
+  renderStatus(); // キャラの絵と図鑑を描き直す
+  console.log("装備を変えました", equipped);
+}
+
+// 「そうび：頭 👑 ／ 武器 🗡️ ／ …」の文字を作って返す
+function getEquipSummary() {
+  const parts = [];
+  for (let i = 0; i < EQUIP_SLOTS.length; i++) {
+    const itemId = equipped[EQUIP_SLOTS[i].slot];
+    let icon = "―"; // 何も装備していない部位は「―」
+    if (itemId) {
+      icon = GACHA_ITEMS.find(function (item) {
+        return item.id === itemId;
+      }).icon;
+    }
+    parts.push(EQUIP_SLOTS[i].name + " " + icon);
+  }
+  return "そうび：" + parts.join(" ／ ");
 }
 
 // コインの表示、ガチャのボタン、図鑑を表示し直す
@@ -1847,6 +1980,27 @@ function renderGacha() {
     collectionList.appendChild(createCollectionItem(GACHA_ITEMS[i]));
   }
   collectionCount.textContent = "図鑑 " + owned + " / " + GACHA_ITEMS.length;
+
+  // 今の装備
+  equipSummary.textContent = getEquipSummary();
+}
+
+// 画面を切りかえる（pageId の画面だけを見せて、ほかの画面は隠す）
+// pageId は "page-main"・"page-gacha"・"page-collection" のどれか
+function showPage(pageId) {
+  // 画面の箱を1つずつ見て、pageId と同じものだけを見せる
+  for (let i = 0; i < pages.length; i++) {
+    pages[i].hidden = pages[i].id !== pageId;
+  }
+
+  // 選んでいるタブにだけ、目立たせる目印を付ける
+  for (let i = 0; i < pageTabs.length; i++) {
+    if (pageTabs[i].dataset.page === pageId) {
+      pageTabs[i].classList.add("is-active");
+    } else {
+      pageTabs[i].classList.remove("is-active");
+    }
+  }
 }
 
 // レベルを Lv1 に戻す（確認してから）
@@ -1991,6 +2145,13 @@ bulkDefeatButton.addEventListener("click", defeatSelectedQuests);
 
 // 「ガチャを引く」のボタンが押されたとき
 gachaButton.addEventListener("click", drawGacha);
+
+// 画面を切りかえるタブが押されたとき（タブに書いてある data-page の画面を見せる）
+for (let i = 0; i < pageTabs.length; i++) {
+  pageTabs[i].addEventListener("click", function () {
+    showPage(pageTabs[i].dataset.page);
+  });
+}
 
 // 「撃破済みをまとめて削除」のボタンが押されたとき
 clearDoneButton.addEventListener("click", function () {
