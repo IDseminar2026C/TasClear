@@ -152,6 +152,9 @@ const GACHA_TEN_COST = 500;
 // 前回のガチャで出たアイテム（1回なら1つ、10連なら10個。保存はしない）
 let lastGachaResults = [];
 
+// 図鑑で、閉じているランク（{ 1: true } なら ★ ノーマルを閉じている。保存はしない）
+let closedRanks = {};
+
 // 効果音を消しているかどうか（true なら、どの効果音も鳴らさない）
 let isMuted = false;
 
@@ -2293,10 +2296,31 @@ function createCollectionGroup(rank) {
     return item.rank === rank.rank;
   });
 
-  const heading = document.createElement("h3");
+  // 見出し（押すと、そのランクの一覧を開いたり閉じたりする）
+  const isClosed = closedRanks[rank.rank] === true;
+  const heading = document.createElement("button");
+  heading.type = "button";
   heading.className = "collection-heading rank-" + rank.rank;
-  heading.textContent = rank.stars + " " + rank.name + "　" + countOwnedItems(rankItems) + " / " + rankItems.length;
+
+  const title = document.createElement("span");
+  title.textContent = rank.stars + " " + rank.name + "　" + countOwnedItems(rankItems) + " / " + rankItems.length;
+
+  // 右はしの △（開いている）／ ▽（閉じている）
+  const arrow = document.createElement("span");
+  arrow.textContent = isClosed ? "▽" : "△";
+
+  heading.appendChild(title);
+  heading.appendChild(arrow);
+  heading.addEventListener("click", function () {
+    closedRanks[rank.rank] = !isClosed;
+    renderGacha(); // 図鑑を描き直す
+  });
   group.appendChild(heading);
+
+  // 閉じているときは、アイテムの一覧を出さない
+  if (isClosed) {
+    return group;
+  }
 
   const list = document.createElement("ul");
   list.className = "collection-list";
