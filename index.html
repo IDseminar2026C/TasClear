@@ -76,6 +76,9 @@
       <!-- ランクの星（★ が今のランク、☆ が残り）。中身は JavaScript で書き換えます -->
       <p id="rank-stars" class="rank-stars">★☆☆☆☆☆☆</p>
 
+      <!-- 連れていくペット（キャラの左下。連れていかないときは隠す）。絵は JavaScript で描きます -->
+      <canvas id="pet-canvas" class="pet-canvas" width="32" height="32" aria-label="ペットのドット絵" hidden></canvas>
+
       <canvas id="hero-canvas" class="hero-canvas" width="32" height="32" aria-label="勇者のドット絵"></canvas>
 
       <!-- 本日のタスクのモンスター（本日のタスクがないときは隠す）。絵は JavaScript で描きます -->
@@ -160,6 +163,8 @@
         <!-- 進み具合のバーと、その上を歩くキャラ（右はしの 🏁 がゴール） -->
         <div class="timer-track">
           <div id="timer-walker-box" class="timer-walker-box">
+            <!-- キャラのうしろを一緒に歩くペット（連れていかないときは隠す） -->
+            <canvas id="timer-pet" class="timer-pet" width="32" height="32" aria-label="一緒に歩くペット" hidden></canvas>
             <canvas id="timer-walker" class="timer-walker" width="32" height="32" aria-label="歩くキャラ"></canvas>
           </div>
           <span class="timer-goal">🏁</span>
@@ -177,6 +182,18 @@
 
         <!-- 今日、集中タイムを何回終えたか -->
         <p id="timer-count" class="timer-count">今日の集中：0回</p>
+      </section>
+
+      <!-- ペット：卵をセットして、集中タイムを終えるとかえる。中身は JavaScript で作ります -->
+      <section class="gacha-card pet-card">
+        <h2 class="gacha-title">🐾 ペット</h2>
+        <p id="pet-setting" class="pet-setting">セット中：なし</p>
+
+        <h3 class="gacha-subtitle">― たまご ―</h3>
+        <ul id="egg-list" class="pet-list"></ul>
+
+        <h3 class="gacha-subtitle">― なかま ―</h3>
+        <ul id="pet-list" class="pet-list"></ul>
       </section>
     </div>
 

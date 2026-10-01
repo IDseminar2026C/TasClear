@@ -44,6 +44,13 @@ const timerPauseButton = document.getElementById("timer-pause-button");
 const timerResetButton = document.getElementById("timer-reset-button");
 const timerCountText = document.getElementById("timer-count");
 
+// ペットの部品（メイン画面のペット、タイマーで歩くペット、ペットのカード）
+const petCanvas = document.getElementById("pet-canvas");
+const timerPet = document.getElementById("timer-pet");
+const petSettingText = document.getElementById("pet-setting");
+const eggList = document.getElementById("egg-list");
+const petList = document.getElementById("pet-list");
+
 // 画面を切りかえるタブのボタン（3つ）と、画面の箱（3つ）
 const pageTabs = document.querySelectorAll(".page-tab");
 const pages = document.querySelectorAll(".page");
@@ -255,6 +262,137 @@ const GACHA_ITEMS = [
   { id: "forbidden-book", icon: "📕", name: "禁断の書", rank: 3, slot: null },
   { id: "sky-orb", icon: "💠", name: "天空の宝珠", rank: 3, slot: null },
 ];
+
+// ===== 卵とペット =====
+
+// ガチャを1回引くごとに、卵が出る確率（卵が出たときは、アイテムは出ない）
+const EGG_CHANCE = 0.05;
+
+// 卵の種類の表。chance は「卵が出たときの中で」その卵になる確率、needed はかえるまでの集中の回数
+// pets は、その卵からかえるペット（どれか1つがランダムでかえる）
+const EGG_TYPES = [
+  { type: "white", rank: 1, stars: "★", name: "白い卵", chance: 0.6, needed: 2, pets: ["chick", "cat"] },
+  { type: "blue", rank: 2, stars: "★★", name: "青い卵", chance: 0.3, needed: 3, pets: ["rabbit", "penguin"] },
+  { type: "gold", rank: 3, stars: "★★★", name: "金の卵", chance: 0.1, needed: 4, pets: ["dragon"] },
+];
+
+// ペットのドット絵の設計図（16×16マス。キャラより小さく見えるように、下のほうに描く。右を向いている）
+const PIXELS_PET_CHICK = [
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  "......KKK.......",
+  ".....KAAAK......",
+  "....KAAEAKUU....",
+  "....KAAAAK......",
+  "...KAAAAAAK.....",
+  "..KAJJAAAAAK....",
+  "..KAJJAAAAAK....",
+  "...KAAAAAAK.....",
+  "....KKKKKK......",
+  ".....U..U.......",
+];
+
+const PIXELS_PET_CAT = [
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  ".......K.....K..",
+  ".......KK...KK..",
+  ".......KCCCCCK..",
+  ".......KCECECK..",
+  ".......KCCMCCK..",
+  "..K....KCCCCCK..",
+  "..KC.KCCCCCCK...",
+  "...KCCCCCCCCK...",
+  "...KCCCCCCCCK...",
+  "....KK.KK.KK....",
+];
+
+const PIXELS_PET_RABBIT = [
+  "................",
+  "................",
+  "................",
+  "........K.K.....",
+  ".......KOKOK....",
+  ".......KOKOK....",
+  ".......KOKOK....",
+  "......KOOOOOK...",
+  "......KOOOEOK...",
+  "......KOOOOMK...",
+  ".....KOOOOOK....",
+  "....KOOOOOOOK...",
+  "...KOOOOOOOOK...",
+  "..KOKOOOOOOOK...",
+  "...KOOOOOOOOK...",
+  "....KKK..KKK....",
+];
+
+const PIXELS_PET_PENGUIN = [
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  "......KKKK......",
+  ".....KKKKKK.....",
+  ".....KKOEOKU....",
+  "....KKOOOOOK....",
+  "....KKOOOOOK....",
+  "...KKKOOOOOK....",
+  "...KKKOOOOOK....",
+  "....KKOOOOOK....",
+  ".....KKKKKK.....",
+  ".....UU..UU.....",
+];
+
+const PIXELS_PET_DRAGON = [
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  ".......K..K.....",
+  ".......KFFKK....",
+  "......KFFFFFK...",
+  "......KFFEFFFK..",
+  "......KFFFFFFFK.",
+  "..K...KFFFFMMK..",
+  "..KXK.KFFFFKK...",
+  "..KXXKFFUUFFK...",
+  ".FKKFFFUUFFFK...",
+  "..FFKFFFFFFK....",
+  "....KK...KK.....",
+];
+
+// ペットの表
+const PETS = [
+  { id: "chick", icon: "🐤", name: "ひよこ", rank: 1, pixels: PIXELS_PET_CHICK },
+  { id: "cat", icon: "🐱", name: "ねこ", rank: 1, pixels: PIXELS_PET_CAT },
+  { id: "rabbit", icon: "🐰", name: "うさぎ", rank: 2, pixels: PIXELS_PET_RABBIT },
+  { id: "penguin", icon: "🐧", name: "ペンギン", rank: 2, pixels: PIXELS_PET_PENGUIN },
+  { id: "dragon", icon: "🐲", name: "ちびドラゴン", rank: 3, pixels: PIXELS_PET_DRAGON },
+];
+
+// 持っている卵の数（{ white: 2, gold: 1 } のような形）
+let eggs = {};
+
+// タイマーにセットしている卵（{ type: "blue", progress: 1 } のような形。セットしていないときは null）
+// progress は、セットしてから集中タイムを終えた回数
+let settingEgg = null;
+
+// 仲間になったペットと、その数（{ cat: 1, chick: 2 } のような形）
+let pets = {};
+
+// 連れていくペットの id（連れていかないときは null）
+let activePet = null;
 
 // 装備する部位の表（図鑑の「そうび：…」に、この順で並べる）
 const EQUIP_SLOTS = [
@@ -886,6 +1024,10 @@ function savePlayer() {
     muted: isMuted,
     focusCount: focusCount,
     focusDate: focusDate,
+    eggs: eggs,
+    settingEgg: settingEgg,
+    pets: pets,
+    activePet: activePet,
   };
   localStorage.setItem(PLAYER_KEY, JSON.stringify(player));
 }
@@ -911,6 +1053,10 @@ function loadPlayer() {
     isMuted = player.muted === true; // 前の形の保存データには無いので、そのときは「鳴らす」
     focusCount = player.focusCount || 0;
     focusDate = player.focusDate || "";
+    eggs = player.eggs || {};
+    settingEgg = player.settingEgg || null;
+    pets = player.pets || {};
+    activePet = player.activePet || null;
     console.log("プレイヤーの状態を読み込みました", player);
   } catch (error) {
     console.log("プレイヤーの保存データが壊れていたので、0 から始めます");
@@ -923,6 +1069,10 @@ function loadPlayer() {
     isMuted = false;
     focusCount = 0;
     focusDate = "";
+    eggs = {};
+    settingEgg = null;
+    pets = {};
+    activePet = null;
   }
 }
 
@@ -2110,10 +2260,32 @@ function drawGacha() {
 }
 
 // アイテムを1つ出して、持っている数を1つ増やし、出たアイテムを返す（1回引く・10連で使う）
+// 5%の確率で、アイテムの代わりに卵が出る（卵のときは、卵の数を1つ増やす）
 function drawOneItem() {
+  if (Math.random() < EGG_CHANCE) {
+    const egg = pickEggType();
+    eggs[egg.type] = (eggs[egg.type] || 0) + 1;
+
+    // 前回の結果や演出で、アイテムと同じように表示できる形にして返す
+    return { isEgg: true, icon: "🥚", name: egg.name, rank: egg.rank };
+  }
+
   const item = pickGachaItem();
   items[item.id] = (items[item.id] || 0) + 1;
   return item;
+}
+
+// 卵の種類を、確率どおりに1つ選んで返す（白 60%・青 30%・金 10%）
+function pickEggType() {
+  const dice = Math.random();
+  let total = 0;
+  for (let i = 0; i < EGG_TYPES.length; i++) {
+    total = total + EGG_TYPES[i].chance;
+    if (dice < total) {
+      return EGG_TYPES[i];
+    }
+  }
+  return EGG_TYPES[0]; // 念のため（計算の誤差でどれにも入らなかったとき）
 }
 
 // 10連ガチャを引く（コインが足りないときは何もしない）
@@ -2139,16 +2311,26 @@ function drawGachaTen() {
 
 // 10連ガチャの演出を列に並べる（「🎰 10連ガチャ！ ★★★×1 ★★×3 ★×6」のように、ランクごとの数を出す）
 function addGachaTenEffect(results) {
-  // ランクごとに、いくつ出たか数える（counts[3] が ★★★ の数）
+  // アイテムのランクごとに、いくつ出たか数える（counts[3] が ★★★ の数）。卵は別に数える
   const counts = { 1: 0, 2: 0, 3: 0 };
+  let eggCount = 0;
   for (let i = 0; i < results.length; i++) {
-    counts[results[i].rank] = counts[results[i].rank] + 1;
+    if (results[i].isEgg) {
+      eggCount = eggCount + 1;
+    } else {
+      counts[results[i].rank] = counts[results[i].rank] + 1;
+    }
+  }
+
+  // 卵が出ていたら、最後に「🥚×〇」も足す
+  let text = "🎰 10連ガチャ！\n★★★×" + counts[3] + "  ★★×" + counts[2] + "  ★×" + counts[1];
+  if (eggCount > 0) {
+    text = text + "  🥚×" + eggCount;
   }
 
   addEffect(function () {
     clearEffectClasses();
-    effectText.textContent =
-      "🎰 10連ガチャ！\n★★★×" + counts[3] + "  ★★×" + counts[2] + "  ★×" + counts[1];
+    effectText.textContent = text;
     restartAnimation(effectOverlay, "is-celebrate");
 
     // ★★★ が1つでもあればファンファーレ、なければキラキラの音
@@ -2209,18 +2391,29 @@ function renderGachaRates() {
     const rank = GACHA_RANKS[i];
 
     // そのランクのアイテムが何種類あるか数えて、1つあたりの確率を出す
+    // 卵が出る 5% の分だけ、アイテムの確率は少し下がる（ランクの確率 × 0.95）
     const kinds = GACHA_ITEMS.filter(function (item) {
       return item.rank === rank.rank;
     }).length;
-    const each = (rank.chance / kinds) * 100;
+    const chance = rank.chance * (1 - EGG_CHANCE) * 100;
+    const each = chance / kinds;
 
     const row = document.createElement("li");
     row.className = "gacha-rate rank-" + rank.rank;
     row.textContent =
-      rank.stars + " " + rank.name + "　" + Math.round(rank.chance * 100) + "%" +
+      rank.stars + " " + rank.name + "　" + Math.round(chance * 100) / 100 + "%" +
       "（" + kinds + "種類・1つあたり 約" + Math.round(each * 10) / 10 + "%）";
     gachaRateList.appendChild(row);
   }
+
+  // 卵の行（卵が出たときの、白・青・金の割合も出す）
+  const eggRow = document.createElement("li");
+  eggRow.className = "gacha-rate is-egg";
+  const eggParts = EGG_TYPES.map(function (egg) {
+    return egg.name + " " + Math.round(egg.chance * 100) + "%";
+  });
+  eggRow.textContent = "🥚 卵　" + Math.round(EGG_CHANCE * 100) + "%（" + eggParts.join("・") + "）";
+  gachaRateList.appendChild(eggRow);
 }
 
 // ガチャで出たアイテムの演出を列に並べる（金色にふわっと光って、「〇〇 をゲット！」が出る）
@@ -2396,6 +2589,9 @@ function renderGacha() {
 
   // 今の装備
   equipSummary.textContent = getEquipSummary();
+
+  // ガチャで卵が出たときのために、ペットのカード（持っている卵）も表示し直す
+  renderPets();
 }
 
 // ===== ポモドーロタイマー =====
@@ -2475,6 +2671,9 @@ function finishTimer() {
     savePlayer();
     addTimerEffect("🍅 集中おわり！\n休けいしよう", true);
     timerMode = "break";
+
+    // セットしている卵を育てる（決まった回数になったら、かえる）
+    growEgg();
   } else {
     addTimerEffect("☕ 休けいおわり！\n次の集中をはじめよう", false);
     timerMode = "focus";
@@ -2483,6 +2682,191 @@ function finishTimer() {
   // 次の時間を用意する（スタートは自分で押す）
   timerRemaining = getTimerLength(timerMode);
   renderTimer();
+}
+
+// ===== 卵とペット =====
+
+// 卵の種類（"white" など）から、卵の表の行を返す
+function getEggType(type) {
+  return EGG_TYPES.find(function (egg) {
+    return egg.type === type;
+  });
+}
+
+// ペットの id から、ペットの表の行を返す
+function getPet(id) {
+  return PETS.find(function (pet) {
+    return pet.id === id;
+  });
+}
+
+// 卵をタイマーにセットする（持っている卵を1つ減らす。すでにセットしていたら何もしない）
+function setEgg(type) {
+  if (settingEgg !== null || !eggs[type]) {
+    return;
+  }
+  eggs[type] = eggs[type] - 1;
+  settingEgg = { type: type, progress: 0 };
+  savePlayer();
+  renderPets();
+}
+
+// セットしている卵を取り出す（持っている卵に戻す。育てた回数は 0 に戻る）
+function cancelEgg() {
+  if (settingEgg === null) {
+    return;
+  }
+  eggs[settingEgg.type] = (eggs[settingEgg.type] || 0) + 1;
+  settingEgg = null;
+  savePlayer();
+  renderPets();
+}
+
+// 集中タイムを終えたときに、セットしている卵を育てる（決まった回数になったら、かえす）
+function growEgg() {
+  if (settingEgg === null) {
+    return;
+  }
+  settingEgg.progress = settingEgg.progress + 1;
+  if (settingEgg.progress >= getEggType(settingEgg.type).needed) {
+    hatchEgg();
+  }
+  savePlayer();
+  renderPets();
+}
+
+// 卵をかえす（その卵のペットの中からランダムで1匹を仲間にして、演出を出す）
+function hatchEgg() {
+  const egg = getEggType(settingEgg.type);
+  const petId = egg.pets[Math.floor(Math.random() * egg.pets.length)];
+  const pet = getPet(petId);
+
+  pets[petId] = (pets[petId] || 0) + 1;
+  settingEgg = null;
+
+  // まだ誰も連れていなければ、かえったペットを連れていく
+  if (activePet === null) {
+    activePet = petId;
+  }
+  drawPets();
+  console.log("卵がかえりました", pet);
+
+  addEffect(function () {
+    clearEffectClasses();
+    effectText.textContent = "🐣 卵がかえった！\n" + pet.icon + " " + pet.name + " が仲間になった！";
+    restartAnimation(effectOverlay, "is-celebrate");
+    playFanfareSound();
+  }, CELEBRATE_EFFECT_TIME);
+}
+
+// ペットを連れていく（すでに連れていくペットを押したら、連れていかないにする）
+function toggleActivePet(petId) {
+  if (activePet === petId) {
+    activePet = null;
+  } else {
+    activePet = petId;
+  }
+  savePlayer();
+  drawPets();
+  renderPets();
+}
+
+// 連れていくペットを、メイン画面とタイマーのバーに描く（連れていかないときは隠す）
+function drawPets() {
+  const hasPet = activePet !== null && getPet(activePet);
+  petCanvas.hidden = !hasPet;
+  timerPet.hidden = !hasPet;
+  if (hasPet) {
+    drawPixels(petCanvas, getPet(activePet).pixels);
+    drawPixels(timerPet, getPet(activePet).pixels);
+  }
+}
+
+// ボタンを1つ作って返す（ペットのカードで使う）
+function createPetButton(text, onClick, disabled) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "pet-button";
+  button.textContent = text;
+  button.disabled = disabled;
+  button.addEventListener("click", onClick);
+  return button;
+}
+
+// ペットのカード（セット中の卵・持っている卵・仲間のペット）を表示し直す
+function renderPets() {
+  renderSettingEgg();
+  renderEggList();
+  renderPetList();
+}
+
+// 「セット中：🥚 青い卵（あと 2 回）」と、取り出すボタン
+function renderSettingEgg() {
+  petSettingText.innerHTML = "";
+  if (settingEgg === null) {
+    petSettingText.textContent = "セット中：なし（下の「たまご」からセットできます）";
+    return;
+  }
+  const egg = getEggType(settingEgg.type);
+  const rest = egg.needed - settingEgg.progress;
+  petSettingText.appendChild(
+    document.createTextNode("セット中：🥚 " + egg.name + " " + egg.stars + "（集中 あと " + rest + " 回でかえる）")
+  );
+  petSettingText.appendChild(createPetButton("取り出す", cancelEgg, false));
+}
+
+// 持っている卵の一覧（種類ごとに数と「セット」ボタン）
+function renderEggList() {
+  eggList.innerHTML = "";
+  let hasEgg = false;
+  for (let i = 0; i < EGG_TYPES.length; i++) {
+    const egg = EGG_TYPES[i];
+    const count = eggs[egg.type] || 0;
+    if (count === 0) {
+      continue; // 持っていない卵は出さない
+    }
+    hasEgg = true;
+    const row = document.createElement("li");
+    row.className = "pet-row rank-" + egg.rank;
+    row.appendChild(document.createTextNode("🥚 " + egg.name + " " + egg.stars + " ×" + count + "（" + egg.needed + "回でかえる）"));
+    row.appendChild(
+      createPetButton("セット", function () {
+        setEgg(egg.type);
+      }, settingEgg !== null)
+    );
+    eggList.appendChild(row);
+  }
+  if (!hasEgg) {
+    eggList.innerHTML = "<li class=\"pet-empty\">まだありません（ガチャで 5% の確率で出ます）</li>";
+  }
+}
+
+// 仲間のペットの一覧（数と「連れていく」ボタン）
+function renderPetList() {
+  petList.innerHTML = "";
+  let hasPet = false;
+  for (let i = 0; i < PETS.length; i++) {
+    const pet = PETS[i];
+    const count = pets[pet.id] || 0;
+    if (count === 0) {
+      continue; // まだ仲間になっていないペットは出さない
+    }
+    hasPet = true;
+    const row = document.createElement("li");
+    row.className = "pet-row rank-" + pet.rank;
+    row.appendChild(document.createTextNode(pet.icon + " " + pet.name + (count >= 2 ? " ×" + count : "")));
+
+    const isActive = activePet === pet.id;
+    const button = createPetButton(isActive ? "連れていく中" : "連れていく", function () {
+      toggleActivePet(pet.id);
+    }, false);
+    button.classList.toggle("is-active", isActive);
+    row.appendChild(button);
+    petList.appendChild(row);
+  }
+  if (!hasPet) {
+    petList.innerHTML = "<li class=\"pet-empty\">まだいません（卵をセットして、集中タイムを終えるとかえります）</li>";
+  }
 }
 
 // タイマーが終わったときの演出を列に並べる（集中が終わったときはファンファーレ、休けいのときはキラキラの音）
@@ -2535,8 +2919,9 @@ function renderTimer() {
   timerWalkerBox.style.left = progress * 100 + "%";
   timerWalkerBox.style.transform = "translateX(-" + progress * 100 + "%)";
 
-  // 動いているときだけ、キャラを歩かせる（上下にはねる）
+  // 動いているときだけ、キャラとペットを歩かせる（上下にはねる）
   timerWalker.classList.toggle("is-walking", isTimerRunning());
+  timerPet.classList.toggle("is-walking", isTimerRunning());
 
   // 動いているときはスタートを、止まっているときは一時停止を押せなくする
   timerStartButton.disabled = isTimerRunning();
@@ -2768,3 +3153,7 @@ renderSoundButton();
 
 // ポモドーロタイマーを表示する（最初は、集中 25:00 で止まっている）
 renderTimer();
+
+// 連れていくペットを描いて、ペットのカードを表示する
+drawPets();
+renderPets();

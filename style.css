@@ -1371,3 +1371,123 @@ h1 {
   font-size: 18px;
   line-height: 1.2;
 }
+
+/* メイン画面のペット（景色の左下に、キャラの足もとに少し重ねて置く） */
+.pet-canvas {
+  position: absolute;
+  left: 0;
+  bottom: 6px;
+  width: 80px;
+  height: 80px;
+  image-rendering: pixelated;
+  z-index: 1; /* キャラより手前に描く */
+}
+
+/* 見えないようにする設定（hidden）を、確実に効かせる */
+.pet-canvas[hidden],
+.timer-pet[hidden] {
+  display: none;
+}
+
+/* 歩くキャラの箱の中で、ペットとキャラを横に並べる（ペットが左＝うしろ） */
+.timer-walker-box {
+  display: flex;
+  align-items: flex-end;
+}
+
+/* タイマーで一緒に歩くペット */
+.timer-pet {
+  display: block;
+  width: 40px;
+  height: 40px;
+  image-rendering: pixelated;
+}
+
+/* ペットも、動いているときは上下にはねる（キャラと少しずらしてはねる） */
+.timer-pet.is-walking {
+  animation: walk-bounce 0.5s infinite 0.25s;
+}
+
+/* ペットのカード（タイマーのカードとのあいだに、すき間をあける） */
+.pet-card {
+  margin-top: 12px;
+}
+
+/* 「セット中：…」 */
+.pet-setting {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px;
+  font-size: 13px;
+  font-weight: bold;
+  background-color: #ffffff;
+  border-radius: 6px;
+}
+
+/* 卵とペットの一覧 */
+.pet-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* 卵・ペット1つ分の行（ランクの色の線を左に付ける） */
+.pet-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  padding: 6px 8px;
+  font-size: 13px;
+  background-color: #ffffff;
+  border-left: 5px solid #cccccc;
+  border-radius: 4px;
+}
+
+.pet-row.rank-2 {
+  border-left-color: #2e6bd6;
+}
+
+.pet-row.rank-3 {
+  border-left-color: #d4a017;
+}
+
+/* まだ何もないときの説明 */
+.pet-empty {
+  font-size: 12px;
+  color: #888888;
+  text-align: center;
+}
+
+/* 「セット」「取り出す」「連れていく」のボタン */
+.pet-button {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: bold;
+  background-color: #d4a017;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+/* 連れていく中のペットのボタン（紺色） */
+.pet-button.is-active {
+  background-color: #1e2040;
+}
+
+/* 押せないボタン（すでに卵をセットしているとき）は薄くする */
+.pet-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* 確率の表の、卵の行（ピンクの線） */
+.gacha-rate.is-egg {
+  border-left-color: #e88fb0;
+}
