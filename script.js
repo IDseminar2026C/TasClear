@@ -229,6 +229,9 @@ let focusDate = "";
 // 日付ごとの、撃破した数の記録（{ "2026-10-01": 5, "2026-10-02": 3 } のような形）
 let defeatHistory = {};
 
+// 日付ごとの、集中タイム（ポモドーロ）を終えた回数の記録（{ "2026-10-01": 3 } のような形）
+let focusHistory = {};
+
 // カレンダーで見ている年と月（月は 0〜11。1月が 0）と、押して選んでいる日（「2026-10-05」のような文字）
 let calendarYear = new Date().getFullYear();
 let calendarMonth = new Date().getMonth();
@@ -1734,6 +1737,7 @@ function savePlayer() {
     pets: pets,
     activePets: activePets,
     defeatHistory: defeatHistory,
+    focusHistory: focusHistory,
   };
   localStorage.setItem(PLAYER_KEY, JSON.stringify(player));
 }
@@ -1766,6 +1770,7 @@ function loadPlayer() {
     activePets = loadActivePets(player);
     giveStarterPets(false); // 最初からいるペットを持っていなければ、仲間に入れる（連れていくペットは変えない）
     defeatHistory = player.defeatHistory || {};
+    focusHistory = player.focusHistory || {}; // 前の形の保存データには無いので、そのときは空
     console.log("プレイヤーの状態を読み込みました", player);
   } catch (error) {
     console.log("プレイヤーの保存データが壊れていたので、0 から始めます");
@@ -1783,6 +1788,7 @@ function loadPlayer() {
     pets = {};
     activePets = [];
     defeatHistory = {};
+    focusHistory = {};
     giveStarterPets(true); // データが壊れていたときも、初めての人と同じように、最初からいるペットを入れる
   }
 }
@@ -2599,6 +2605,10 @@ function fillTodayHistory() {
   if (defeatHistory[today] === undefined && todayDate === today && todayCount > 0) {
     defeatHistory[today] = todayCount;
   }
+  // 集中の回数も同じように、記録がまだなければ「今日の集中：〇回」の数から入れておく
+  if (focusHistory[today] === undefined && focusDate === today && focusCount > 0) {
+    focusHistory[today] = focusCount;
+  }
 }
 
 // その日が締切のクエストを、まとめて返す
@@ -2684,11 +2694,12 @@ function createCalendarDay(year, month, day) {
   number.textContent = day;
   cell.appendChild(number);
 
-  // 📝 やること（締切までのクエスト）・⚔️ 撃破した数・📅 締切のクエストの数・🔁 クリアした習慣の数（0 のときは出さない）
+  // 📝 やること（締切までのクエスト）・⚔️ 撃破した数・📅 締切のクエストの数・🔁 クリアした習慣の数・🍅 集中した回数（0 のときは出さない）
   const actives = getActiveQuestsOn(dateText).length;
   const defeats = defeatHistory[dateText] || 0;
   const deadlines = getDeadlineQuests(dateText).length;
   const habitsDone = getHabitsDoneOn(dateText).length;
+  const focuses = focusHistory[dateText] || 0;
   if (actives > 0) {
     cell.appendChild(createCalendarMark("📝" + actives, hasOverdueActiveOn(dateText) ? "is-overdue" : "is-task"));
   }
@@ -2700,6 +2711,9 @@ function createCalendarDay(year, month, day) {
   }
   if (habitsDone > 0) {
     cell.appendChild(createCalendarMark("🔁" + habitsDone, "is-habit"));
+  }
+  if (focuses > 0) {
+    cell.appendChild(createCalendarMark("🍅" + focuses, "is-focus"));
   }
 
   // 押したら、その日を選んで、くわしい中身を出す
@@ -2783,6 +2797,9 @@ function renderCalendarDetail() {
       return habit.name;
     }).join("、"));
   }
+
+  // 🍅 この日に集中タイム（ポモドーロ）を終えた回数
+  addDetailLine("🍅 集中した回数：" + (focusHistory[selectedDate] || 0) + "回");
 }
 
 // くわしい中身に、1行を足す
@@ -3739,9 +3756,11 @@ function pauseTimer() {
   renderTimer();
 }
 
-// 「↺ リセット」：タイマーを止めて、今の集中・休けいの最初の時間に戻す
+// 右のボタン（集中中は「↺ リセット」、休けい中は「⏭ スキップ」）：タイマーを止めて、集中タイムの最初（25:00）に戻す
+// 休けいは集中の回数に入らないので、回数・カレンダー・卵はそのまま。演出と音も出さない
 function resetTimer() {
   stopTimerInterval();
+  timerMode = "focus"; // 休けい中に押しても、集中タイムに戻す
   timerRemaining = getTimerLength(timerMode);
   renderTimer();
 }
@@ -3770,6 +3789,10 @@ function finishTimer() {
     // 今日の集中の回数を1増やして保存する（日付が変わっていたら、先に 0 に戻す）
     resetFocusCountIfNewDay();
     focusCount = focusCount + 1;
+
+    // カレンダーのために、今日集中した回数を記録して、カレンダーを表示し直す
+    focusHistory[focusDate] = (focusHistory[focusDate] || 0) + 1;
+    renderCalendar();
     savePlayer();
     addTimerEffect("🍅 集中おわり！\n休けいしよう", true);
     timerMode = "break";
@@ -4108,6 +4131,13 @@ function renderTimer() {
   // 動いているときはスタートを、止まっているときは一時停止を押せなくする
   timerStartButton.disabled = isTimerRunning();
   timerPauseButton.disabled = !isTimerRunning();
+
+  // 右のボタンの文字：集中タイムは「↺ リセット」、休けいタイムは「⏭ スキップ」（押したときの動きは同じ）
+  if (timerMode === "break") {
+    timerResetButton.textContent = "⏭ スキップ";
+  } else {
+    timerResetButton.textContent = "↺ リセット";
+  }
 
   // 今日の集中の回数（前の日の数のままにならないように、日付を確かめてから出す）
   resetFocusCountIfNewDay();
