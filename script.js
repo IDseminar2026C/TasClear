@@ -22,6 +22,9 @@ const todayQuest = document.getElementById("today-quest");
 const habitList = document.getElementById("habit-list");
 const habitCheckbox = document.getElementById("habit-checkbox");
 
+// 締切の日付を選ぶ欄
+const deadlineInput = document.getElementById("deadline-input");
+
 // 「他のタスク ▽」のボタン
 const otherToggle = document.getElementById("other-toggle");
 
@@ -47,6 +50,14 @@ const timerStartButton = document.getElementById("timer-start-button");
 const timerPauseButton = document.getElementById("timer-pause-button");
 const timerResetButton = document.getElementById("timer-reset-button");
 const timerCountText = document.getElementById("timer-count");
+
+// カレンダーの部品
+const calendarTitle = document.getElementById("calendar-title");
+const calendarGrid = document.getElementById("calendar-grid");
+const calendarDetail = document.getElementById("calendar-detail");
+const calendarPrevButton = document.getElementById("calendar-prev");
+const calendarNextButton = document.getElementById("calendar-next");
+const calendarThisMonthButton = document.getElementById("calendar-this-month");
 
 // ペットの部品（メイン画面のペット、タイマーで歩くペット、ペットのカード）
 const petCanvas = document.getElementById("pet-canvas");
@@ -207,6 +218,14 @@ let timerInterval = null;
 // 今日、集中タイムを何回終えたかと、それが何日の数なのか
 let focusCount = 0;
 let focusDate = "";
+
+// 日付ごとの、撃破した数の記録（{ "2026-10-01": 5, "2026-10-02": 3 } のような形）
+let defeatHistory = {};
+
+// カレンダーで見ている年と月（月は 0〜11。1月が 0）と、押して選んでいる日（「2026-10-05」のような文字）
+let calendarYear = new Date().getFullYear();
+let calendarMonth = new Date().getMonth();
+let selectedDate = "";
 
 // ガチャのランク。chance は出る確率（3つ足すと 1 になるようにする）
 const GACHA_RANKS = [
@@ -1039,6 +1058,7 @@ function savePlayer() {
     settingEgg: settingEgg,
     pets: pets,
     activePet: activePet,
+    defeatHistory: defeatHistory,
   };
   localStorage.setItem(PLAYER_KEY, JSON.stringify(player));
 }
@@ -1068,6 +1088,7 @@ function loadPlayer() {
     settingEgg = player.settingEgg || null;
     pets = player.pets || {};
     activePet = player.activePet || null;
+    defeatHistory = player.defeatHistory || {};
     console.log("プレイヤーの状態を読み込みました", player);
   } catch (error) {
     console.log("プレイヤーの保存データが壊れていたので、0 から始めます");
@@ -1084,6 +1105,7 @@ function loadPlayer() {
     settingEgg = null;
     pets = {};
     activePet = null;
+    defeatHistory = {};
   }
 }
 
@@ -1183,8 +1205,30 @@ function renderStatus() {
 
 // quests 配列を localStorage に保存する
 // （localStorage には文字しか入らないので、JSON という形の文字に変えてしまいます）
+// （保存する前に、締切が近い順に並べかえる）
 function saveQuests() {
+  sortQuests();
   localStorage.setItem(QUESTS_KEY, JSON.stringify(quests));
+}
+
+// クエストを並べかえる
+//   1. まだ撃破していないクエストが先、撃破済みはあと
+//   2. まだ撃破していない中では、📌 ピン止めしたクエストが先
+//   3. 同じピン止めの状態の中では、締切が近い順（締切のないクエストはいちばん下）
+//   4. ここまでが同じなら、今の順番のまま（sort は、同じものどうしの順番を変えません）
+function sortQuests() {
+  quests.sort(function (a, b) {
+    return getSortKey(a).localeCompare(getSortKey(b));
+  });
+}
+
+// 並べかえに使う「くらべるための文字」を返す（この文字が小さいクエストほど上に来る）
+// 例：まだ撃破していない・ピン止め・締切 10/5 → "0-0-2026-10-05"
+function getSortKey(quest) {
+  const doneKey = quest.done ? "1" : "0";
+  const pinKey = isPinned(quest) && !quest.done ? "0" : "1";
+  const deadlineKey = quest.deadline || "9999-99-99"; // 締切なしは、いちばんあとの日付として扱う
+  return doneKey + "-" + pinKey + "-" + deadlineKey;
 }
 
 // localStorage から、保存しておいたクエスト一覧を取り出す
@@ -1855,17 +1899,363 @@ function renameQuest(index) {
   console.log("クエスト名を直しました", quests[index]);
 }
 
+// ===== カレンダー =====
+
+// 年・月（0〜11）・日から、「2026-10-05」のような日付の文字を作って返す
+function makeDateText(year, month, day) {
+  return year + "-" + String(month + 1).padStart(2, "0") + "-" + String(day).padStart(2, "0");
+}
+
+// 今日の分の撃破数がまだ記録されていなければ、「今日 〇体 撃破」の数から入れておく
+// （カレンダーの記録を始める前に撃破した、今日の分のため）
+function fillTodayHistory() {
+  const today = getTodayString();
+  if (defeatHistory[today] === undefined && todayDate === today && todayCount > 0) {
+    defeatHistory[today] = todayCount;
+  }
+}
+
+// その日が締切のクエストを、まとめて返す
+function getDeadlineQuests(dateText) {
+  return quests.filter(function (quest) {
+    return quest.deadline === dateText;
+  });
+}
+
+// その日に「まだ撃破していない、締切のあるクエスト」を、まとめて返す（締切までの毎日に出すため）
+//   ・始まりの日：追加した日（追加した日の記録がない、前からあるクエストは今日）
+//   ・終わりの日：締切の日（締切をすぎていたら、今日まで）
+function getActiveQuestsOn(dateText) {
+  const today = getTodayString();
+  return quests.filter(function (quest) {
+    if (quest.done || !quest.deadline) {
+      return false; // 撃破済みと、締切のないクエストは出さない
+    }
+    const start = quest.createdDate || today;
+    let end = quest.deadline;
+    if (end < today) {
+      end = today; // 締切をすぎていたら、今日まで出しつづける
+    }
+    return start <= dateText && dateText <= end;
+  });
+}
+
+// その日にやるクエストの中に、その日の時点で締切をすぎているものがあるかを返す（あればマスの 📝 を赤くする）
+// （締切より前の日のマスは、赤くしない）
+function hasOverdueActiveOn(dateText) {
+  return getActiveQuestsOn(dateText).some(function (quest) {
+    return quest.deadline < dateText;
+  });
+}
+
+// その日にクリアした習慣を、まとめて返す
+function getHabitsDoneOn(dateText) {
+  return habits.filter(function (habit) {
+    return habit.doneDates.includes(dateText);
+  });
+}
+
+// その日に、締切をすぎて、まだ撃破していないクエストがあるかを返す（あればマスの 📅 を赤くする）
+function hasOverdueOn(dateText) {
+  return getDeadlineQuests(dateText).some(function (quest) {
+    return !quest.done && getDeadlineStatus(dateText) === "overdue";
+  });
+}
+
+// マスの中の小さなしるし（「⚔️3」など）を1つ作って返す
+function createCalendarMark(text, className) {
+  const mark = document.createElement("span");
+  mark.className = "calendar-mark " + className;
+  mark.textContent = text;
+  return mark;
+}
+
+// 日付のマスを1つ作って返す
+function createCalendarDay(year, month, day) {
+  const dateText = makeDateText(year, month, day);
+  const cell = document.createElement("button");
+  cell.type = "button";
+  cell.className = "calendar-day";
+
+  // 曜日（0 が日曜、6 が土曜）で、日付の数字の色を変える目印を付ける
+  const weekday = new Date(year, month, day).getDay();
+  if (weekday === 0) {
+    cell.classList.add("is-sunday");
+  }
+  if (weekday === 6) {
+    cell.classList.add("is-saturday");
+  }
+  if (dateText === getTodayString()) {
+    cell.classList.add("is-today"); // 今日は金色の枠
+  }
+  if (dateText === selectedDate) {
+    cell.classList.add("is-selected"); // 押して選んでいる日
+  }
+
+  // 日付の数字
+  const number = document.createElement("span");
+  number.className = "calendar-number";
+  number.textContent = day;
+  cell.appendChild(number);
+
+  // 📝 やること（締切までのクエスト）・⚔️ 撃破した数・📅 締切のクエストの数・🔁 クリアした習慣の数（0 のときは出さない）
+  const actives = getActiveQuestsOn(dateText).length;
+  const defeats = defeatHistory[dateText] || 0;
+  const deadlines = getDeadlineQuests(dateText).length;
+  const habitsDone = getHabitsDoneOn(dateText).length;
+  if (actives > 0) {
+    cell.appendChild(createCalendarMark("📝" + actives, hasOverdueActiveOn(dateText) ? "is-overdue" : "is-task"));
+  }
+  if (defeats > 0) {
+    cell.appendChild(createCalendarMark("⚔️" + defeats, "is-defeat"));
+  }
+  if (deadlines > 0) {
+    cell.appendChild(createCalendarMark("📅" + deadlines, hasOverdueOn(dateText) ? "is-overdue" : "is-deadline"));
+  }
+  if (habitsDone > 0) {
+    cell.appendChild(createCalendarMark("🔁" + habitsDone, "is-habit"));
+  }
+
+  // 押したら、その日を選んで、くわしい中身を出す
+  cell.addEventListener("click", function () {
+    selectedDate = dateText;
+    renderCalendar();
+  });
+  return cell;
+}
+
+// カレンダー（月のマス目と、選んでいる日のくわしい中身）を表示し直す
+function renderCalendar() {
+  if (selectedDate === "") {
+    selectedDate = getTodayString(); // 最初は今日を選んでおく
+  }
+  calendarTitle.textContent = calendarYear + "年" + (calendarMonth + 1) + "月";
+
+  calendarGrid.innerHTML = "";
+
+  // 1日が何曜日かを調べて、その前を空のマスでうめる（日曜はじまり）
+  const firstWeekday = new Date(calendarYear, calendarMonth, 1).getDay();
+  for (let i = 0; i < firstWeekday; i++) {
+    const blank = document.createElement("span");
+    blank.className = "calendar-blank";
+    calendarGrid.appendChild(blank);
+  }
+
+  // その月の日数（次の月の「0日」は、その月の最後の日になる）
+  const daysInMonth = new Date(calendarYear, calendarMonth + 1, 0).getDate();
+  for (let day = 1; day <= daysInMonth; day++) {
+    calendarGrid.appendChild(createCalendarDay(calendarYear, calendarMonth, day));
+  }
+
+  renderCalendarDetail();
+}
+
+// 選んでいる日の、くわしい中身を表示し直す
+function renderCalendarDetail() {
+  calendarDetail.innerHTML = "";
+
+  // 「10月5日（月）」の見出し
+  const parts = selectedDate.split("-");
+  const heading = document.createElement("h3");
+  heading.className = "calendar-detail-title";
+  heading.textContent = Number(parts[1]) + "月" + Number(parts[2]) + "日" + formatDeadline(selectedDate).replace(/^[0-9]+\/[0-9]+/, "");
+  calendarDetail.appendChild(heading);
+
+  // 📝 この日にやること（まだ撃破していない、締切までのクエスト）
+  const activeQuests = getActiveQuestsOn(selectedDate);
+  if (activeQuests.length === 0) {
+    addDetailLine("📝 この日にやること：なし");
+  } else {
+    addDetailLine("📝 この日にやること：");
+    for (let i = 0; i < activeQuests.length; i++) {
+      const quest = activeQuests[i];
+      const mark = quest.deadline < selectedDate ? "⚠️ " : ""; // その日の時点で締切をすぎていたら ⚠️
+      addDetailLine("　・" + mark + quest.name + "（" + formatDeadline(quest.deadline) + "まで）");
+    }
+  }
+
+  // ⚔️ 撃破した数
+  addDetailLine("⚔️ 撃破した数：" + (defeatHistory[selectedDate] || 0) + "体");
+
+  // 📅 この日が締切のクエスト（撃破済み・期限切れ・今日まで・まだ）
+  const deadlineQuests = getDeadlineQuests(selectedDate);
+  if (deadlineQuests.length === 0) {
+    addDetailLine("📅 この日が締切：なし");
+  } else {
+    addDetailLine("📅 この日が締切：");
+    for (let i = 0; i < deadlineQuests.length; i++) {
+      addDetailLine("　・" + deadlineQuests[i].name + "（" + getDeadlineState(deadlineQuests[i]) + "）");
+    }
+  }
+
+  // 🔁 この日にクリアした習慣
+  const habitsDone = getHabitsDoneOn(selectedDate);
+  if (habitsDone.length === 0) {
+    addDetailLine("🔁 クリアした習慣：なし");
+  } else {
+    addDetailLine("🔁 クリアした習慣：" + habitsDone.map(function (habit) {
+      return habit.name;
+    }).join("、"));
+  }
+}
+
+// くわしい中身に、1行を足す
+function addDetailLine(text) {
+  const line = document.createElement("p");
+  line.className = "calendar-detail-line";
+  line.textContent = text;
+  calendarDetail.appendChild(line);
+}
+
+// 締切のクエストの状態を、短い文字で返す
+function getDeadlineState(quest) {
+  if (quest.done) {
+    return "✅ 撃破済み";
+  }
+  const status = getDeadlineStatus(quest.deadline);
+  if (status === "overdue") {
+    return "⚠️ 期限切れ";
+  }
+  if (status === "today") {
+    return "⏰ 今日まで";
+  }
+  return "まだ";
+}
+
+// カレンダーの月を、step（-1 なら前の月、1 なら次の月）だけ動かす
+function moveCalendarMonth(step) {
+  calendarMonth = calendarMonth + step;
+  // 0 より小さくなったら前の年の12月、11 より大きくなったら次の年の1月にする
+  if (calendarMonth < 0) {
+    calendarMonth = 11;
+    calendarYear = calendarYear - 1;
+  }
+  if (calendarMonth > 11) {
+    calendarMonth = 0;
+    calendarYear = calendarYear + 1;
+  }
+  renderCalendar();
+}
+
+// 「今月」：今日の月に戻して、今日を選ぶ
+function showThisMonth() {
+  const now = new Date();
+  calendarYear = now.getFullYear();
+  calendarMonth = now.getMonth();
+  selectedDate = getTodayString();
+  renderCalendar();
+}
+
+// ===== 締切 =====
+
+// 「2026-10-05」のような日付の文字を、「10/5（月）」のような文字にして返す
+function formatDeadline(dateText) {
+  const parts = dateText.split("-"); // ["2026", "10", "05"] に分ける
+  const date = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])); // 月は 0 から数えるので -1
+  const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
+  return (date.getMonth() + 1) + "/" + date.getDate() + "（" + weekdays[date.getDay()] + "）";
+}
+
+// 締切が「今日より前（期限切れ）」「今日」「まだ先」のどれかを返す
+// （「2026-10-05」の形の文字は、そのまま大小をくらべると、日付の前後がわかります）
+function getDeadlineStatus(dateText) {
+  const today = getTodayString();
+  if (dateText < today) {
+    return "overdue";
+  }
+  if (dateText === today) {
+    return "today";
+  }
+  return "future";
+}
+
+// 締切の表示の文字を返す（締切がないときは「締切なし」）
+function getDeadlineText(quest) {
+  if (!quest.deadline) {
+    return "📅 締切なし";
+  }
+  const status = getDeadlineStatus(quest.deadline);
+  if (quest.done || status === "future") {
+    return "📅 " + formatDeadline(quest.deadline) + "まで";
+  }
+  if (status === "today") {
+    return "⏰ 今日まで";
+  }
+  return "⚠️ " + formatDeadline(quest.deadline) + "まで 期限切れ";
+}
+
+// 締切の表示を作って返す
+// まだ撃破していないクエストは、押すとカレンダーが出て、締切を変えられる
+function createDeadlineLabel(quest, index) {
+  // 撃破済みのクエストは、締切があるときだけ、ただの文字として出す（変えられない）
+  if (quest.done) {
+    const text = document.createElement("span");
+    text.className = "deadline-label";
+    text.textContent = quest.deadline ? getDeadlineText(quest) : "";
+    return text;
+  }
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "deadline-label deadline-button";
+  button.textContent = getDeadlineText(quest) + " ✏️";
+
+  // 今日まで・期限切れのときは、色を付ける目印を付ける
+  if (quest.deadline) {
+    button.classList.add("is-" + getDeadlineStatus(quest.deadline));
+  }
+
+  // カレンダーを出すための、見えない日付の欄（ボタンの中に入れておく）
+  const picker = document.createElement("input");
+  picker.type = "date";
+  picker.className = "deadline-picker";
+  picker.value = quest.deadline || "";
+  picker.tabIndex = -1; // キーボードの Tab キーでは選ばないようにする
+  picker.addEventListener("change", function () {
+    changeDeadline(index, picker.value); // 日付を消したら、締切なしになる
+  });
+  button.appendChild(picker);
+
+  // ボタンを押したら、カレンダーを出す
+  button.addEventListener("click", function () {
+    openDeadlinePicker(picker, index);
+  });
+  return button;
+}
+
+// 見えない日付の欄の、カレンダーを出す
+// （カレンダーを出す仕組みがない古いブラウザでは、代わりに日付を文字で入力してもらう）
+function openDeadlinePicker(picker, index) {
+  try {
+    picker.showPicker();
+  } catch (error) {
+    const input = prompt("締切の日付を「2026-10-05」の形で入力してください（空にすると締切なし）", picker.value);
+    if (input !== null) {
+      changeDeadline(index, input.trim());
+    }
+  }
+}
+
+// index 番目のクエストの締切を変えて保存する（空なら締切なし）
+function changeDeadline(index, dateText) {
+  quests[index].deadline = dateText;
+  saveQuests();
+  renderQuests();
+  console.log("締切を変えました", quests[index]);
+}
+
 // index 番目から step の向き（-1 なら上、1 なら下）に見ていき、
 // いちばん近い「まだ撃破していないクエスト」が何番目かを返す（無いときは -1）
-// ただし、ピン止めしているかどうかがちがうクエストとは入れ替えないので、そのときも -1 を返す
+// ただし、ピン止めしているかどうか・締切がちがうクエストとは入れ替えないので、そのときも -1 を返す
+// （締切が近い順に自動で並べているので、同じピン止めの状態で同じ締切のクエストどうしだけ入れ替えられる）
 function findUndoneNeighbor(index, step) {
   let i = index + step;
   while (i >= 0 && i < quests.length) {
     if (!quests[i].done) {
-      if (isPinned(quests[i]) === isPinned(quests[index])) {
+      if (getSortKey(quests[i]) === getSortKey(quests[index])) {
         return i;
       }
-      return -1; // ピン止めの境目なので、ここより先には動かせない
+      return -1; // ピン止めや締切の境目なので、ここより先には動かせない
     }
     i = i + step;
   }
@@ -1903,6 +2293,7 @@ function togglePin(index) {
   quest.pinned = !isPinned(quest);
 
   // ピン止めしている未撃破のクエストのうち、いちばん下のもののすぐ後ろに入れる
+  // （このあと保存するときに締切が近い順に並べかえるので、最後はピン止めの中の、締切の順の場所に入る）
   let position = 0;
   for (let i = 0; i < quests.length; i++) {
     if (isPinned(quests[i]) && !quests[i].done) {
@@ -2002,7 +2393,12 @@ function createQuestItem(quest, index) {
   }
 
   // 1行を2段に分ける（上の段：名前とEXP、下の段：ボタン）
+  // 締切は、名前が細かく折り返されないように、上の段と下の段のあいだに1行で出す
+  // （撃破済みで締切がないクエストは、何も出さない）
   item.appendChild(createQuestItemTop(quest, index));
+  if (!quest.done || quest.deadline) {
+    item.appendChild(createDeadlineLabel(quest, index));
+  }
   item.appendChild(createQuestItemBottom(quest, index));
   return item;
 }
@@ -2126,6 +2522,9 @@ function createTodayItem(quest, index) {
   }
   item.appendChild(nameLine);
 
+  // クエスト名の下に、締切（押すと変えられる）
+  item.appendChild(createDeadlineLabel(quest, index));
+
   // 「（〇 EXP get）」と、ボタンを横に並べる行
   const row = document.createElement("div");
   row.className = "today-row";
@@ -2192,6 +2591,9 @@ function renderQuests() {
 
   // 毎日の習慣のカードも表示し直す（レベルアップ中に撃破ボタンを隠すのも、ここで反映する）
   renderHabits();
+
+  // カレンダーも表示し直す（締切や撃破の数が変わったときのため）
+  renderCalendar();
 }
 
 // 撃破済みのクエストが何件あるか数えて返す
@@ -3014,7 +3416,8 @@ function toggleOtherQuests() {
 }
 
 // 新しいクエストを追加する
-function addQuest(questName) {
+// deadline は締切の日付（「2026-10-05」のような文字。締切なしなら ""）
+function addQuest(questName, deadline) {
   // 50回に1回くらいの確率で、レアなクエストにする
   // （Math.random() は 0 以上 1 未満のランダムな数。それが RARE_CHANCE より小さければレア）
   const isRare = Math.random() < RARE_CHANCE;
@@ -3024,6 +3427,8 @@ function addQuest(questName) {
     exp: getRandomExp(20, 30), // 20〜30 のランダムな獲得EXP
     done: false,
     rare: isRare, // レアなクエストかどうか
+    deadline: deadline || "", // 締切の日付（締切なしなら ""）
+    createdDate: getTodayString(), // 追加した日（カレンダーで、締切までの毎日に出すときの始まりの日）
   };
 
   // レアなクエストなら、EXP を 100 にして、「あらわれた！」の演出を出す
@@ -3080,6 +3485,10 @@ function giveDefeatRewards(exp, isRare) {
   resetTodayCountIfNewDay();
   todayCount = todayCount + 1;
 
+  // カレンダーのために、今日撃破した数を記録する
+  const today = getTodayString();
+  defeatHistory[today] = (defeatHistory[today] || 0) + 1;
+
   // コインを足す（レアなクエストは多めにもらえる）
   if (isRare) {
     coins = coins + COIN_PER_RARE_DEFEAT;
@@ -3108,6 +3517,13 @@ function loadHabits() {
   // 保存されたデータが壊れていても止まらないように、try で囲みます
   try {
     habits = JSON.parse(saved);
+
+    // 前の形の保存データには、クリアした日の記録（doneDates）が無いので、最後にクリアした日から作る
+    for (let i = 0; i < habits.length; i++) {
+      if (!habits[i].doneDates) {
+        habits[i].doneDates = habits[i].doneDate ? [habits[i].doneDate] : [];
+      }
+    }
   } catch (error) {
     console.log("習慣の保存データが壊れていたので、空の一覧から始めます");
     habits = [];
@@ -3120,6 +3536,7 @@ function addHabit(habitName) {
     name: habitName,
     exp: getRandomExp(20, 30),
     doneDate: "", // まだ一度も撃破していない
+    doneDates: [], // クリアした日の記録（カレンダーで使う）
   };
   habits.push(newHabit);
   saveHabits();
@@ -3144,6 +3561,7 @@ function defeatHabit(index) {
   const countBefore = todayCount;
 
   habit.doneDate = getTodayString();
+  habit.doneDates.push(habit.doneDate); // カレンダーのために、クリアした日を全部覚えておく
   saveHabits();
   giveDefeatRewards(habit.exp, false);
   console.log("習慣を撃破しました", habit);
@@ -3270,13 +3688,22 @@ questForm.addEventListener("submit", function (event) {
   if (habitCheckbox.checked) {
     addHabit(questName);
   } else {
-    addQuest(questName);
+    addQuest(questName, deadlineInput.value); // 締切の欄が空なら、締切なし
   }
   renderQuests(); // この中で、習慣のカードも表示し直す
+
+  // 締切の欄も空に戻す
+  deadlineInput.value = "";
 
   // 入力欄を空にして、続けて入力できるようにする
   questInput.value = "";
   questInput.focus();
+});
+
+// 「🔁 毎日の習慣として追加」のチェックを付けたり外したりしたとき
+// （習慣は毎日なので締切はない。チェックが付いている間は、締切の欄を押せなくする）
+habitCheckbox.addEventListener("change", function () {
+  deadlineInput.disabled = habitCheckbox.checked;
 });
 
 // 「他のタスク ▽」のボタンが押されたとき
@@ -3296,6 +3723,15 @@ gachaTenButton.addEventListener("click", drawGachaTen);
 
 // 音のボタンが押されたとき
 soundButton.addEventListener("click", toggleSound);
+
+// カレンダーの ◀ ▶ 「今月」のボタンが押されたとき
+calendarPrevButton.addEventListener("click", function () {
+  moveCalendarMonth(-1);
+});
+calendarNextButton.addEventListener("click", function () {
+  moveCalendarMonth(1);
+});
+calendarThisMonthButton.addEventListener("click", showThisMonth);
 
 // ポモドーロタイマーのボタンが押されたとき
 timerStartButton.addEventListener("click", startTimer);
@@ -3319,13 +3755,16 @@ clearDoneButton.addEventListener("click", function () {
 
 // 保存しておいたクエストを取り出して、一覧に表示する
 loadQuests();
+sortQuests(); // 今までのデータも、締切が近い順に並べる
 loadHabits(); // 毎日の習慣も取り出す（表示は、renderQuests の中で行う）
 renderQuests();
 
 // 保存しておいた累計EXPを取り出して、ステータスを表示する
 loadPlayer();
 resetTodayCountIfNewDay(); // 前に開いた日と違えば、今日の撃破数を 0 に戻す
+fillTodayHistory(); // カレンダーの記録がまだない、今日の分の撃破数を入れておく
 renderStatus(); // この中で、キャラクターのドット絵も描きます
+renderCalendar(); // プレイヤーの状態（撃破の記録）を読み込んだので、カレンダーを表示し直す
 
 // 保存しておいた音の設定に合わせて、音のボタンを表示する
 renderSoundButton();

@@ -66,6 +66,7 @@
       <button class="page-tab" type="button" data-page="page-gacha"><span class="tab-icon">🎰</span>ガチャ</button>
       <button class="page-tab" type="button" data-page="page-collection"><span class="tab-icon">📖</span>図鑑</button>
       <button class="page-tab" type="button" data-page="page-timer"><span class="tab-icon">⏱️</span>タイマー</button>
+      <button class="page-tab" type="button" data-page="page-calendar"><span class="tab-icon">📅</span>カレンダー</button>
     </nav>
 
     <!-- ===== メイン画面 ===== -->
@@ -90,6 +91,13 @@
       <input id="quest-input" type="text" placeholder="クエスト名を入力" autocomplete="off">
       <button type="submit">追加</button>
     </form>
+
+    <!-- 締切の日付（押すと、ブラウザのカレンダーが出ます。空のままなら締切なし） -->
+    <div class="deadline-row">
+      <label for="deadline-input">📅 締切</label>
+      <input id="deadline-input" class="deadline-input" type="date">
+      <span class="deadline-help">（なくてもOK）</span>
+    </div>
 
     <!-- チェックを付けて「追加」を押すと、クエストではなく「毎日の習慣」として登録します -->
     <label class="habit-toggle">
@@ -206,6 +214,35 @@
 
         <h3 class="gacha-subtitle">― なかま ―</h3>
         <ul id="pet-list" class="pet-list"></ul>
+      </section>
+    </div>
+
+    <!-- ===== カレンダー画面（最初は隠す） ===== -->
+    <div id="page-calendar" class="page" hidden>
+      <section class="gacha-card">
+        <h2 class="gacha-title">📅 カレンダー</h2>
+
+        <!-- 前の月・次の月・今月 -->
+        <div class="calendar-nav">
+          <button id="calendar-prev" class="calendar-nav-button" type="button" aria-label="前の月">◀</button>
+          <span id="calendar-title" class="calendar-title">2026年10月</span>
+          <button id="calendar-next" class="calendar-nav-button" type="button" aria-label="次の月">▶</button>
+          <button id="calendar-this-month" class="calendar-nav-button" type="button">今月</button>
+        </div>
+
+        <!-- 曜日の見出し -->
+        <div class="calendar-weekdays">
+          <span class="is-sunday">日</span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span class="is-saturday">土</span>
+        </div>
+
+        <!-- 日付のマス目。中身は JavaScript で作ります -->
+        <div id="calendar-grid" class="calendar-grid"></div>
+
+        <!-- マスの中のしるしの説明 -->
+        <p class="calendar-legend">📝 締切までのやること（期限切れは赤）　⚔️ 撃破した数　📅 締切のクエスト（期限切れは赤）　🔁 クリアした習慣</p>
+
+        <!-- 押した日のくわしい中身。中身は JavaScript で作ります -->
+        <div id="calendar-detail" class="calendar-detail"></div>
       </section>
     </div>
 

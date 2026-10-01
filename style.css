@@ -1082,7 +1082,7 @@ h1 {
   flex-direction: column; /* 絵文字を上、文字を下に重ねる */
   align-items: center;
   padding: 6px 2px;
-  font-size: 13px; /* タブが4つになったので、少し小さくしてスマホの幅に収める */
+  font-size: 11px; /* タブが5つになったので、小さくしてスマホの幅に収める */
   white-space: nowrap; /* 文字を折り返さない */
   font-weight: bold;
   background-color: #f5f1e6;
@@ -1368,7 +1368,7 @@ h1 {
 
 /* タブの絵文字（文字の上に、少し大きめに出す） */
 .tab-icon {
-  font-size: 18px;
+  font-size: 17px;
   line-height: 1.2;
 }
 
@@ -1511,4 +1511,222 @@ h1 {
 /* 今日クリアした習慣（薄くする） */
 .today-item.is-habit-done {
   opacity: 0.55;
+}
+
+/* 入力フォームの下の「📅 締切 [日付]（なくてもOK）」の行 */
+.deadline-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: -8px 0 8px; /* 入力フォームのすぐ下に置く */
+  font-size: 14px;
+  font-weight: bold;
+}
+
+/* 締切の日付を選ぶ欄 */
+.deadline-input {
+  padding: 4px 6px;
+  font-size: 14px;
+  border: 2px solid #cccccc;
+  border-radius: 6px;
+}
+
+/* 習慣のチェックが付いているときは、押せないので薄くする */
+.deadline-input:disabled {
+  opacity: 0.4;
+}
+
+/* 「（なくてもOK）」の説明 */
+.deadline-help {
+  font-size: 12px;
+  font-weight: normal;
+  color: #888888;
+}
+
+/* 「🔁 毎日の習慣として追加」は、締切の行の下に来たので、上に重ねる余白をなくす */
+.habit-toggle {
+  margin-top: 0;
+}
+
+/* クエストの締切の表示 */
+.deadline-label {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: #555555;
+}
+
+/* 押して締切を変えられる表示（ボタンだが、文字のように見せる） */
+.deadline-button {
+  position: relative; /* 中の見えない日付の欄を、この中に置くため */
+  margin: 0 0 6px;
+  padding: 0;
+  background: none;
+  border: none;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+/* 他のタスクの一覧の中では、下の余白をなくして、左にそろえる */
+.quest-item .deadline-label {
+  margin: 0;
+  align-self: flex-start;
+}
+
+/* 今日までの締切（オレンジ） */
+.deadline-button.is-today {
+  color: #e67e22;
+}
+
+/* 締切をすぎたクエスト（赤） */
+.deadline-button.is-overdue {
+  color: #c0392b;
+}
+
+/* カレンダーを出すための、見えない日付の欄（場所はとらずに、ボタンの中に重ねておく） */
+.deadline-picker {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* カレンダー：前の月・今の月・次の月・今月 を横に並べる */
+.calendar-nav {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+/* 「2026年10月」 */
+.calendar-title {
+  min-width: 110px;
+  font-size: 16px;
+  font-weight: bold;
+  text-align: center;
+}
+
+/* ◀ ▶ 「今月」のボタン */
+.calendar-nav-button {
+  padding: 4px 10px;
+  font-size: 13px;
+  font-weight: bold;
+  background-color: #ffffff;
+  color: #1e2040;
+  border: 2px solid #1e2040;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+/* 曜日の見出しと、日付のマス目（どちらも、同じ幅で7列に並べる） */
+.calendar-weekdays,
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+/* 曜日の見出し */
+.calendar-weekdays {
+  margin-bottom: 2px;
+  font-size: 12px;
+  font-weight: bold;
+  text-align: center;
+}
+
+/* 日曜は赤、土曜は青 */
+.is-sunday {
+  color: #c0392b;
+}
+
+.is-saturday {
+  color: #2e6bd6;
+}
+
+/* 日付のマス1つ分（数字と、小さなしるしを縦に並べる） */
+.calendar-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  min-height: 56px;
+  padding: 2px 0;
+  background-color: #ffffff;
+  border: 1px solid #dddddd;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* 曜日の色を、マスの数字にも付ける（ボタンなので、文字の色を引きつぐ） */
+.calendar-day.is-sunday .calendar-number {
+  color: #c0392b;
+}
+
+.calendar-day.is-saturday .calendar-number {
+  color: #2e6bd6;
+}
+
+/* 今日のマス（金色の太い枠） */
+.calendar-day.is-today {
+  border: 2px solid #d4a017;
+}
+
+/* 押して選んでいる日のマス（うすい黄色） */
+.calendar-day.is-selected {
+  background-color: #fff3c4;
+}
+
+/* 日付の数字 */
+.calendar-number {
+  font-size: 13px;
+  font-weight: bold;
+  color: #1e2040;
+}
+
+/* マスの中の小さなしるし（「⚔️3」など） */
+.calendar-mark {
+  font-size: 9px;
+  line-height: 1.3;
+  white-space: nowrap;
+  color: #555555;
+}
+
+/* 期限切れのクエストが残っている日の 📅 は赤 */
+.calendar-mark.is-overdue {
+  color: #c0392b;
+  font-weight: bold;
+}
+
+/* マスの中のしるしの説明 */
+.calendar-legend {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: #666666;
+}
+
+/* 押した日のくわしい中身 */
+.calendar-detail {
+  margin-top: 10px;
+  padding: 8px 10px;
+  background-color: #ffffff;
+  border-radius: 6px;
+}
+
+/* 「10月5日（月）」 */
+.calendar-detail-title {
+  margin: 0 0 4px;
+  font-size: 15px;
+}
+
+/* くわしい中身の1行 */
+.calendar-detail-line {
+  margin: 0;
+  font-size: 13px;
+  overflow-wrap: anywhere;
 }
