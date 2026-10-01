@@ -496,8 +496,10 @@ h1 {
 
 /* 勇者のドット絵（32×32マスの絵を、5倍の大きさに広げて表示する） */
 .hero-canvas {
-  width: 160px;
-  height: 160px;
+  /* 高さだけ決めて、はばは絵の形に合わせる（正方形の絵なら 150px、24×30 の縦長の絵なら 120px）
+     150px は 30行 × 5px。新しい描き方の絵の1マスが、ちょうど5pxの正方形になる */
+  width: auto;
+  height: 150px;
 
   /* 広げたときにぼやけず、ドットがくっきり見えるようにする */
   image-rendering: pixelated;
@@ -1304,8 +1306,8 @@ h1 {
 /* 歩くキャラ（32×32マスの絵を、2倍の大きさで表示する） */
 .timer-walker {
   display: block;
-  width: 64px;
-  height: 64px;
+  width: auto; /* はばは、絵の形（正方形・縦長）に合わせる */
+  height: 60px; /* 30行 × 2px。新しい描き方の絵の1マスが、ちょうど2pxになる */
   image-rendering: pixelated;
 }
 

@@ -563,148 +563,288 @@ const HERO_COLORS = {
   l: "#8fe3ff", // 装備：伝説の剣の刃（光る水色）
   b: "#5a3a1e", // 装備：旅人のブーツ（こげ茶色）
   p: "#9b59b6", // 装備：賢者の水晶（紫）
+
+  // ここから下は、新しい描き方（24×32マス）のキャラで使う色
+  // 1つの色を、明るい・ふつう・影 の2〜3段階に分けて、立体的に見せます
+  o: "#3b2314", // ふちどり（真っ黒ではなく、こい茶色）
+  y: "#f7e08a", // 麦わら帽子（明るい）
+  n: "#e2b84c", // 麦わら帽子（ふつう）
+  m: "#a87b2a", // 麦わら帽子（影）
+  h: "#c07a3e", // 髪（明るい）。ふつうは H、影は d
+  d: "#5a2e12", // 髪（影）
+  k: "#e0a87a", // はだ（影）。ふつうは S
+  w: "#ffffff", // 白目
+  e: "#2b1a10", // 黒目
+  c: "#f4a6a6", // ほっぺ（ピンク）
+  t: "#c69458", // 服（明るい）。ふつうは C、影は L
+  q: "#4a5a78", // ズボン（ふつう）
+  v: "#33415c", // ズボン（影）
+  j: "#fff1a8", // 金色の髪（明るい）。ふつうは A、影は Y
+  z: "#6fa3f0", // 青いよろい（明るい）。ふつうは B
+  x: "#1d3f8a", // 青いよろい・青い目（影）
+  a: "#e8604c", // 赤いよろい（明るい）。ふつうは R、影は Q
+  r: "#a33a1f", // 赤茶色の目
+  u: "#e08a5a", // 赤茶色の髪（明るい）
+  g: "#b5502e", // 赤茶色の髪（ふつう）。影は d
+  f: "#2e9e5b", // 緑の目（明るい）
+  i: "#1d6b3c", // 緑の目（影）
+  // アルファベットを全部使ったので、ここからは数字で色を決めます
+  1: "#ece8f8", // 銀白色の髪（明るい）
+  2: "#bdb6da", // 銀白色の髪（ふつう）
+  3: "#7f78a8", // 銀白色の髪（影）
+  4: "#e0a010", // 金色の目（明るい）
+  5: "#8a5a00", // 金色の目（影）
 };
 
 // 見習い冒険者のドット絵の設計図（16×16マス）
 // 1文字が1マスで、文字によって塗る色が決まります（「.」は塗らない）
 // 麦わら帽子・茶色の服・木の棒
+// 見習い冒険者は、新しい描き方（24×30マスの縦長。足が短い約2頭身。大きな目、3段階の色の髪と帽子、こい茶色のふちどり）
+// 麦わら帽子（赤いリボン）・茶色の髪・茶色のチュニック・青いズボン・ブーツ・木の棒
 const PIXELS_NOVICE = [
-  "................",
-  "....KKKKK.......",
-  "...KNNNNNK......",
-  ".KKNNNNNNNKK.G..",
-  "..KHSSSSSHK..G..",
-  "..KSESSSESK..G..",
-  "..KSSSSSSSK..G..",
-  "...KSSMSSK...G..",
-  "..KKCCCCCKK..G..",
-  ".KSCCCCCCCSSSG..",
-  ".KSCCCCCCCK..G..",
-  "..KCCCCCCCK..G..",
-  "..KLLLLLLLK..G..",
-  "...KCCKCCK...G..",
-  "...KCCKCCK......",
-  "..KKKK.KKKK.....",
+  "........oooooooo........",
+  "......oonyyyyyynoo......",
+  ".....onyyyyyyyyyynno....",
+  "....onyyyyyyyyyyyynmo...",
+  "....onRRRRRRRRRRRRRmo...",
+  "..oonnnnnnnnnnnnnnnnmoo.",
+  ".ommmmmmmmmmmmmmmmmmmmo.",
+  "..ooHHhHHHHHHHHHHhHHoo..",
+  "..oHHHdHHSSSSSSHHdHHHo..",
+  "..oHHdSddSSSSSSddSdHHo..",
+  "..oHdSSoooSSSSoooSSdHo..",
+  "..oHdSSTeeSSSSTeeSSdHo..",
+  "..oHdSSeeeSSSSeeeSSdHo..",
+  "..oHdSccSSSkkSSSccSdHo..",
+  "...odSSSSSSMMSSSSSSdo...",
+  "....okkSSSSSSSSSSkko....",
+  "........ookSSkoo.....G..",
+  "....oottCCCCCCCCttoo.G..",
+  "...ottCCCCttCCCCCCLLoG..",
+  "...otCCCCCCCCCCCCCCLoG..",
+  "...otCLLLLLYYLLLLLCLoG..",
+  "...oSkoCCCCCCCCCCokSoG..",
+  "....ooCtCCCCCCCCtCoo.G..",
+  ".....oCCCCCCCCCCCCo..G..",
+  ".....oLCLCLCLCLCLCo..G..",
+  ".......oqqqo..oqqqo..G..",
+  ".......ovqqo..oqqvo..G..",
+  "......oLbLLo..oLLbLo.G..",
+  ".....oLLLLLo..oLLLLLoG..",
+  ".....ooooooo..ooooooo...",
 ];
 
-// 戦士：茶色い髪・革のよろい・短い剣
+// 戦士は、新しい描き方（24×30マス。見習い冒険者と同じ体の形）
+// ツンツンとがった茶色の髪・赤いはちまき・太めのまゆ・革のよろいと肩当て・ななめのベルト・短い剣
 const PIXELS_WARRIOR = [
-  "................",
-  "....KKKKK.......",
-  "...KHHHHHK......",
-  "..KHHHHHHHK..W..",
-  "..KHSSSSSHK..W..",
-  "..KSESSSESK..W..",
-  "..KSSSSSSSK..W..",
-  "...KSSMSSK..YYY.",
-  "..KKLLLLLKK..G..",
-  ".KSLLCCCLLSSSG..",
-  ".KSLLLCLLLK..G..",
-  "..KLLLLLLLK.....",
-  "..KCCCCCCCK.....",
-  "...KLLKLLK......",
-  "...KLLKLLK......",
-  "..KKKK.KKKK.....",
+  "......o.....o.....o.....",
+  ".....oho...oho...oho....",
+  "....ohHHo.ohHHo.ohHHo...",
+  "...ohHHHHohHHHHohHHHHo..",
+  "..ohHHHHHHHHHHHHHHHHHo..",
+  "..oHHhHHHHHHHHHHHHHdHo..",
+  "..oRRRRRRRRRRRRRRRRRRoR.",
+  "..oQQQQQQQQQQQQQQQQQQo.R",
+  "..oHHHdHHSSSSSSHHdHHHo..",
+  "..oHHdSdddSSSSdddSdHHo..",
+  "..oHdSSoooSSSSoooSSdHo..",
+  "..oHdSSTeeSSSSTeeSSdHo..",
+  "..oHdSSeeeSSSSeeeSSdHo..",
+  "..oHdSccSSSkkSSSccSdHo..",
+  "...odSSSSSSMMSSSSSSdoW..",
+  "....okkSSSSSSSSSSkko.Ws.",
+  "........ookSSkoo.....Ws.",
+  "....oLCLLLLLLLLLLCLo.Ws.",
+  "...oLLLCLLbbLLLLLCLLoWs.",
+  "...oCLLLLLLbbLLLLLLLoWs.",
+  "...oCLbbbbbYYbbbbbLLoYYY",
+  "...oSkoLLLLbbLLLLokSoG..",
+  "....ooLCLLLLLLLLCLoo.G..",
+  ".....oLLLLLLLLLLLLo.....",
+  ".....oLtLtLtLtLtLto.....",
+  ".......oCCCo..oCCCo.....",
+  ".......otCCo..oCCto.....",
+  "......oLbLLo..oLLbLo....",
+  ".....oLLLLLo..oLLLLLo...",
+  ".....ooooooo..ooooooo...",
 ];
 
-// 勇者：青いよろい・剣・小さな王冠
+// 勇者は、新しい描き方（24×30マス。見習い冒険者と同じ体の形）
+// 金の王冠（赤い宝石）・金色の髪・青い目・青いよろい（胸に金の飾り）・赤いマント・白いズボン・青いブーツ・長めの剣
 const PIXELS_HERO = [
-  "....Y.Y.Y....W..",
-  "....YYYYY....W..",
-  "...KHHHHHK...W..",
-  "..KHHHHHHHK..W..",
-  "..KHSSSSSHK..W..",
-  "..KSESSSESK..W..",
-  "..KSSSSSSSK..W..",
-  "...KSSMSSK..YYY.",
-  "..KKBBBBBKK..G..",
-  ".KSBBYYYBBSSSG..",
-  ".KSBBBYBBBK..G..",
-  "..KBBBBBBBK.....",
-  "..KYYYYYYYK.....",
-  "...KBBKBBK......",
-  "...KBBKBBK......",
-  "..KKKK.KKKK.....",
+  ".......Y...YY...Y.......",
+  ".......YA..AA..AY.......",
+  ".......YAAARRAAAY.......",
+  "......oYYYYYYYYYYo......",
+  "...oojjAAAAAAAAAAjjoo...",
+  "..ojjAAAAAAAAAAAAAAjjo..",
+  "..oAAjAAAAAAAAAAAAjAAo..",
+  "..oAAAAAAAAAAAAAAAAAAo..",
+  "..oAAAYAASSSSSSAAYAAAoW.",
+  "..oAAYSYYYSSSSYYYSYAAoWs",
+  "..oAYSSoooSSSSoooSSYAoWs",
+  "..oAYSSTBBSSSSTBBSSYAoWs",
+  "..oAYSSxxxSSSSxxxSSYAoWs",
+  "..oAYSccSSSkkSSSccSYAoWs",
+  "...oYSSSSSSMMSSSSSSYo.Ws",
+  "....okkSSSSSSSSSSkko..Ws",
+  "........ookSSkoo......Ws",
+  "...RozBBBBBBBBBBBBzoR.Ws",
+  "...RozzBBBBYYBBBBzzoR.Ws",
+  "...RoBBBBYYYYBBBBxxoR.Ws",
+  "...RoBYYYYYYYYYYYYBoRYYY",
+  "..RoSkoBBBBBBBBBBokSoRG.",
+  "...RooBzBBBBBBBBzBooR.G.",
+  "....RoOOOOOOOOOOOOoR....",
+  "....RoPOPOPOPOPOPOoR....",
+  ".......oOOOo..oOOOo.....",
+  ".......oPOOo..oOOPo.....",
+  "......oYYYYo..oYYYYo....",
+  ".....oBBBBBo..oBBBBBo...",
+  ".....ooooooo..ooooooo...",
 ];
 
-// 聖騎士：銀のかぶと・銀のよろい・盾（左）・剣（右）
+// 聖騎士は、新しい描き方（24×30マス。見習い冒険者と同じ体の形）
+// 青い羽かざりの銀のかぶと・こげ茶の目・銀のよろい（胸に青い十字）・左手に青い盾（金の十字）・右手に剣・銀のすね当て
+// 銀色は空の色に近いので、明るい銀（O）・銀（P）・こい灰色（D）の3段階と、こい茶色のふちどりで、見えやすくしています
 const PIXELS_PALADIN = [
-  "................",
-  "....KKKKK.......",
-  "...KPPPPPK......",
-  "..KPPPPPPPK..W..",
-  "..KPDDDDDPK..W..",
-  "..KPSESESPK..W..",
-  "..KPSSSSSPK..W..",
-  "...KPSMSPK..YYY.",
-  "KKKKPPPPPKK..G..",
-  "KBYBKPPPPPSSSG..",
-  "KYYYKPPPPPK..G..",
-  "KBYBKPPPPPK.....",
-  "KBYBKDDDDDK.....",
-  ".KKKPPKPPK......",
-  "...KPPKPPK......",
-  "..KKKK.KKKK.....",
+  "..........zzB...........",
+  ".........zBBo...........",
+  "......oooooooooooo......",
+  "....ooOOOOOOOOOOOPoo....",
+  "...oOOOOOOOOOOOOOOPPo...",
+  "..oOOPPPPPPPPPPPPPPPDo..",
+  "..oOPPPPPPPPPPPPPPPPDo..",
+  "..oPPDDDDDDDDDDDDDDPDo..",
+  "..oPDHHHdSSSSSSdHHHDPo..",
+  "..oPDSSddSSSSSSddSSDPoW.",
+  "..oPDSSoooSSSSoooSSDPoWs",
+  "..oPDSSTeeSSSSTeeSSDPoWs",
+  "..oPDSSeeeSSSSeeeSSDPoWs",
+  "..oPDSccSSSkkSSSccSDPoWs",
+  "...oDSSSSSSMMSSSSSSDo.Ws",
+  "....oDkSSSSSSSSSSkDo..Ws",
+  "........ooPPPPoo......Ws",
+  "oooooooPPPPPPPPPPOOo..Ws",
+  "oBBYBBoPPPPBBPPPPPDo..Ws",
+  "oBBYBBoPPBBBBBBPPPDo..Ws",
+  "oYYYYYoPPPPBBPPPPPDo.YYY",
+  "oBBYBBoYYYYYYYYYYYDo..G.",
+  "oBBYBBoPPPPPPPPPPokSo.G.",
+  "oBBYBBoDPPPPPPPPDPoo..G.",
+  ".oBYBo.PPPPPPPPPPPo.....",
+  "..ooo..PDPDPDPDPDPo.....",
+  ".......oPPPo..oPPPo.....",
+  ".......oDPPo..oPPDo.....",
+  "......oPOPPo..oPPOPo....",
+  ".....ooooooo..ooooooo...",
 ];
 
-// 竜殺しの勇者：角の付いたかぶと・赤いよろい・大きな剣
+// 竜殺しの勇者は、新しい描き方（24×30マス。見習い冒険者と同じ体の形）
+// 左右に反った金の角のこい灰色のかぶと・黒っぽい髪・赤茶色の目・太いまゆ・
+// 赤いよろい（竜のうろこ模様・とがった肩当て）・黒いズボン・金のふちのブーツ・太くて大きな剣
 const PIXELS_DRAGON_SLAYER = [
-  "..Y.....Y...WW..",
-  "..YKKKKKY...WW..",
-  "...KDDDDDK..WW..",
-  "..KDDDDDDDK.WW..",
-  "..KDSSSSSDK.WW..",
-  "..KSESSSESK.WW..",
-  "..KSSSSSSSK.WW..",
-  "...KSSMSSK.YYYY.",
-  "..KKRRRRRKK.GG..",
-  ".KSRRQQQRRSSGG..",
-  ".KSRRRQRRRK.GG..",
-  "..KRRRRRRRK.....",
-  "..KQQQQQQQK.....",
-  "...KRRKRRK......",
-  "...KRRKRRK......",
-  "..KKKK.KKKK.....",
+  "o......................o",
+  "oAo..................oAo",
+  "oAAo....oooooooo....oAAo",
+  ".oYAo.ooDDDDDDDDoo.oAYo.",
+  "..oYAoDDDDDDDDDDDDoAYo..",
+  "..ooYDPPDDDDDDDDPPDYooW.",
+  "..oDDPPDDDDDDDDDDPPDDoWs",
+  "..oDDDDDDDDDDDDDDDDDDoWs",
+  "..oDeeeSSSSSSSSSSeeeDoWs",
+  "..oDeSeeeSSSSSSeeeSeDoWs",
+  "..oDeSSoooSSSSoooSSeDoWs",
+  "..oDeSSTrrSSSSTrrSSeDoWs",
+  "..oDeSSrrrSSSSrrrSSeDoWs",
+  "..oDeSSSSSSkkSSSSSSeDoWs",
+  "...oDSSSSSSMMSSSSSSDo.Ws",
+  "....oDkSSSSSSSSSSkDo..Ws",
+  "........ooQQQQoo......Ws",
+  "..oaoaaRRRRRRRRRRaaoaoWs",
+  "...oaRRRQRRRRRRQRRRQo.Ws",
+  "...oaRRQRQRRRRQRQRRQo.Ws",
+  "...oaKKKKKYYKKKKKKKQoYYY",
+  "...oSkoRRRRRRRRRRokSo.G.",
+  "....ooRaRRRRRRRRaRoo..G.",
+  ".....oQQQQQQQQQQQQo.....",
+  ".....oQRQRQRQRQRQRo.....",
+  ".......oKKKo..oKKKo.....",
+  ".......oKKKo..oKKKo.....",
+  "......oQYQQo..oQQYQo....",
+  ".....oQQQQQo..oQQQQQo...",
+  ".....ooooooo..ooooooo...",
 ];
 
-// 伝説の英雄：金のよろい・赤いマント・剣
+// 伝説の英雄は、新しい描き方（24×30マス。見習い冒険者と同じ体の形）
+// 赤茶色の長めの髪・金のサークレット（青い宝石）・緑の目・金のよろい（胸に白い宝石・大きめの肩当て）・
+// 足もとまでの長い赤いマント・茶色のズボン・金のブーツ・剣
 const PIXELS_LEGEND = [
-  ".............W..",
-  "....KKKKK....W..",
-  "...KHHHHHK...W..",
-  "..KHHHHHHHK..W..",
-  "..KHSSSSSHK..W..",
-  "..KSESSSESK..W..",
-  "..KSSSSSSSK..W..",
-  "...KSSMSSK..YYY.",
-  ".RKKYYYYYKKR.G..",
-  "RKSYYOOOYYSSSG..",
-  "RKSYYYOYYYKR.G..",
-  "RRKYYYYYYYKRR...",
-  "RRKLLLLLLLKRR...",
-  "RR.KYYKYYK.RR...",
-  ".R.KYYKYYK.R....",
-  "..KKKK.KKKK.....",
+  "........oooooooo........",
+  "......oouuguuguuoo......",
+  ".....oguuuuuuuuuugo.....",
+  "...ogggguuuuuuuuggggo...",
+  "..oggYYYYYYBBYYYYYYggo..",
+  "..oggggggggggggggggggo..",
+  "..oguggggggggggggggugo..",
+  "..oggggggggggggggggggo..",
+  "..oggdgguSSSSSSuggdggo..",
+  "..oggdSddSSSSSSddSdggoW.",
+  "..oggSSoooSSSSoooSSggoWs",
+  "..oggSSTffSSSSTffSSggoWs",
+  "..oggSSiiiSSSSiiiSSggoWs",
+  "..oggSccSSSkkSSSccSggoWs",
+  "..ogdSSSSSSMMSSSSSSdgoWs",
+  "..oggokkSSSSSSSSkkoggoWs",
+  "..oggo..ookSSkoo..oggoWs",
+  "..RojjAAAAAAAAAAAAjjoRWs",
+  "..RojAAAAAATTAAAAAAYoRWs",
+  "..RoAAAAAAAAAAAAAAAYoRWs",
+  "..RoYYYYYYYBBYYYYYYYoYYY",
+  "..RoSkoAAAAAAAAAAokSoRG.",
+  "..R.ooAjAAAAAAAAjAoo.RG.",
+  "..RRRoAAAAAAAAAAAAoRRR..",
+  "..RQRoYAYAYAYAYAYAoRQR..",
+  "..RQR..oCCCo..oCCCoRQR..",
+  "..RQQ..oCCCo..oCCCoQQR..",
+  ".RQQ..oYAYYo..oYYAYoQQR.",
+  ".RQQ.oYYYYYo..oYYYYYoQQR",
+  ".....ooooooo..ooooooo...",
 ];
 
-// 神話の勇者：頭の上に光の輪・金色の髪・白と金のよろい・光る剣
+// 神話の勇者は、新しい描き方（24×30マス）
+// 頭の上に光の輪・銀白色の長い髪・金色の目・白と金のよろい・胸の光る飾り・金のブーツ・光る剣
 const PIXELS_MYTH = [
-  "...VVVVVVV...V..",
-  "....KKKKK....V..",
-  "...KYYYYYK...V..",
-  "..KYYYYYYYK..V..",
-  "..KYSSSSSYK..V..",
-  "..KSESSSESK..V..",
-  "..KSSSSSSSK..V..",
-  "...KSSMSSK..YYY.",
-  "..KKOOOOOKK..G..",
-  ".KSOOYYYOOSSSG..",
-  ".KSOOOYOOOK..G..",
-  "..KOOOOOOOK.....",
-  "..KYYYYYYYK.....",
-  "...KOOKOOK......",
-  "...KOOKOOK......",
-  "..KKKK.KKKK.....",
+  "......AVVVVVVVVVVA......",
+  ".....A..oooooooo..A.....",
+  "......oo11111112oo...T..",
+  ".....o211111111222o.....",
+  "....o22111111112223o....",
+  "...o2YYYYYYVVYYYYYY3o...",
+  "..o221111211111111223o.T",
+  "..o222122222222221223o..",
+  "..o222322SSSSSS223222oj.",
+  "..o223S33SSSSSS33S322ojV",
+  "..o23SSoooSSSSoooSS32ojV",
+  "..o23SST44SSSST44SS32ojV",
+  "..o23SS455SSSS455SS32ojV",
+  "..o23SccSSSkkSSSccS32ojV",
+  "..o23SSSSSSMMSSSSSS32ojV",
+  "..o22okkSSSSSSSSkko32ojV",
+  "..o23o..ookSSkoo..o32ojV",
+  "....ooYjOOOOOOOOjYoo..jV",
+  "...ojjOOOOVVOOOOOOPPo.jV",
+  "...ojOOOOOVVOOOOOOOPo.jV",
+  "...oOYYYYYVVYYYYYYOPoYYY",
+  "...oSkoOOOOOOOOOOokSo.G.",
+  "....ooOTOOOOOOOOTOoo..G.",
+  ".....oOOOOOOOOOOOOo.....",
+  ".....oYOYOYOYOYOYOo.....",
+  ".......oPPPo..oPPPo.....",
+  ".......oDPPo..oPPDo.....",
+  "......oYjYYo..oYYjYo....",
+  ".....oYYYYYo..oYYYYYo...",
+  ".....ooooooo..ooooooo...",
 ];
 
 // 称号（二つ名）の表。minLevel は「何レベルから」、pixels はキャラクターの設計図
@@ -878,19 +1018,34 @@ function finishMonsterDefeat() {
 
 // 今の称号に合ったキャラクターのドット絵を、装備を重ねて描く
 function drawHero() {
-  const grid = scale2x(makeHeroGrid());
+  const grid = smoothOldStyle(makeHeroGrid());
   paintGrid(heroCanvas, grid);
   paintGrid(timerWalker, grid); // タイマー画面のバーの上を歩くキャラも、同じ絵にする
 }
 
 // 設計図（pixels）のドット絵を、なめらかに広げて canvas に描く（モンスターに使う）
 function drawPixels(canvas, pixels) {
-  paintGrid(canvas, scale2x(makeColorGrid(pixels)));
+  paintGrid(canvas, smoothOldStyle(makeColorGrid(pixels)));
+}
+
+// 今までの16×16マスの絵だけ、Scale2x でなめらかにして返す
+// 新しい描き方の絵（はばが24マス）は、参考図のような四角いドットに見えるように、なめらかにしない
+function smoothOldStyle(grid) {
+  if (grid[0].length === 16) {
+    return scale2x(grid);
+  }
+  return grid;
 }
 
 // キャラクターの16×16の色の表を作り、装備しているアイテムの絵を重ねて返す
 function makeHeroGrid() {
   const grid = makeColorGrid(getTitle(getLevel()).pixels);
+
+  // 装備の絵は、今は16×16マスのキャラ用なので、新しい描き方（24×32マス）のキャラには重ねない
+  // （全部のキャラを描き直して、装備の絵も作り直すまでのあいだ）
+  if (grid[0].length !== 16) {
+    return grid;
+  }
 
   // 武器を装備しているときは、キャラがもともと持っている武器（右側）を先に消す
   if (equipped.weapon) {
@@ -1004,6 +1159,12 @@ function scale2x(grid) {
 
 // 色の表を、canvas に塗る（前に描いた絵は消してから塗る）
 function paintGrid(canvas, grid) {
+  // canvas のマス目の数を、絵の大きさ（正方形の32×32、縦長の48×64 など）に合わせる
+  if (canvas.width !== grid[0].length || canvas.height !== grid.length) {
+    canvas.width = grid[0].length;
+    canvas.height = grid.length;
+  }
+
   const pen = canvas.getContext("2d"); // 絵を描くための道具
   pen.clearRect(0, 0, canvas.width, canvas.height);
 
