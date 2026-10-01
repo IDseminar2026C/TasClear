@@ -1392,6 +1392,28 @@ h1 {
   cursor: default;
 }
 
+/* 「🎵 集中中の音」の欄（文字とえらぶ箱を横にならべる） */
+.timer-sound-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 14px;
+  font-weight: bold;
+  color: #1e2040;
+}
+
+/* 流す音をえらぶ箱 */
+.timer-sound-select {
+  padding: 6px 8px;
+  font-size: 14px;
+  border: 2px solid #d4a017;
+  border-radius: 8px;
+  background-color: #ffffff;
+  color: #1e2040;
+}
+
 /* 今日の集中の回数 */
 .timer-count {
   margin: 12px 0 0;

@@ -55,6 +55,8 @@ const timerWalker = document.getElementById("timer-walker");
 const timerStartButton = document.getElementById("timer-start-button");
 const timerPauseButton = document.getElementById("timer-pause-button");
 const timerResetButton = document.getElementById("timer-reset-button");
+const timerSoundSelect = document.getElementById("timer-sound-select");
+const timerSound = document.getElementById("timer-sound");
 const timerCountText = document.getElementById("timer-count");
 
 // カレンダーの部品
@@ -221,6 +223,20 @@ let timerEndTime = null;
 
 // タイマーを動かすための、くり返しの番号（止めるときに使う）
 let timerInterval = null;
+
+// 集中タイムのあいだに流せる音の表。id は保存するときの名前、file は音のファイルの名前
+const FOCUS_SOUNDS = [
+  { id: "takibi", file: "たき火.mp3" },
+  { id: "rain", file: "雨が降る2.mp3" },
+  { id: "sea", file: "海岸4.mp3" },
+  { id: "furin", file: "風鈴が鳴る家1.mp3" },
+];
+
+// 集中中の音の大きさ（0 から 1。効果音より小さめ）
+const FOCUS_SOUND_VOLUME = 0.5;
+
+// えらんでいる集中中の音の id（なしのときは ""）
+let focusSound = "";
 
 // 今日、集中タイムを何回終えたかと、それが何日の数なのか
 let focusCount = 0;
@@ -1730,6 +1746,7 @@ function savePlayer() {
     items: items,
     equipped: equipped,
     muted: isMuted,
+    focusSound: focusSound,
     focusCount: focusCount,
     focusDate: focusDate,
     eggs: eggs,
@@ -1762,6 +1779,7 @@ function loadPlayer() {
     items = player.items || {};
     equipped = player.equipped || {};
     isMuted = player.muted === true; // 前の形の保存データには無いので、そのときは「鳴らす」
+    focusSound = getFocusSound(player.focusSound) ? player.focusSound : ""; // 表にない音は「なし」にする
     focusCount = player.focusCount || 0;
     focusDate = player.focusDate || "";
     eggs = player.eggs || {};
@@ -1781,6 +1799,7 @@ function loadPlayer() {
     items = {};
     equipped = {};
     isMuted = false;
+    focusSound = "";
     focusCount = 0;
     focusDate = "";
     eggs = {};
@@ -4142,6 +4161,46 @@ function renderTimer() {
   // 今日の集中の回数（前の日の数のままにならないように、日付を確かめてから出す）
   resetFocusCountIfNewDay();
   timerCountText.textContent = "今日の集中：" + focusCount + "回";
+
+  // 集中中の音を、今のタイマーの状態に合わせて流す・止める
+  updateFocusSound();
+}
+
+// 集中中の音の表から、id の行を返す（ないときは undefined）
+function getFocusSound(id) {
+  return FOCUS_SOUNDS.find(function (sound) {
+    return sound.id === id;
+  });
+}
+
+// 集中中の音を流すか止めるかを決める
+// 流すのは「集中タイムが動いている」「効果音を消していない」「音をえらんでいる」のが全部そろったときだけ
+function updateFocusSound() {
+  const sound = getFocusSound(focusSound);
+  const shouldPlay = timerMode === "focus" && isTimerRunning() && !isMuted && sound;
+  if (!shouldPlay) {
+    timerSound.pause(); // 止める（次に流すときは、続きから）
+    return;
+  }
+  // えらんだ音がまだ入っていなければ入れる（ちがう音に変えたときは、最初から流れる）
+  if (timerSound.dataset.soundId !== sound.id) {
+    timerSound.src = sound.file;
+    timerSound.dataset.soundId = sound.id;
+  }
+  timerSound.volume = FOCUS_SOUND_VOLUME;
+  if (timerSound.paused) {
+    // 流せなかったとき（ファイルが読めないなど）も、アプリが止まらないようにする
+    timerSound.play().catch(function (error) {
+      console.log("集中中の音を流せませんでした", error);
+    });
+  }
+}
+
+// 「🎵 集中中の音」をえらびなおしたとき：保存して、すぐに反映する
+function changeFocusSound() {
+  focusSound = timerSoundSelect.value;
+  savePlayer();
+  updateFocusSound();
 }
 
 // 効果音を消す・戻す（押すたびに切りかえて、保存する）
@@ -4149,6 +4208,7 @@ function toggleSound() {
   isMuted = !isMuted;
   savePlayer();
   renderSoundButton();
+  updateFocusSound(); // 集中中の音も、消す・戻すに合わせる
 }
 
 // 音のボタンの絵文字と見た目を、今の状態に合わせる（🔊 鳴る ／ 🔇 消している）
@@ -4566,6 +4626,9 @@ timerStartButton.addEventListener("click", startTimer);
 timerPauseButton.addEventListener("click", pauseTimer);
 timerResetButton.addEventListener("click", resetTimer);
 
+// 「🎵 集中中の音」をえらびなおしたとき
+timerSoundSelect.addEventListener("change", changeFocusSound);
+
 // 画面を切りかえるタブが押されたとき（タブに書いてある data-page の画面を見せる）
 for (let i = 0; i < pageTabs.length; i++) {
   pageTabs[i].addEventListener("click", function () {
@@ -4598,6 +4661,7 @@ renderCalendar(); // プレイヤーの状態（撃破の記録）を読み込�
 renderSoundButton();
 
 // ポモドーロタイマーを表示する（最初は、集中 25:00 で止まっている）
+timerSoundSelect.value = focusSound; // 保存しておいた「集中中の音」を、えらぶ欄に出しておく
 renderTimer();
 
 // 連れていくペットを描いて、ペットのカードを表示する

@@ -209,6 +209,21 @@
           <button id="timer-reset-button" class="timer-button" type="button">↺ リセット</button>
         </div>
 
+        <!-- 集中タイムのあいだに流す音をえらぶ欄（音のファイルは、このページと同じ場所にある mp3） -->
+        <div class="timer-sound-row">
+          <label for="timer-sound-select">🎵 集中中の音</label>
+          <select id="timer-sound-select" class="timer-sound-select">
+            <option value="">なし</option>
+            <option value="takibi">🔥 たき火</option>
+            <option value="rain">🌧️ 雨</option>
+            <option value="sea">🌊 海岸</option>
+            <option value="furin">🎐 風鈴</option>
+          </select>
+        </div>
+
+        <!-- えらんだ音を鳴らす部品（loop で、終わったら最初からくり返す）。画面には出ません -->
+        <audio id="timer-sound" loop></audio>
+
         <!-- 今日、集中タイムを何回終えたか -->
         <p id="timer-count" class="timer-count">今日の集中：0回</p>
       </section>
