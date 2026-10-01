@@ -1378,8 +1378,8 @@ h1 {
   position: absolute;
   left: 0;
   bottom: 6px;
-  width: 80px;
-  height: 80px;
+  width: auto; /* はばは絵の形に合わせる（18×16マスの絵で90px） */
+  height: 80px; /* 16行 × 5px。新しい描き方の絵の1マスが、ちょうど5pxの正方形になる */
   image-rendering: pixelated;
   z-index: 1; /* キャラより手前に描く */
 }
@@ -1399,8 +1399,8 @@ h1 {
 /* タイマーで一緒に歩くペット */
 .timer-pet {
   display: block;
-  width: 40px;
-  height: 40px;
+  width: auto;
+  height: 32px; /* 16行 × 2px。歩くキャラ（30行で60px）と、1マスの大きさをそろえる */
   image-rendering: pixelated;
 }
 
