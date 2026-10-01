@@ -505,17 +505,16 @@ h1 {
   image-rendering: pixelated;
 }
 
-/* モンスターのドット絵（32×32マスの絵を、3.5倍の大きさに広げる。キャラより少し小さい） */
+/* モンスターのドット絵（新しい描き方・24×24マス。1マスが5pxの正方形になるように、高さ120px） */
 .monster-canvas {
-  width: 112px;
-  height: 112px;
+  width: auto;
+  height: 120px;
   image-rendering: pixelated;
 }
 
-/* ボスのモンスター（ドラゴン）は、少し大きく表示する（4倍） */
+/* ボスのモンスター（ドラゴン・30×30マス）は、主人公と同じ高さ150pxで大きく表示する */
 .monster-canvas.is-boss {
-  width: 128px;
-  height: 128px;
+  height: 150px;
 }
 
 /* 見えないようにする設定（hidden）を、確実に効かせる */

@@ -698,6 +698,8 @@ const HERO_COLORS = {
   5: "#8a5a00", // 金色の目（影）
   6: "#c08ad8", // 紫（明るい）。魔法使いの帽子・杖・水晶。ふつうは p
   7: "#5e2d7a", // 紫（影）
+  8: "#a3d977", // 緑（明るい）。ゴブリンの肌。ふつうは F、影は i
+  9: "#4b5260", // こい灰色。オオカミの毛の影
 };
 
 // 見習い冒険者のドット絵の設計図（16×16マス）
@@ -963,93 +965,336 @@ const TITLES = [
   { minLevel: 1, icon: "🧑‍🌾", name: "見習い冒険者", pixels: PIXELS_NOVICE },
 ];
 
-// スライムのドット絵の設計図（左にいるキャラの方を向いている）
+// モンスターのドット絵の設計図（新しい描き方・24×24マス。ボスのドラゴンだけ30×30マス）
+// みんな、左にいるキャラの方を向いています
+
+// スライム：青くてぷるぷる
 const PIXELS_SLIME = [
-  "................",
-  "................",
-  "................",
-  "................",
-  "................",
-  ".......KK.......",
-  "......KZZK......",
-  ".....KZIZZK.....",
-  "....KZIZZZZK....",
-  "...KZZZZZZZZK...",
-  "..KZEZZZEZZZZK..",
-  "..KZZZZZZZZZZK..",
-  "..KZZZMMZZZZZK..",
-  "..KZZZZZZZZZZK..",
-  "...KZZZZZZZZK...",
-  "....KKKKKKKK....",
+  "........................",
+  "........................",
+  "........................",
+  "........................",
+  "........................",
+  "........................",
+  "........................",
+  "........................",
+  "........................",
+  "..........oooo..........",
+  "........oozzzzoo........",
+  ".......ozzIIzZZZo.......",
+  "......ozIIzZZZZZZo......",
+  ".....ozIzZZZZZZZZZo.....",
+  "....ozZZZZZZZZZZZZxo....",
+  "...ozZoooZZoooZZZZZxo...",
+  "...oZZTeeZZTeeZZZZZxo...",
+  "..ozZZeeeZZeeeZZZZZZxo..",
+  "..oZZZZZZMMZZZZZZZZZxo..",
+  "..oZZZZZZZZZZZZZZZZZxo..",
+  "..oZZZZZZZZZZZZZZZZZxo..",
+  "..oxZZZZZZZZZZZZZZZxxo..",
+  "...oxxxxZZZZZZZZxxxxo...",
+  "....oooooooooooooooo....",
+];
+
+// コウモリ：紫のつばさ・小さなキバ（空をとんでいる）
+const PIXELS_BAT = [
+  "........................",
+  "........................",
+  "........................",
+  "........................",
+  "........................",
+  "........................",
+  "........................",
+  "........................",
+  "oo....................oo",
+  "o7o.......o..o.......o7o",
+  "o77o.....o6oo6o.....o77o",
+  "o7p7o...o666666o...o7p7o",
+  "o7pp7o.o66666666o.o7pp7o",
+  "o7ppp7oo6eV66eVpoo7ppp7o",
+  "o7pppp7o6pMMppp7o7pppp7o",
+  "o7pppppo6pTpTpp7oppppp7o",
+  "o7p7op7o6pppppp7o7po7p7o",
+  "oo...ooo7pppppp7ooo...oo",
+  "........o7pppp7o........",
+  ".........o7777o.........",
+  ".........o.oo.o.........",
+  "........................",
+  "........................",
+  "........................",
+];
+
+// おばけキノコ：赤いかさに白い水玉・怒った目
+const PIXELS_MUSHROOM = [
+  "........................",
+  "........................",
+  "........................",
+  "........................",
+  "........................",
+  "........oooooooo........",
+  "......ooaaRRRRRRoo......",
+  ".....oaaTTaRRRRRRRo.....",
+  "....oaaTTTTaRRRTTRRo....",
+  "...oaRRTTaRRRRRTTTTRo...",
+  "..oaRRRRRRRRTTRRRRRRQo..",
+  "..oRTTRRRRRRRRRRRTTRQo..",
+  "..oQRRRRRRRRRRRRRRRQQo..",
+  "...ooQQQQQQQQQQQQQQoo...",
+  "......oOOOOOOOOOPo......",
+  "......oOoOOOOoOPPo......",
+  "......oOeoOOoeOPPo......",
+  "......oOeeOOeeOPPo......",
+  "......oOOOMMOOOPPo......",
+  "......oOOOOOOOOPPo......",
+  ".....oOOOOOOOOOOPPo.....",
+  ".....oOOOOOOOOOOPPo.....",
+  ".....oPOOOOOOOOPPDo.....",
+  ".....oooooooooooooo.....",
 ];
 
 // ゴブリン：緑の肌・とがった耳・こん棒
 const PIXELS_GOBLIN = [
-  "................",
-  "....KKKKK...GG..",
-  "KK.KFFFFFK.KGGG.",
-  "KFKFFFFFFFKFGGG.",
-  "..KFEFFEFFK.GG..",
-  "..KFFFFFFFK.GG..",
-  "..KFMOMOMFK.GG..",
-  "...KFFFFFK..GG..",
-  "..KKCCCCCKK.FF..",
-  ".KFCCCCCCCFFFK..",
-  ".KFCCCCCCCK.....",
-  "..KCCCCCCCK.....",
-  "..KLLLLLLLK.....",
-  "...KFFKFFK......",
-  "...KFFKFFK......",
-  "..KKKK.KKKK.....",
+  "........................",
+  "........................",
+  "........................",
+  "........oooooo..........",
+  "......oo888FFFoo........",
+  "oo...o88FFFFFFFio....oo.",
+  "o8o.o8FFFFFFFFFFio..oFo.",
+  ".o8oo8ooFFFooFFFiooFio..",
+  "..o88FTVeFFTVeFFFFFio...",
+  "...oFFVVeFFVVeFFFFio....",
+  "....oFFFFFFFFFFFFFio....",
+  "....oFFFMTMTMFFFFio.....",
+  ".....ooFFFFFFFFiio......",
+  "...GG..ooiFFFiioo.......",
+  "..GGCo.oCCtCCCCLLo......",
+  "..GCLooCCCCCCCCCLLo.....",
+  "...GLo8oCCCCCCCCLoFo....",
+  "...oo88oLLYLLLLLLoFo....",
+  "....ooo.oCCCCCCCCooo....",
+  "........oCLCLCLCLo......",
+  ".........oFFo.oFFo......",
+  ".........oiFo.oFio......",
+  "........oLLLo.oLLLo.....",
+  "........ooooo.ooooo.....",
 ];
 
-// ドラゴン：とがった角・光る黄色い目・キバの見える大きな口・大きなつばさ・ツメ
-// マスをいっぱいに使って、ボスらしく強そうにしています
+// ガイコツ：白い骨・さびた剣
+const PIXELS_SKELETON = [
+  "........oooooooo........",
+  ".......oTTOOOOOOo.......",
+  "......oTOOOOOOOOPo......",
+  "......oOOOOOOOOOPo......",
+  "......oOeeOOOeeOPo......",
+  "......oOerOOOerOPo......",
+  "......oOOOOeOOOOPo......",
+  ".......oOTOTOTOPo.......",
+  ".......oPOPOPOPPo.......",
+  "........oooooooo........",
+  "..W......oOPPOo.........",
+  "..sW...ooOOOOOOoo.......",
+  "...sW.oOoOOOOOOoOo......",
+  "....sWOooPOOOOPooOo.....",
+  ".....GG.oOPOOPOo.oOo....",
+  "....oGGo.oOOOOo...oOo...",
+  ".....oo..oPOOPo...oo....",
+  ".........oOOOOo.........",
+  "..........oooo..........",
+  "..........oO.Oo.........",
+  ".........oOo.oOo........",
+  ".........oOo.oOo........",
+  "........oOOo.oOOo.......",
+  "........ooooo.oooo......",
+];
+
+// オオカミ：灰色の毛・光る目・キバ
+const PIXELS_WOLF = [
+  "........................",
+  "........................",
+  "........................",
+  "........................",
+  "....o...o...............",
+  "...oPo.oPo..............",
+  "...oPDooPDo.............",
+  "..oPDDDDDDDo..........o.",
+  ".oPDDDDDDDDDo........oPo",
+  ".oPDVVeDDDDD9o.......oDo",
+  "oPDDDDDDDDDDD9o......oDo",
+  "o9DDDDDDDDDDDD9oooooo9Do",
+  "oMTTDDDDDDDDDDDDDDDDD9Do",
+  ".oTMMTDDDDDDDDDDDDDDDD9o",
+  "..ooooDDDDDDDDDDDDDDDD9o",
+  ".....oPDDDDDDDDDDDDDDD9o",
+  ".....oPPDDDDDDDDDDDDD99o",
+  ".....oPPPDDDDDDDDDDD999o",
+  "......oPPDDDDDDDDDD999o.",
+  "......oPDo.......oDD9o..",
+  "......oPDo.......oDD9o..",
+  "......oPDo.......oD99o..",
+  ".....oPPDo......oPDD9o..",
+  ".....ooooo......oooooo..",
+];
+
+// ゴーレム：岩の体（こけが生えている）・光る目・太いうで
+const PIXELS_GOLEM = [
+  "........................",
+  "........................",
+  "........................",
+  "........................",
+  "........................",
+  ".......oooooooo.........",
+  "......oWWWPPPPPDo.......",
+  ".....oWPPPPPPPPPDo......",
+  ".....oWPVVPPVVPPDo......",
+  ".....oPPPPPPPPPPDo......",
+  ".....oPPDDDDDDPPDo......",
+  "..oooooPPPPPPPPDDoooo...",
+  ".oWWPPofWPPPPPPPPDoPPDo.",
+  "oWPPPPoWPPPPffPPPDDoPPDo",
+  "oPPPPDoWPPPPPfPPPPDoPDDo",
+  "oPPPDDoPPPPPPPPPPPDoDDDo",
+  "oWPPDDoPPWPPPPPPPDDoPDDo",
+  "oPPPDoooPPPPPPPPPDDooDDo",
+  ".oooo..oPPPPDDPPPDo.ooo.",
+  ".......oPPPDooPPDDo.....",
+  "......oWPPDo..oPPDDo....",
+  "......oPPPDo..oPPPDo....",
+  ".....oWPPPDo..oPPPDDo...",
+  ".....ooooooo..ooooooo...",
+];
+
+// ゴースト：白いおばけ・青白い炎
+const PIXELS_GHOST = [
+  "........................",
+  "........................",
+  "........................",
+  "........................",
+  "........................",
+  "........oooooo......l...",
+  ".l....ooTTOOOOoo...lzl..",
+  "lzl..oTTOOOOOOOOo..zBz..",
+  "zBz.oTOOOOOOOOOOIo..z...",
+  ".z.oTOeeOOOeeOOOOIo.....",
+  "...oOOeeOOOeeOOOOOIo....",
+  "...oOOOOOeeeOOOOOOIo....",
+  "..oOOOOOOOOOOOOOOOOIo...",
+  ".oTOOOOOOOOOOOOOOOOOOIo.",
+  "oOOooOOOOOOOOOOOOOOIIo..",
+  ".oo.oOOOOOOOOOOOOOOIIo..",
+  "....oOOOOOOOOOOOOOIIIo..",
+  "....oIOOOOOOOOOOOIIIzo..",
+  ".....oIIOOOOOOOIIIzzo...",
+  "......oIIIOIIIIIzzzo....",
+  ".......oIzo.oIIzo.ozo...",
+  "........oo...ooo...o....",
+  "........................",
+  "........................",
+];
+
+// オーガ：赤い肌の大きな体・角・キバ・太いこん棒
+const PIXELS_OGRE = [
+  "........................",
+  "........................",
+  "........................",
+  "........................",
+  "....oo........oo........",
+  "ooo.oPo......oPo........",
+  "oCGo.oPooooooPo.........",
+  "oCGoaaRRRRRRRRQo........",
+  "oCGoaRooRRRooRRRQo......",
+  "oGLoaRVeRRRVeRRRQo......",
+  ".oGoRRRRRRRRRRRRQo......",
+  ".oGoRTMMMMMTRRRRQo......",
+  ".oGooRRRRRRRRRQQo.......",
+  ".oGoooaRRRRRRRQoooo.....",
+  ".oaRRoaRRRRRRRRRQoRRQo..",
+  "oaRRRoRRRRRRRRRRQQoRRQo.",
+  "oRRRQoRRRRRRRRRRRQoQRQo.",
+  "oaRQQoQRRRRRRRRRQQoQQQo.",
+  ".ooo.oLLCLLCLLCLLLo.ooo.",
+  ".....oLCLLCLLCLLLLo.....",
+  "......oRRRo..oRRQo......",
+  "......oRRQo..oRRQo......",
+  ".....oLLLLo..oLLLLo.....",
+  ".....oooooo..oooooo.....",
+];
+
+// ドラゴン（ボス・30×30マス）：赤いうろこ・角・光る目・キバ・大きなつばさ・しっぽ
 const PIXELS_DRAGON = [
-  ".K..K.....KK....",
-  ".KK.KK...KXXK...",
-  "..KKRKK.KXXXXK..",
-  ".KRRRRRKXXXXXXK.",
-  "KRVKRRRKXXQXXXXK",
-  "KRRRRRRRKXXQXXXK",
-  "KOROROQRRKXXQXXK",
-  "KMMMMMKQRRKXXQXK",
-  "KOROROKRRRRKXXK.",
-  ".KKKKKRRUURRKK..",
-  "....KQRUUURRRK..",
-  "...KQRRUUURRRRK.",
-  "...KQRRUURRKRRRK",
-  "...KQRRRRRK.KRRK",
-  "..KQQKKQQK...KK.",
-  ".KOKOK.KOKOK....",
+  "...o.....o.........ooo........",
+  "..oOo...oOo.......opppo.......",
+  "...oPo...oPo.....op7pppoo.....",
+  "....oPoooooPo...op7ppppppoo...",
+  "...oaaRRRRRRRo.op7pppppppppoo.",
+  "..oaRRooRRRRRRop7pppp7pppppppo",
+  ".oaRRRVeRRRRRQop7pppp7pppp7ppo",
+  "oaRRRRVVRRRRRQop7ppp7pppp7pppo",
+  "oRRRRRRRRRRRRRQop7pp7pppp7ppo.",
+  "oRRRRRRRRRRRRRQoop7p7ppp7ppo..",
+  "oTRTRTRTQQQRRRRQo77pp7pp7po...",
+  "oMMMMMMMMoQRRRRRQoo7pp7ppo....",
+  "oTRTRTRTQoQRRaRRRQoo77ppo.....",
+  ".oooooooooQRRUURRRQooppo......",
+  ".........oQRUUUURRRRQooo......",
+  "........oQRUuUUURRRRRQo.......",
+  "........oQRUUuUURRRRRRQo......",
+  ".......oQRRUUUuURRRRRRRQo.....",
+  ".......oQRRUuUUURRRRRRRRQo....",
+  "....oooQRRUUUuURRRRRRRRRQo....",
+  "...oOOoQRRUUUUURRRRRRRRRQo....",
+  "..oOoORoQRRUUURRRRRRRRRRQo..oo",
+  "...o.ooQQRRRRRRRRRRRRRRQQo.oRo",
+  ".......oQQRRRRRRRRRRRRQQoooaRo",
+  ".......oQRRRRQQQQQRRRRRRRRRQo.",
+  "......oQRRRRQo...oQRRRRRRQQo..",
+  "......oQRRRQo....oQRRRQooo....",
+  ".....oQRRRRQo...oQRRRRQo......",
+  "....oOoOoOQo....oOoOoOQo......",
+  "....ooooooo.....oooooooo......",
+];
+
+// ゴールデンスライム（レア）：金色のスライム。まわりにキラキラ
+const PIXELS_GOLDEN_SLIME = [
+  "........................",
+  "........................",
+  "........................",
+  "........................",
+  "...T..................T.",
+  "..TTT................TTT",
+  "...T..........T.......T.",
+  ".............TTT........",
+  "..............T.........",
+  "..........oooo..........",
+  "........ooJJJJoo........",
+  ".......oJJTTJAAAo.......",
+  "......oJTTJAAAAAAo......",
+  ".....oJTJAAAAAAAAAo.....",
+  "....oJAAAAAAAAAAAAYo....",
+  "...oJAoooAAoooAAAAAYo...",
+  "...oAATeeAATeeAAAAAYo...",
+  "..oJAAeeeAAeeeAAAAAAYo..",
+  "..oAAAAAAMMAAAAAAAAAYo..",
+  "T.oAAAAAAAAAAAAAAAAAYo.T",
+  "T.oAAAAAAAAAAAAAAAAAYo.T",
+  "..oYAAAAAAAAAAAAAAAYYo..",
+  "...oYYYYAAAAAAAAYYYYo...",
+  "....oooooooooooooooo....",
 ];
 
 // モンスターの表。minExp は「本日のタスクのEXPが何から」、isBoss は少し大きく表示するか
-// EXP が多い（大変な）クエストほど、強そうなモンスターになります。高いEXPから順に書きます
+// EXP（10〜30）が多い（大変な）クエストほど、強そうなモンスターになります。高いEXPから順に書きます
 const MONSTERS = [
-  { minExp: 28, name: "ドラゴン", pixels: PIXELS_DRAGON, isBoss: true },
-  { minExp: 24, name: "ゴブリン", pixels: PIXELS_GOBLIN, isBoss: false },
-  { minExp: 0, name: "スライム", pixels: PIXELS_SLIME, isBoss: false },
-];
-
-// ゴールデンスライムのドット絵の設計図（金色のスライム。まわりにキラキラ）
-const PIXELS_GOLDEN_SLIME = [
-  "..T.............",
-  ".TTT.......T....",
-  "..T.......TTT...",
-  "...........T....",
-  "................",
-  ".......KK.......",
-  "......KAAK......",
-  ".....KAJAAK.....",
-  "....KAJAAAAK..T.",
-  "...KAAAAAAAAKTTT",
-  "..KAEAAAEAAAAKT.",
-  "..KAAAAAAAAAAK..",
-  "..KAAAMMAAAAAK..",
-  "..KAAAAAAAAAAK..",
-  "...KAAAAAAAAK...",
-  "....KKKKKKKK....",
+  { minExp: 28, name: "ドラゴン", pixels: PIXELS_DRAGON, isBoss: true }, // 28〜30
+  { minExp: 26, name: "オーガ", pixels: PIXELS_OGRE, isBoss: false }, // 26〜27
+  { minExp: 24, name: "ゴースト", pixels: PIXELS_GHOST, isBoss: false }, // 24〜25
+  { minExp: 22, name: "ゴーレム", pixels: PIXELS_GOLEM, isBoss: false }, // 22〜23
+  { minExp: 20, name: "オオカミ", pixels: PIXELS_WOLF, isBoss: false }, // 20〜21
+  { minExp: 18, name: "ガイコツ", pixels: PIXELS_SKELETON, isBoss: false }, // 18〜19
+  { minExp: 16, name: "ゴブリン", pixels: PIXELS_GOBLIN, isBoss: false }, // 16〜17
+  { minExp: 14, name: "おばけキノコ", pixels: PIXELS_MUSHROOM, isBoss: false }, // 14〜15
+  { minExp: 12, name: "コウモリ", pixels: PIXELS_BAT, isBoss: false }, // 12〜13
+  { minExp: 0, name: "スライム", pixels: PIXELS_SLIME, isBoss: false }, // 10〜11
 ];
 
 // レアなクエストのときに出すモンスター
@@ -3708,7 +3953,7 @@ function addQuest(questName, deadline) {
 
   const newQuest = {
     name: questName,
-    exp: getRandomExp(20, 30), // 20〜30 のランダムな獲得EXP
+    exp: getRandomExp(10, 30), // 10〜30 のランダムな獲得EXP
     done: false,
     rare: isRare, // レアなクエストかどうか
     deadline: deadline || "", // 締切の日付（締切なしなら ""）
@@ -3814,11 +4059,11 @@ function loadHabits() {
   }
 }
 
-// 新しい習慣を追加する（EXPは登録したときに20〜30で決まり、毎日同じ）
+// 新しい習慣を追加する（EXPは登録したときに10〜30で決まり、毎日同じ）
 function addHabit(habitName) {
   const newHabit = {
     name: habitName,
-    exp: getRandomExp(20, 30),
+    exp: getRandomExp(10, 30),
     doneDate: "", // まだ一度も撃破していない
     doneDates: [], // クリアした日の記録（カレンダーで使う）
   };
