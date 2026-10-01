@@ -597,6 +597,123 @@ h1 {
   color: #ffffff;
 }
 
+/* 図鑑の中の切りかえボタン（3つならぶので、長い文字は2行に折り返してよい） */
+.collection-switch-button {
+  white-space: normal;
+  line-height: 1.3;
+}
+
+/* 図鑑の中のページ：見えないようにする設定（hidden）を、確実に効かせる */
+.collection-section[hidden] {
+  display: none;
+}
+
+/* 図鑑の「モンスターとペット」の一覧（3つずつ並べて、入りきらなければ次の行へ） */
+.creature-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+/* 一覧の1つ分（絵・名前・小さな説明をたてにならべる） */
+.creature-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  padding: 6px 2px;
+  background-color: #ffffff;
+  border: 2px solid #cccccc;
+  border-radius: 6px;
+  text-align: center;
+}
+
+/* ペットは、卵のランクの色の枠（なかまの一覧と同じ色） */
+.creature-item.rank-2 {
+  border-color: #2e6bd6;
+}
+
+.creature-item.rank-3 {
+  border-color: #d4a017;
+  background-color: #fff8dc;
+}
+
+/* まだ見つけていないもの（黒いかげ）は、少し薄くする */
+.creature-item.is-unknown {
+  opacity: 0.6;
+}
+
+/* 一覧の絵（高さをそろえる。ドラゴンだけ大きい絵なので、はばは枠に入るように小さくする） */
+.creature-canvas {
+  height: 56px;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+/* 一覧の名前 */
+.creature-name {
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: bold;
+  overflow-wrap: anywhere;
+}
+
+/* 一覧の小さな説明（EXP・たおした数・どの卵か） */
+.creature-sub {
+  font-size: 10px;
+  color: #666666;
+  overflow-wrap: anywhere;
+}
+
+/* 図鑑の「🏆 実績」の一覧（たてにならべる） */
+.achievement-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* 実績の1行（左に 🏆 か 🔒、右に名前と条件） */
+.achievement-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  padding: 8px;
+  background-color: #ffffff;
+  border: 2px solid #cccccc;
+  border-radius: 8px;
+  opacity: 0.6; /* まだとっていない実績は、少し薄くする */
+}
+
+/* とった実績は、金色の枠で、薄くしない */
+.achievement-item.is-got {
+  border-color: #d4a017;
+  background-color: #fff8dc;
+  opacity: 1;
+}
+
+/* 🏆 と 🔒 */
+.achievement-icon {
+  font-size: 22px;
+}
+
+/* 名前と条件を、たてにならべる */
+.achievement-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: 14px;
+}
+
+/* 条件（とった実績は、とった日も） */
+.achievement-condition {
+  font-size: 12px;
+  color: #666666;
+}
+
 /* 「本日のタスク」の見出し（カードの上に付いたタブのような形） */
 .today-label {
   display: inline-block;

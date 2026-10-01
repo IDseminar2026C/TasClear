@@ -43,6 +43,14 @@ const switchHabitButton = document.getElementById("switch-habit-button");
 const todayCard = document.getElementById("today-card");
 const habitCard = document.getElementById("habit-card");
 
+// 図鑑の中の切りかえボタン（アイテム・モンスターとペット・実績）と、3つのページ
+const collectionSwitchButtons = document.querySelectorAll(".collection-switch-button");
+const collectionSections = {
+  items: document.getElementById("collection-items"),
+  creatures: document.getElementById("collection-creatures"),
+  achievements: document.getElementById("collection-achievements"),
+};
+
 // 効果音を消したり戻したりするボタン
 const soundButton = document.getElementById("sound-button");
 
@@ -84,6 +92,16 @@ const coinText = document.getElementById("coin-text");
 const gachaButton = document.getElementById("gacha-button");
 const collectionCount = document.getElementById("collection-count");
 const collectionList = document.getElementById("collection-list");
+
+// 図鑑の「モンスターとペット」のページの部品（何種類か・一覧）
+const creatureMonsterCount = document.getElementById("creature-monster-count");
+const creatureMonsterList = document.getElementById("creature-monster-list");
+const creaturePetCount = document.getElementById("creature-pet-count");
+const creaturePetList = document.getElementById("creature-pet-list");
+
+// 図鑑の「🏆 実績」のページの部品（いくつとったか・一覧）
+const achievementCount = document.getElementById("achievement-count");
+const achievementList = document.getElementById("achievement-list");
 const equipSummary = document.getElementById("equip-summary");
 
 // 10連ガチャのボタン、前回の結果、確率の表の部品
@@ -248,6 +266,12 @@ let defeatHistory = {};
 // 日付ごとの、集中タイム（ポモドーロ）を終えた回数の記録（{ "2026-10-01": 3 } のような形）
 let focusHistory = {};
 
+// モンスターごとの、たおした数の記録（{ slime: 3, dragon: 1 } のような形。図鑑の「モンスターとペット」で使う）
+let monsterDefeats = {};
+
+// とった実績と、とった日（{ "first-defeat": "2026-10-01" } のような形）
+let achievements = {};
+
 // カレンダーで見ている年と月（月は 0〜11。1月が 0）と、押して選んでいる日（「2026-10-05」のような文字）
 let calendarYear = new Date().getFullYear();
 let calendarMonth = new Date().getMonth();
@@ -322,7 +346,7 @@ const GACHA_ITEMS = [
 // ===== 卵とペット =====
 
 // ガチャを1回引くごとに、卵が出る確率（卵が出たときは、アイテムは出ない）
-const EGG_CHANCE = 0.05;
+const EGG_CHANCE = 0.1;
 
 // 卵の種類の表。chance は「卵が出たときの中で」その卵になる確率、needed はかえるまでの集中の回数
 // pets は、その卵からかえるペット（どれか1つがランダムでかえる）
@@ -1447,23 +1471,23 @@ const PIXELS_GOLDEN_SLIME = [
   "....oooooooooooooooo....",
 ];
 
-// モンスターの表。minExp は「本日のタスクのEXPが何から」、isBoss は少し大きく表示するか
+// モンスターの表。id は「たおした記録」を保存するときの名前、minExp は「本日のタスクのEXPが何から」、isBoss は少し大きく表示するか
 // EXP（10〜30）が多い（大変な）クエストほど、強そうなモンスターになります。高いEXPから順に書きます
 const MONSTERS = [
-  { minExp: 28, name: "ドラゴン", pixels: PIXELS_DRAGON, isBoss: true }, // 28〜30
-  { minExp: 26, name: "オーガ", pixels: PIXELS_OGRE, isBoss: false }, // 26〜27
-  { minExp: 24, name: "ゴースト", pixels: PIXELS_GHOST, isBoss: false }, // 24〜25
-  { minExp: 22, name: "ゴーレム", pixels: PIXELS_GOLEM, isBoss: false }, // 22〜23
-  { minExp: 20, name: "オオカミ", pixels: PIXELS_WOLF, isBoss: false }, // 20〜21
-  { minExp: 18, name: "ガイコツ", pixels: PIXELS_SKELETON, isBoss: false }, // 18〜19
-  { minExp: 16, name: "ゴブリン", pixels: PIXELS_GOBLIN, isBoss: false }, // 16〜17
-  { minExp: 14, name: "おばけキノコ", pixels: PIXELS_MUSHROOM, isBoss: false }, // 14〜15
-  { minExp: 12, name: "コウモリ", pixels: PIXELS_BAT, isBoss: false }, // 12〜13
-  { minExp: 0, name: "スライム", pixels: PIXELS_SLIME, isBoss: false }, // 10〜11
+  { id: "dragon", minExp: 28, name: "ドラゴン", pixels: PIXELS_DRAGON, isBoss: true }, // 28〜30
+  { id: "ogre", minExp: 26, name: "オーガ", pixels: PIXELS_OGRE, isBoss: false }, // 26〜27
+  { id: "ghost", minExp: 24, name: "ゴースト", pixels: PIXELS_GHOST, isBoss: false }, // 24〜25
+  { id: "golem", minExp: 22, name: "ゴーレム", pixels: PIXELS_GOLEM, isBoss: false }, // 22〜23
+  { id: "wolf", minExp: 20, name: "オオカミ", pixels: PIXELS_WOLF, isBoss: false }, // 20〜21
+  { id: "skeleton", minExp: 18, name: "ガイコツ", pixels: PIXELS_SKELETON, isBoss: false }, // 18〜19
+  { id: "goblin", minExp: 16, name: "ゴブリン", pixels: PIXELS_GOBLIN, isBoss: false }, // 16〜17
+  { id: "mushroom", minExp: 14, name: "おばけキノコ", pixels: PIXELS_MUSHROOM, isBoss: false }, // 14〜15
+  { id: "bat", minExp: 12, name: "コウモリ", pixels: PIXELS_BAT, isBoss: false }, // 12〜13
+  { id: "slime", minExp: 0, name: "スライム", pixels: PIXELS_SLIME, isBoss: false }, // 10〜11
 ];
 
 // レアなクエストのときに出すモンスター
-const RARE_MONSTER = { name: "ゴールデンスライム", pixels: PIXELS_GOLDEN_SLIME, isBoss: false };
+const RARE_MONSTER = { id: "golden-slime", name: "ゴールデンスライム", pixels: PIXELS_GOLDEN_SLIME, isBoss: false };
 
 // --- 関数 ---
 
@@ -1755,6 +1779,8 @@ function savePlayer() {
     activePets: activePets,
     defeatHistory: defeatHistory,
     focusHistory: focusHistory,
+    monsterDefeats: monsterDefeats,
+    achievements: achievements,
   };
   localStorage.setItem(PLAYER_KEY, JSON.stringify(player));
 }
@@ -1789,6 +1815,8 @@ function loadPlayer() {
     giveStarterPets(false); // 最初からいるペットを持っていなければ、仲間に入れる（連れていくペットは変えない）
     defeatHistory = player.defeatHistory || {};
     focusHistory = player.focusHistory || {}; // 前の形の保存データには無いので、そのときは空
+    monsterDefeats = player.monsterDefeats || {}; // 前の形の保存データには無いので、そのときは空（だれもたおしていない）
+    achievements = player.achievements || {}; // 前の形の保存データには無いので、そのときは空（まだ1つもとっていない）
     console.log("プレイヤーの状態を読み込みました", player);
   } catch (error) {
     console.log("プレイヤーの保存データが壊れていたので、0 から始めます");
@@ -1808,6 +1836,8 @@ function loadPlayer() {
     activePets = [];
     defeatHistory = {};
     focusHistory = {};
+    monsterDefeats = {};
+    achievements = {};
     giveStarterPets(true); // データが壊れていたときも、初めての人と同じように、最初からいるペットを入れる
   }
 }
@@ -2483,6 +2513,7 @@ function createDefeatButton(quest, index, text, className) {
 
     // 撃破・レベルアップ・お祝いの演出を、順番待ちの列に並べる
     addDefeatEffects(1, quest.exp, levelBefore, getLevel(), countBefore, todayCount);
+    checkAchievements(true); // 新しくとれた実績があれば、演出を出す（撃破の演出のあとに並ぶ）
   });
   return button;
 }
@@ -2493,6 +2524,16 @@ function switchTodayView(showHabit) {
   todayCard.hidden = showHabit;
   switchHabitButton.classList.toggle("is-active", showHabit);
   switchTodayButton.classList.toggle("is-active", !showHabit);
+}
+
+// 図鑑の中のページを切りかえる（name は "items"・"creatures"・"achievements" のどれか）
+function switchCollectionPage(name) {
+  Object.keys(collectionSections).forEach(function (key) {
+    collectionSections[key].hidden = key !== name;
+  });
+  collectionSwitchButtons.forEach(function (button) {
+    button.classList.toggle("is-active", button.dataset.collection === name);
+  });
 }
 
 // 選んだクエストをまとめて撃破する
@@ -2526,6 +2567,7 @@ function defeatSelectedQuests() {
 
   // 撃破（まとめて1つ）→ 上がったレベルの数だけレベルアップ → お祝い の順に並べる
   addDefeatEffects(targets.length, totalGain, levelBefore, getLevel(), countBefore, todayCount);
+  checkAchievements(true); // 新しくとれた実績があれば、演出を出す（撃破の演出のあとに並ぶ）
 }
 
 // クエスト1つ分の「選ぶ」チェックボックスを作って返す（まとめて撃破するクエストを選ぶため）
@@ -3395,10 +3437,11 @@ function drawGacha() {
   renderGacha();
   console.log("ガチャを引きました", item);
   addGachaEffect(item);
+  checkAchievements(true); // 新しくとれた実績があれば、演出を出す
 }
 
 // アイテムを1つ出して、持っている数を1つ増やし、出たアイテムを返す（1回引く・10連で使う）
-// 5%の確率で、アイテムの代わりに卵が出る（卵のときは、卵の数を1つ増やす）
+// 10%の確率で、アイテムの代わりに卵が出る（卵のときは、卵の数を1つ増やす）
 function drawOneItem() {
   if (Math.random() < EGG_CHANCE) {
     const egg = pickEggType();
@@ -3445,6 +3488,7 @@ function drawGachaTen() {
   renderGacha();
   console.log("10連ガチャを引きました", results);
   addGachaTenEffect(results);
+  checkAchievements(true); // 新しくとれた実績があれば、演出を出す
 }
 
 // 10連ガチャの演出を列に並べる（「🎰 10連ガチャ！ ★★★×1 ★★×3 ★×6」のように、ランクごとの数を出す）
@@ -3529,7 +3573,7 @@ function renderGachaRates() {
     const rank = GACHA_RANKS[i];
 
     // そのランクのアイテムが何種類あるか数えて、1つあたりの確率を出す
-    // 卵が出る 5% の分だけ、アイテムの確率は少し下がる（ランクの確率 × 0.95）
+    // 卵が出る 10% の分だけ、アイテムの確率は少し下がる（ランクの確率 × 0.9）
     const kinds = GACHA_ITEMS.filter(function (item) {
       return item.rank === rank.rank;
     }).length;
@@ -3818,6 +3862,7 @@ function finishTimer() {
 
     // セットしている卵を育てる（決まった回数になったら、かえる）
     growEgg();
+    checkAchievements(true); // 新しくとれた実績があれば、演出を出す（卵がかえったときも、ここで確かめる）
   } else {
     addTimerEffect("☕ 休けいおわり！\n次の集中をはじめよう", false);
     timerMode = "focus";
@@ -4009,6 +4054,285 @@ function renderPets() {
   renderSettingEgg();
   renderEggList();
   renderPetList();
+  renderCreatures(); // 図鑑の「モンスターとペット」も描き直す（ペットが増えたときのため）
+}
+
+// ===== 図鑑の「モンスターとペット」のページ =====
+
+// まだ見つけていないモンスターやペットを描く、黒いかげの色
+const SILHOUETTE_COLOR = "#4a4a5a";
+
+// 図鑑の「モンスターとペット」のページを描き直す
+function renderCreatures() {
+  renderMonsterList();
+  renderCreaturePetList();
+}
+
+// モンスターの一覧（弱い順。最後にゴールデンスライム）
+function renderMonsterList() {
+  const list = MONSTERS.slice().reverse().concat([RARE_MONSTER]); // MONSTERS は強い順なので、ひっくり返す
+  creatureMonsterList.innerHTML = "";
+  let foundCount = 0;
+  list.forEach(function (monster) {
+    const count = monsterDefeats[monster.id] || 0;
+    if (count > 0) {
+      foundCount = foundCount + 1;
+    }
+    const subText = getMonsterExpText(monster) + (count > 0 ? "・×" + count : "");
+    creatureMonsterList.appendChild(createCreatureItem(monster.pixels, count > 0 ? monster.name : "？？？", subText, count > 0, ""));
+  });
+  creatureMonsterCount.textContent = "モンスター " + foundCount + " / " + list.length;
+}
+
+// ペットの一覧（なかまの一覧と同じ順）
+function renderCreaturePetList() {
+  creaturePetList.innerHTML = "";
+  let foundCount = 0;
+  PETS.forEach(function (pet) {
+    const count = pets[pet.id] || 0;
+    if (count > 0) {
+      foundCount = foundCount + 1;
+    }
+    const name = count > 0 ? pet.name + (count >= 2 ? " ×" + count : "") : "？？？";
+    creaturePetList.appendChild(createCreatureItem(pet.pixels, name, getPetFromText(pet.id), count > 0, "rank-" + pet.rank));
+  });
+  creaturePetCount.textContent = "ペット " + foundCount + " / " + PETS.length;
+}
+
+// モンスターが出るEXPの文字を返す（「10〜11 EXP」など。レアなら「レア（100 EXP）」）
+function getMonsterExpText(monster) {
+  if (monster === RARE_MONSTER) {
+    return "レア（" + RARE_EXP + " EXP）";
+  }
+  const index = MONSTERS.indexOf(monster);
+  const min = Math.max(monster.minExp, 10); // いちばん弱いスライムは minExp が 0 なので、10 からにする
+  const max = index === 0 ? 30 : MONSTERS[index - 1].minExp - 1; // 1つ強いモンスターの手前まで
+  return min + "〜" + max + " EXP";
+}
+
+// ペットが、どの卵からかえるかの文字を返す（卵からかえらないペットは「最初からいる」）
+function getPetFromText(petId) {
+  const egg = EGG_TYPES.find(function (eggType) {
+    return eggType.pets.includes(petId);
+  });
+  return egg ? "🥚 " + egg.name : "最初からいる";
+}
+
+// 一覧の1つ分（絵・名前・小さな説明）を作って返す。found が false なら、黒いかげで描く
+function createCreatureItem(pixels, name, subText, found, rankClass) {
+  const item = document.createElement("div");
+  item.className = "creature-item " + rankClass;
+  item.classList.toggle("is-unknown", !found);
+
+  const canvas = document.createElement("canvas");
+  canvas.className = "creature-canvas";
+  const grid = makeColorGrid(pixels);
+  paintGrid(canvas, found ? grid : makeSilhouette(grid));
+  item.appendChild(canvas);
+
+  const nameText = document.createElement("span");
+  nameText.className = "creature-name";
+  nameText.textContent = name;
+  item.appendChild(nameText);
+
+  const sub = document.createElement("span");
+  sub.className = "creature-sub";
+  sub.textContent = subText;
+  item.appendChild(sub);
+  return item;
+}
+
+// 色の表の、色のあるマスを全部「かげの色」にした、新しい色の表を返す
+function makeSilhouette(grid) {
+  return grid.map(function (row) {
+    return row.map(function (color) {
+      return color ? SILHOUETTE_COLOR : null;
+    });
+  });
+}
+
+// ===== 実績（トロフィー） =====
+
+// 実績の表。id は保存するときの名前、condition は画面に出す条件、check は「条件を満たしたら true を返す」関数
+const ACHIEVEMENTS = [
+  // ⚔️ 撃破
+  { id: "defeat-1", name: "はじめての一撃", condition: "合計 1体 撃破する", check: function () { return countAllDefeats() >= 1; } },
+  { id: "defeat-10", name: "見習いハンター", condition: "合計 10体 撃破する", check: function () { return countAllDefeats() >= 10; } },
+  { id: "defeat-50", name: "一人前ハンター", condition: "合計 50体 撃破する", check: function () { return countAllDefeats() >= 50; } },
+  { id: "defeat-100", name: "伝説のハンター", condition: "合計 100体 撃破する", check: function () { return countAllDefeats() >= 100; } },
+  // 🔥 連続
+  { id: "streak-3", name: "三日坊主じゃない", condition: "3日連続で 1体以上 撃破する", check: function () { return countLongestStreak() >= 3; } },
+  { id: "streak-7", name: "一週間の勇者", condition: "7日連続で 1体以上 撃破する", check: function () { return countLongestStreak() >= 7; } },
+  // ⭐ レベル
+  { id: "level-3", name: "戦士になった", condition: "Lv3 になる", check: function () { return getLevel() >= 3; } },
+  { id: "level-5", name: "勇者になった", condition: "Lv5 になる", check: function () { return getLevel() >= 5; } },
+  { id: "level-10", name: "竜殺し", condition: "Lv10 になる", check: function () { return getLevel() >= 10; } },
+  { id: "level-20", name: "神話の勇者", condition: "Lv20 になる", check: function () { return getLevel() >= 20; } },
+  // 🍅 集中
+  { id: "focus-1", name: "はじめての集中", condition: "集中タイムを 合計 1回 終える", check: function () { return sumValues(focusHistory) >= 1; } },
+  { id: "focus-20", name: "集中マスター", condition: "集中タイムを 合計 20回 終える", check: function () { return sumValues(focusHistory) >= 20; } },
+  // 🔁 習慣
+  { id: "habit-1", name: "習慣の第一歩", condition: "習慣を 合計 1回 クリアする", check: function () { return countHabitClears() >= 1; } },
+  { id: "habit-30", name: "習慣の達人", condition: "習慣を 合計 30回 クリアする", check: function () { return countHabitClears() >= 30; } },
+  // 🎰 ガチャ
+  { id: "gacha-10", name: "コレクター", condition: "図鑑のアイテムを 10種類 集める", check: function () { return countOwnedItems(GACHA_ITEMS) >= 10; } },
+  { id: "gacha-super", name: "スーパーレア", condition: "★★★ のアイテムを 1つ 手に入れる", check: function () { return hasSuperRareItem(); } },
+  { id: "gacha-all", name: "図鑑コンプリート", condition: "図鑑のアイテムを 48種類 全部 集める", check: function () { return countOwnedItems(GACHA_ITEMS) >= GACHA_ITEMS.length; } },
+  // 🐣 ペット
+  { id: "pet-hatch", name: "はじめての孵化", condition: "卵を 1回 かえす", check: function () { return hasHatchedEgg(); } },
+  { id: "pet-5", name: "ペットなかま", condition: "ペットを 5種類 なかまにする", check: function () { return countPetKinds() >= 5; } },
+  { id: "pet-all", name: "ペットマスター", condition: "ペットを 11種類 全部 なかまにする", check: function () { return countPetKinds() >= PETS.length; } },
+  // 👾 モンスター
+  { id: "monster-golden", name: "黄金の出会い", condition: "ゴールデンスライムを たおす", check: function () { return (monsterDefeats[RARE_MONSTER.id] || 0) > 0; } },
+  { id: "monster-5", name: "モンスター博士", condition: "モンスターを 5種類 たおす", check: function () { return countMonsterKinds() >= 5; } },
+  { id: "monster-all", name: "モンスター図鑑コンプリート", condition: "モンスターを 11種類 全部 たおす", check: function () { return countMonsterKinds() >= MONSTERS.length + 1; } },
+];
+
+// { a: 2, b: 3 } のような記録の、数を全部たして返す
+function sumValues(record) {
+  return Object.keys(record).reduce(function (total, key) {
+    return total + record[key];
+  }, 0);
+}
+
+// 今までに撃破した数の合計（カレンダーの記録から数える）
+function countAllDefeats() {
+  return sumValues(defeatHistory);
+}
+
+// 1体以上撃破した日が、いちばん長く何日続いたかを返す（カレンダーの記録から数える）
+function countLongestStreak() {
+  const days = Object.keys(defeatHistory).filter(function (date) {
+    return defeatHistory[date] > 0;
+  }).sort();
+  let longest = 0;
+  let current = 0;
+  for (let i = 0; i < days.length; i++) {
+    // 前の日のすぐ次の日なら、続いている。そうでなければ 1日目からやり直す
+    const isNextDay = i > 0 && getNextDateText(days[i - 1]) === days[i];
+    current = isNextDay ? current + 1 : 1;
+    longest = Math.max(longest, current);
+  }
+  return longest;
+}
+
+// 「2026-10-01」のような日付の、次の日の日付の文字を返す
+function getNextDateText(dateText) {
+  const parts = dateText.split("-");
+  const next = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]) + 1);
+  return makeDateText(next.getFullYear(), next.getMonth(), next.getDate());
+}
+
+// 習慣をクリアした回数の合計（今ある習慣の、クリアした日の記録から数える）
+function countHabitClears() {
+  return habits.reduce(function (total, habit) {
+    return total + (habit.doneDates || []).length;
+  }, 0);
+}
+
+// ★★★ のアイテムを1つでも持っているか
+function hasSuperRareItem() {
+  return GACHA_ITEMS.some(function (item) {
+    return item.rank === 3 && items[item.id];
+  });
+}
+
+// 卵をかえしたことがあるか（最初からいるペット以外がいる、またはねこが2匹以上いる）
+function hasHatchedEgg() {
+  const hasOtherPet = PETS.some(function (pet) {
+    return !STARTER_PETS.includes(pet.id) && pets[pet.id];
+  });
+  return hasOtherPet || (pets.cat || 0) >= 2;
+}
+
+// 仲間にいるペットの種類の数
+function countPetKinds() {
+  return PETS.filter(function (pet) {
+    return pets[pet.id];
+  }).length;
+}
+
+// たおしたことのあるモンスターの種類の数
+function countMonsterKinds() {
+  return Object.keys(monsterDefeats).filter(function (id) {
+    return monsterDefeats[id] > 0;
+  }).length;
+}
+
+// まだとっていない実績の条件を確かめて、満たしていたら「とった」にする
+// showEffect が true なら「🏆 実績解除！」の演出を出す（ページを開いたときは出さない）
+function checkAchievements(showEffect) {
+  const newOnes = ACHIEVEMENTS.filter(function (achievement) {
+    return !achievements[achievement.id] && achievement.check();
+  });
+  if (newOnes.length === 0) {
+    return;
+  }
+  newOnes.forEach(function (achievement) {
+    achievements[achievement.id] = getTodayString();
+  });
+  savePlayer();
+  renderAchievements();
+  if (showEffect) {
+    addAchievementEffect(newOnes);
+  }
+}
+
+// 「🏆 実績解除！」の演出を、順番待ちの列に並べる（いくつか同時にとれたら、1つの演出にまとめて名前をならべる）
+function addAchievementEffect(newOnes) {
+  const names = newOnes.map(function (achievement) {
+    return "「" + achievement.name + "」";
+  }).join("\n");
+  addEffect(function () {
+    clearEffectClasses();
+    effectText.textContent = "🏆 実績解除！\n" + names;
+    restartAnimation(effectOverlay, "is-celebrate");
+    playFanfareSound();
+  }, CELEBRATE_EFFECT_TIME);
+}
+
+// 図鑑の「🏆 実績」のページを描き直す
+function renderAchievements() {
+  achievementList.innerHTML = "";
+  let gotCount = 0;
+  ACHIEVEMENTS.forEach(function (achievement) {
+    const date = achievements[achievement.id];
+    if (date) {
+      gotCount = gotCount + 1;
+    }
+    achievementList.appendChild(createAchievementItem(achievement, date));
+  });
+  achievementCount.textContent = "🏆 実績 " + gotCount + " / " + ACHIEVEMENTS.length;
+}
+
+// 実績の1行（🏆 か 🔒・名前・条件・とった日）を作って返す
+function createAchievementItem(achievement, date) {
+  const row = document.createElement("li");
+  row.className = "achievement-item";
+  row.classList.toggle("is-got", Boolean(date));
+
+  const icon = document.createElement("span");
+  icon.className = "achievement-icon";
+  icon.textContent = date ? "🏆" : "🔒";
+  row.appendChild(icon);
+
+  const text = document.createElement("div");
+  text.className = "achievement-text";
+  const name = document.createElement("strong");
+  name.textContent = achievement.name;
+  const condition = document.createElement("span");
+  condition.className = "achievement-condition";
+  condition.textContent = achievement.condition + (date ? "（" + formatShortDate(date) + " にとった）" : "");
+  text.appendChild(name);
+  text.appendChild(condition);
+  row.appendChild(text);
+  return row;
+}
+
+// 「2026-10-01」のような日付を、「10/1」のような短い文字にして返す
+function formatShortDate(dateText) {
+  const parts = dateText.split("-");
+  return Number(parts[1]) + "/" + Number(parts[2]);
 }
 
 // 「セット中：🥚 青い卵（あと 2 回）」と、取り出すボタン
@@ -4048,7 +4372,7 @@ function renderEggList() {
     eggList.appendChild(row);
   }
   if (!hasEgg) {
-    eggList.innerHTML = "<li class=\"pet-empty\">まだありません（ガチャで 5% の確率で出ます）</li>";
+    eggList.innerHTML = "<li class=\"pet-empty\">まだありません（ガチャで 10% の確率で出ます）</li>";
   }
 }
 
@@ -4322,13 +4646,26 @@ function completeQuest(index) {
   if (quests[index].done) {
     return;
   }
-  quests[index].done = true;
-  quests[index].pinned = false; // 撃破したら、ピン止めの数から外す
+  // 保存すると一覧が並べかえられて番号がずれるので、撃破するクエストを先に覚えておく
+  // （ここから下は quests[index] ではなく、覚えておいた quest を使う）
+  const quest = quests[index];
+  quest.done = true;
+  quest.pinned = false; // 撃破したら、ピン止めの数から外す
   saveQuests();
-  console.log("クエストを撃破しました", quests[index]);
+  console.log("クエストを撃破しました", quest);
+
+  // そのクエストのモンスターを、たおした記録に入れる（保存は、下のごほうびのときに一緒にする）
+  recordMonsterDefeat(quest);
 
   // EXP・今日の撃破数・コインをもらう
-  giveDefeatRewards(quests[index].exp, quests[index].rare === true);
+  giveDefeatRewards(quest.exp, quest.rare === true);
+  renderCreatures(); // 図鑑の「モンスターとペット」も描き直す
+}
+
+// クエストのEXP（レアならゴールデンスライム）で決まるモンスターの、たおした数を1つ増やす
+function recordMonsterDefeat(quest) {
+  const monster = getMonster(quest);
+  monsterDefeats[monster.id] = (monsterDefeats[monster.id] || 0) + 1;
 }
 
 // 撃破したときのごほうび（EXP・今日の撃破数・コイン）をもらって保存する（クエストと習慣で同じものを使う）
@@ -4427,6 +4764,7 @@ function defeatHabit(index) {
 
   // 撃破・レベルアップ・お祝いの演出を、順番待ちの列に並べる
   addDefeatEffects(1, habit.exp, levelBefore, getLevel(), countBefore, todayCount);
+  checkAchievements(true); // 新しくとれた実績があれば、演出を出す
 }
 
 // index 番目の習慣を削除する（もらったEXPは減らさない）
@@ -4603,6 +4941,13 @@ switchHabitButton.addEventListener("click", function () {
   switchTodayView(true);
 });
 
+// 図鑑の中の切りかえボタンが押されたとき（ボタンに書いてある data-collection のページを見せる）
+collectionSwitchButtons.forEach(function (button) {
+  button.addEventListener("click", function () {
+    switchCollectionPage(button.dataset.collection);
+  });
+});
+
 // 「1回引く」のボタンが押されたとき
 gachaButton.addEventListener("click", drawGacha);
 
@@ -4667,3 +5012,7 @@ renderTimer();
 // 連れていくペットを描いて、ペットのカードを表示する
 drawPets();
 renderPets();
+
+// ページを開いたときに、もう条件を満たしている実績は、演出なしで「とった」にしてから、実績のページを表示する
+checkAchievements(false);
+renderAchievements();
