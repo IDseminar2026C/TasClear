@@ -1384,6 +1384,16 @@ h1 {
   z-index: 1; /* キャラより手前に描く */
 }
 
+/* 2匹連れているときのペット：キャラがかくれすぎないように、少し小さくする（16行 × 3px） */
+.pet-canvas.is-small {
+  height: 48px;
+}
+
+/* 2匹目のペット：1匹目のすぐ右（キャラの足もと）に、少し重ねて置く */
+.pet-canvas.is-second {
+  left: 44px;
+}
+
 /* 見えないようにする設定（hidden）を、確実に効かせる */
 .pet-canvas[hidden],
 .timer-pet[hidden] {
@@ -1407,6 +1417,11 @@ h1 {
 /* ペットも、動いているときは上下にはねる（キャラと少しずらしてはねる） */
 .timer-pet.is-walking {
   animation: walk-bounce 0.5s infinite 0.25s;
+}
+
+/* 2匹目のペットは、1匹目とさらに少しずらしてはねる */
+.timer-pet.is-second.is-walking {
+  animation-delay: 0.1s;
 }
 
 /* ペットのカード（タイマーのカードとのあいだに、すき間をあける） */

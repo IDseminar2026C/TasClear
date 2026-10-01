@@ -60,8 +60,9 @@ const calendarNextButton = document.getElementById("calendar-next");
 const calendarThisMonthButton = document.getElementById("calendar-this-month");
 
 // ペットの部品（メイン画面のペット、タイマーで歩くペット、ペットのカード）
-const petCanvas = document.getElementById("pet-canvas");
-const timerPet = document.getElementById("timer-pet");
+// 1匹目・2匹目の順に並べて、配列にまとめています
+const petCanvases = [document.getElementById("pet-canvas"), document.getElementById("pet-canvas-2")];
+const timerPets = [document.getElementById("timer-pet"), document.getElementById("timer-pet-2")];
 const petSettingText = document.getElementById("pet-setting");
 const eggList = document.getElementById("egg-list");
 const petList = document.getElementById("pet-list");
@@ -308,6 +309,26 @@ const EGG_TYPES = [
 
 // ペットのドット絵の設計図（新しい描き方・18×16マス。キャラより小さい。右にいるキャラの方を向いている）
 
+// ちびスライム（最初からいるペット。卵からはかえらない）：青くて小さいスライム・にっこり笑った顔
+const PIXELS_PET_SLIME = [
+  "..................",
+  "..................",
+  "..................",
+  "..................",
+  "..................",
+  ".......oooo.......",
+  ".....oozzzzoo.....",
+  "....ozIIzZZZZo....",
+  "...ozIIZZZZZZZo...",
+  "..ozIZZZZZTeZTeZo.",
+  "..oZZZZZZZeeZeeZo.",
+  ".oZZZZZZZcZZZZZcxo",
+  ".oZZZZZZZZZeZZeZxo",
+  ".oxZZZZZZZZZeeZxxo",
+  "..oxxxZZZZZZZxxxo.",
+  "...ooooooooooooo..",
+];
+
 // ひよこ：黄色・オレンジのくちばし
 const PIXELS_PET_CHICK = [
   "........oooo......",
@@ -510,6 +531,7 @@ const PIXELS_PET_UNICORN = [
 
 // ペットの表（なかまの一覧は、この順に並ぶ。卵のランク（rank）の順に書く）
 const PETS = [
+  { id: "slime", icon: "🫧", name: "ちびスライム", rank: 1, pixels: PIXELS_PET_SLIME }, // 最初からいるペット
   { id: "chick", icon: "🐤", name: "ひよこ", rank: 1, pixels: PIXELS_PET_CHICK },
   { id: "cat", icon: "🐱", name: "ねこ", rank: 1, pixels: PIXELS_PET_CAT },
   { id: "dog", icon: "🐶", name: "いぬ", rank: 1, pixels: PIXELS_PET_DOG },
@@ -532,8 +554,15 @@ let settingEgg = null;
 // 仲間になったペットと、その数（{ cat: 1, chick: 2 } のような形）
 let pets = {};
 
-// 連れていくペットの id（連れていかないときは null）
-let activePet = null;
+// 連れていけるペットの数
+const MAX_ACTIVE_PETS = 2;
+
+// 最初から仲間にいるペット（初めての人は、この2匹を連れていく状態で始まる）
+const STARTER_PETS = ["slime", "cat"];
+
+// 連れていくペットの id の配列（["hamster", "cat"] のような形。連れていかないときは []）
+// 同じ id が2つ入っていたら、同じ種類を2匹連れている
+let activePets = [];
 
 // 装備する部位の表（図鑑の「そうび：…」に、この順で並べる）
 const EQUIP_SLOTS = [
@@ -1697,7 +1726,7 @@ function savePlayer() {
     eggs: eggs,
     settingEgg: settingEgg,
     pets: pets,
-    activePet: activePet,
+    activePets: activePets,
     defeatHistory: defeatHistory,
   };
   localStorage.setItem(PLAYER_KEY, JSON.stringify(player));
@@ -1707,8 +1736,9 @@ function savePlayer() {
 function loadPlayer() {
   const saved = localStorage.getItem(PLAYER_KEY);
 
-  // まだ何も保存されていなければ、0 のまま
+  // まだ何も保存されていなければ、0 のまま（ペットだけは、最初からいる2匹を入れる）
   if (saved === null) {
+    giveStarterPets(true); // 初めての人は、最初からいるペットを仲間にして、連れていく
     return;
   }
 
@@ -1727,7 +1757,8 @@ function loadPlayer() {
     eggs = player.eggs || {};
     settingEgg = player.settingEgg || null;
     pets = player.pets || {};
-    activePet = player.activePet || null;
+    activePets = loadActivePets(player);
+    giveStarterPets(false); // 最初からいるペットを持っていなければ、仲間に入れる（連れていくペットは変えない）
     defeatHistory = player.defeatHistory || {};
     console.log("プレイヤーの状態を読み込みました", player);
   } catch (error) {
@@ -1744,8 +1775,9 @@ function loadPlayer() {
     eggs = {};
     settingEgg = null;
     pets = {};
-    activePet = null;
+    activePets = [];
     defeatHistory = {};
+    giveStarterPets(true); // データが壊れていたときも、初めての人と同じように、最初からいるペットを入れる
   }
 }
 
@@ -3801,8 +3833,8 @@ function hatchEgg() {
   settingEgg = null;
 
   // まだ誰も連れていなければ、かえったペットを連れていく
-  if (activePet === null) {
-    activePet = petId;
+  if (activePets.length === 0) {
+    activePets.push(petId);
   }
   drawPets();
   console.log("卵がかえりました", pet);
@@ -3815,26 +3847,93 @@ function hatchEgg() {
   }, CELEBRATE_EFFECT_TIME);
 }
 
-// ペットを連れていく（すでに連れていくペットを押したら、連れていかないにする）
+// ペットのボタンを押したとき
+// 連れていないペット → 1匹連れていく
+// 1匹連れていて、2匹以上持っているペット → 2匹目も連れていく
+// それ以外（もう全部連れている） → そのペットを全部はずす
 function toggleActivePet(petId) {
-  if (activePet === petId) {
-    activePet = null;
+  const takingCount = countActivePet(petId);
+  const ownedCount = pets[petId] || 0;
+  if (takingCount === 0 || (takingCount === 1 && ownedCount >= 2)) {
+    addActivePet(petId);
   } else {
-    activePet = petId;
+    removeActivePet(petId);
   }
   savePlayer();
   drawPets();
   renderPets();
 }
 
-// 連れていくペットを、メイン画面とタイマーのバーに描く（連れていかないときは隠す）
+// そのペットを、今何匹連れているかを返す
+function countActivePet(petId) {
+  return activePets.filter(function (id) {
+    return id === petId;
+  }).length;
+}
+
+// ペットを1匹連れていく（もう2匹連れているときは、先に連れていたほうの1匹と入れかえる）
+function addActivePet(petId) {
+  if (activePets.length >= MAX_ACTIVE_PETS) {
+    activePets.shift(); // 配列のいちばん前（先に連れていたペット）を取り出す
+  }
+  activePets.push(petId);
+}
+
+// そのペットを、全部はずす
+function removeActivePet(petId) {
+  activePets = activePets.filter(function (id) {
+    return id !== petId;
+  });
+}
+
+// 最初からいるペットを仲間に入れる（持っていないときだけ1匹入れる。持っていれば数は変えない）
+// isNewPlayer が true（初めての人）のときは、そのペットたちを連れていく
+function giveStarterPets(isNewPlayer) {
+  STARTER_PETS.forEach(function (petId) {
+    if (!pets[petId]) {
+      pets[petId] = 1;
+    }
+  });
+  if (isNewPlayer) {
+    activePets = STARTER_PETS.slice(0, MAX_ACTIVE_PETS); // slice で、表のコピーを作って入れる
+  }
+}
+
+// 保存データから、連れていくペットの配列を作って返す
+// 前の保存データ（1匹だけの activePet）も、1匹目として読み込む
+// 持っていないペットや、持っている数より多いぶんは入れない
+function loadActivePets(player) {
+  let savedIds = [];
+  if (Array.isArray(player.activePets)) {
+    savedIds = player.activePets;
+  } else if (player.activePet) {
+    savedIds = [player.activePet];
+  }
+  const result = [];
+  for (let i = 0; i < savedIds.length && result.length < MAX_ACTIVE_PETS; i++) {
+    const id = savedIds[i];
+    const takingCount = result.filter(function (taken) {
+      return taken === id;
+    }).length;
+    if (getPet(id) && takingCount < (pets[id] || 0)) {
+      result.push(id);
+    }
+  }
+  return result;
+}
+
+// 連れていくペットを、メイン画面とタイマーのバーに描く（連れていかないぶんは隠す）
 function drawPets() {
-  const hasPet = activePet !== null && getPet(activePet);
-  petCanvas.hidden = !hasPet;
-  timerPet.hidden = !hasPet;
-  if (hasPet) {
-    drawPixels(petCanvas, getPet(activePet).pixels);
-    drawPixels(timerPet, getPet(activePet).pixels);
+  for (let i = 0; i < MAX_ACTIVE_PETS; i++) {
+    const pet = getPet(activePets[i]);
+    petCanvases[i].hidden = !pet;
+    timerPets[i].hidden = !pet;
+    // 2匹連れているときは、メイン画面のキャラがかくれすぎないように、ペットを少し小さくする
+    petCanvases[i].classList.toggle("is-small", activePets.length >= 2);
+    if (pet) {
+      drawPixels(petCanvases[i], pet.pixels);
+      drawPixels(timerPets[i], pet.pixels);
+    }
   }
 }
 
@@ -3897,6 +3996,17 @@ function renderEggList() {
   }
 }
 
+// ペットのボタンの文字を返す（連れている数で変わる）
+function getPetButtonText(takingCount) {
+  if (takingCount >= 2) {
+    return "連れていく中 ×2";
+  }
+  if (takingCount === 1) {
+    return "連れていく中";
+  }
+  return "連れていく";
+}
+
 // 仲間のペットの一覧（数と「連れていく」ボタン）
 function renderPetList() {
   petList.innerHTML = "";
@@ -3912,11 +4022,11 @@ function renderPetList() {
     row.className = "pet-row rank-" + pet.rank;
     row.appendChild(document.createTextNode(pet.icon + " " + pet.name + (count >= 2 ? " ×" + count : "")));
 
-    const isActive = activePet === pet.id;
-    const button = createPetButton(isActive ? "連れていく中" : "連れていく", function () {
+    const takingCount = countActivePet(pet.id);
+    const button = createPetButton(getPetButtonText(takingCount), function () {
       toggleActivePet(pet.id);
     }, false);
-    button.classList.toggle("is-active", isActive);
+    button.classList.toggle("is-active", takingCount > 0);
     row.appendChild(button);
     petList.appendChild(row);
   }
@@ -3977,7 +4087,9 @@ function renderTimer() {
 
   // 動いているときだけ、キャラとペットを歩かせる（上下にはねる）
   timerWalker.classList.toggle("is-walking", isTimerRunning());
-  timerPet.classList.toggle("is-walking", isTimerRunning());
+  timerPets.forEach(function (timerPet) {
+    timerPet.classList.toggle("is-walking", isTimerRunning());
+  });
 
   // 動いているときはスタートを、止まっているときは一時停止を押せなくする
   timerStartButton.disabled = isTimerRunning();
