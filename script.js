@@ -37,6 +37,12 @@ const resetLevelButton = document.getElementById("reset-level-button");
 // 「選んだ〇体をまとめて撃破」のボタン
 const bulkDefeatButton = document.getElementById("bulk-defeat-button");
 
+// 「本日のタスク」と「毎日の習慣」の切りかえボタンと、2つのカード
+const switchTodayButton = document.getElementById("switch-today-button");
+const switchHabitButton = document.getElementById("switch-habit-button");
+const todayCard = document.getElementById("today-card");
+const habitCard = document.getElementById("habit-card");
+
 // 効果音を消したり戻したりするボタン
 const soundButton = document.getElementById("sound-button");
 
@@ -2456,6 +2462,14 @@ function createDefeatButton(quest, index, text, className) {
   return button;
 }
 
+// 「本日のタスク」と「毎日の習慣」のカードを切りかえる（showHabit が true なら習慣、false なら本日のタスクを出す）
+function switchTodayView(showHabit) {
+  habitCard.hidden = !showHabit;
+  todayCard.hidden = showHabit;
+  switchHabitButton.classList.toggle("is-active", showHabit);
+  switchTodayButton.classList.toggle("is-active", !showHabit);
+}
+
 // 選んだクエストをまとめて撃破する
 function defeatSelectedQuests() {
   const targets = selectedQuests.slice(); // 選んだクエストの写し
@@ -4398,8 +4412,32 @@ function createHabitDeleteButton(index) {
   return button;
 }
 
+// 今日まだクリアしていない習慣の数を返す
+function countRemainingHabits() {
+  return habits.filter(function (habit) {
+    return !isHabitDoneToday(habit);
+  }).length;
+}
+
+// 「🔁 毎日の習慣」の切りかえボタンに、今日の残りの数を出す
+// まだ残っている →「（あと2）」、全部クリア →「✅」、習慣がない → 何も付けない
+// 2けた（10以上）のときは、ボタンに入りきるように、かっこを取って「 あと12」にする
+function renderHabitSwitchText() {
+  const remaining = countRemainingHabits();
+  let text = "🔁 毎日の習慣";
+  if (remaining >= 10) {
+    text = text + " あと" + remaining;
+  } else if (remaining > 0) {
+    text = text + "（あと" + remaining + "）";
+  } else if (habits.length > 0) {
+    text = text + " ✅";
+  }
+  switchHabitButton.textContent = text;
+}
+
 // 毎日の習慣のカードを表示し直す
 function renderHabits() {
+  renderHabitSwitchText(); // 切りかえボタンの残りの数も、いっしょに書きかえる
   habitList.innerHTML = "";
   if (habits.length === 0) {
     const empty = document.createElement("p");
@@ -4466,6 +4504,14 @@ resetLevelButton.addEventListener("click", resetLevel);
 
 // 「選んだ〇体をまとめて撃破」のボタンが押されたとき
 bulkDefeatButton.addEventListener("click", defeatSelectedQuests);
+
+// 「本日のタスク」「毎日の習慣」の切りかえボタンが押されたとき
+switchTodayButton.addEventListener("click", function () {
+  switchTodayView(false);
+});
+switchHabitButton.addEventListener("click", function () {
+  switchTodayView(true);
+});
 
 // 「1回引く」のボタンが押されたとき
 gachaButton.addEventListener("click", drawGacha);

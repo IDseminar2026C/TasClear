@@ -564,6 +564,39 @@ h1 {
   margin-bottom: 12px;
 }
 
+/* 見えないようにする設定（hidden）を、確実に効かせる */
+.today-card[hidden] {
+  display: none;
+}
+
+/* 「本日のタスク」と「毎日の習慣」の切りかえボタンを、横にならべる */
+.today-switch {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+/* 切りかえボタン1つ分（えらんでいないときは、うすい色。ページ上のタブと同じ色） */
+.today-switch-button {
+  flex: 1 1 0; /* 文字の長さに関係なく、2つのボタンを同じはば（半分ずつ）にする */
+  min-width: 0;
+  padding: 8px 2px;
+  font-size: 12px; /* はばをそろえても、「（あと12）」のように数が2けたになっても1行に収まる大きさ */
+  white-space: nowrap; /* 文字を折り返さない */
+  font-weight: bold;
+  background-color: #f5f1e6;
+  color: #1e2040;
+  border: 2px solid #1e2040;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* えらんでいる切りかえボタンは、濃い紺色 */
+.today-switch-button.is-active {
+  background-color: #1e2040;
+  color: #ffffff;
+}
+
 /* 「本日のタスク」の見出し（カードの上に付いたタブのような形） */
 .today-label {
   display: inline-block;

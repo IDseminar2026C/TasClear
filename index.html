@@ -107,14 +107,20 @@
       🔁 毎日の習慣として追加
     </label>
 
-    <!-- 毎日の習慣：撃破しても、次の日にまた出てくるタスク。中身は JavaScript で作ります -->
-    <section class="today-card">
+    <!-- 「本日のタスク」と「毎日の習慣」の切りかえボタン（押したほうのカードだけを出す） -->
+    <div class="today-switch">
+      <button id="switch-today-button" class="today-switch-button is-active" type="button">⚔️ 本日のタスク</button>
+      <button id="switch-habit-button" class="today-switch-button" type="button">🔁 毎日の習慣</button>
+    </div>
+
+    <!-- 毎日の習慣：撃破しても、次の日にまた出てくるタスク。中身は JavaScript で作ります（最初は隠す） -->
+    <section id="habit-card" class="today-card" hidden>
       <h2 class="today-label habit-label">🔁 毎日の習慣</h2>
       <div id="habit-list" class="today-quest"></div>
     </section>
 
     <!-- 本日のタスク：まだ撃破していない一番上のクエストを大きく表示します -->
-    <section class="today-card">
+    <section id="today-card" class="today-card">
       <h2 class="today-label">本日のタスク</h2>
       <!-- 中身は JavaScript で作ります -->
       <div id="today-quest" class="today-quest"></div>
