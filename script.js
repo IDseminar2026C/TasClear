@@ -436,51 +436,153 @@ const EQUIP_SLOTS = [
 // 今装備しているアイテム（{ head: "king-crown", weapon: "steel-sword" } のような形）
 let equipped = {};
 
-// 装備したときに、キャラのドット絵に重ねて描く絵
+// 装備したときに、キャラのドット絵（24×30マス）に重ねて描く絵
 // x・y は絵を置く場所（左上のマス）、rows は設計図（「.」は塗らない）
+// 主人公7種類は、顔・手・足の場所が同じなので、どのキャラにも同じ場所に重ねられる
 const EQUIP_SPRITES = {
-  "cloth-hat": { x: 2, y: 1, rows: ["..KKKKK..", ".KBBBBBK.", "KBBBBBBBK"] }, // 青いぼうし
-  "king-crown": { x: 4, y: 0, rows: ["Y.Y.Y", "YYYYY"] }, // 金の冠
-  "wood-stick": { x: 13, y: 3, rows: ["G", "G", "G", "G", "G", "G", "G", "G", "G", "G", "G"] }, // 木の棒
-  "steel-sword": {
-    x: 12,
+  // ここから下は、頭の装備（頭の上半分＝上から8行をおおう）
+  "cloth-hat": {
+    x: 2,
     y: 0,
-    rows: [".s.", ".s.", ".s.", ".s.", ".s.", ".s.", ".s.", "YYY", ".G.", ".G.", ".G."], // 銀の剣
+    rows: [
+      "........oo..........",
+      ".......oTTo.........",
+      "......ooTToo........",
+      "....oozzzzBBBoo.....",
+      "...ozzBBBBBBBBBxo...",
+      "..ozBBBBBBBBBBBBBxo.",
+      "ozzzzzzzzzzzzzzzzzzo",
+      "oxxxxxxxxxxxxxxxxxxo",
+    ], // 白いポンポンの付いた青いぼうし
+  },
+  "iron-helmet": {
+    x: 2,
+    y: 0,
+    rows: [
+      "........oooo........",
+      "......ooWWssoo......",
+      "....ooWWWssssDoo....",
+      "...oWWsssssssssDo...",
+      "..oWsssssssssssDDo..",
+      ".oWsssssssssssssDDo.",
+      "oDDDDDDDDDDDDDDDDDDo",
+      "oDsDsDDsDDDDsDDsDsDo",
+    ], // 鋲（びょう）の並んだ銀のかぶと
+  },
+  "wizard-hat": {
+    x: 0,
+    y: 0,
+    rows: [
+      "...............ooo......",
+      "............oo677o......",
+      "...........o6p77o.......",
+      "........oo6ppp77o.......",
+      "......oo66ppppp77o......",
+      "....oo6pppppppppp77o....",
+      "...o66pppppppppppp77o...",
+      ".o6oYYYYYYYjYYYYYYYYo6o.",
+      "o6ppp77777777777777ppp6o",
+      "op77o..............o77po",
+      "oooo................oooo",
+    ], // 金のふちの、紫のとんがり帽子（とんがりの下はしは18マスで、左右に少しつばが見える。つばは前髪の場所で、左右のはしがふんわり下にたれる）
+  },
+  "king-crown": {
+    x: 2,
+    y: 0,
+    rows: [
+      "oo.......oo.......oo",
+      "oVo.....oVVo.....oVo",
+      "oYjo...ojAAjo...ojYo",
+      "oYAjoooYAAAAYooojAYo",
+      "oYAAjAAAAAAAAAAjAAYo",
+      "oYAAARRAABBAARRAAAYo",
+      "oYYYYYYYYYYYYYYYYYYo",
+      "ommmmmmmmmmmmmmmmmmo",
+    ], // 赤と青の宝石の、大きな金の冠
+  },
+
+  // ここから下は、武器（右手に持つ。右はしの3列）
+  "wood-stick": {
+    x: 21,
+    y: 9,
+    rows: ["ooo", "oCo", "oGo", "oGo", "oGo", "oGo", "oGo", "oGo", "oGo", "oGo", "oGo", "oGo", "oGo", "oGo", "oGo", "oGo", "oGo", "ooo"], // 木の棒（こい茶色のふちどり付き）
+  },
+  "hand-axe": {
+    x: 21,
+    y: 9,
+    rows: ["o.o", "sos", "sGW", "sGW", "sos", "o.o", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".o."], // 両側に刃のある手おの
+  },
+  "steel-sword": {
+    x: 21,
+    y: 4,
+    rows: [".o.", "oWo", "oWs", "oWs", "oWs", "oWs", "oWs", "oWs", "oWs", "oWs", "oWs", "oWs", "oWs", "oWs", "oWs", "oWs", "YYY", ".G.", ".G.", ".Y."], // 銀の剣（左にふちどり）
   },
   "hunter-bow": {
-    x: 12,
-    y: 2,
-    rows: [".G..", ".sG.", ".s.G", ".s.G", ".s.G", ".s.G", ".s.G", ".s.G", ".sG.", ".G.."], // 弓と弦
+    x: 21,
+    y: 9,
+    rows: ["L..", "WL.", "W.L", "W.L", "W.L", "W.L", "W.L", "W.L", "W.L", "W.L", "W.L", "W.L", "W.L", "W.L", "W.L", "W.L", "WL.", "L.."], // 弓（こげ茶色）と、白っぽい弦
   },
-  "legend-sword": {
-    x: 12,
-    y: 0,
-    rows: [".ll.", ".ll.", ".ll.", ".ll.", ".ll.", ".ll.", ".ll.", "YYYY", ".G..", ".G..", ".G.."], // 光る太い剣
-  },
-  "iron-shield": { x: 0, y: 8, rows: ["KKKKK", "KsDsK", "KDDDK", "KsDsK", "KsDsK", ".KKK."] }, // 鉄の盾
-  "travel-boots": { x: 3, y: 13, rows: [".bb.bb.", ".bb.bb.", "bbb.bbb"] }, // 茶色のブーツ
-  "power-ring": { x: 2, y: 10, rows: ["Y"] }, // 左手の金の指輪
-  "sage-crystal": { x: 0, y: 3, rows: [".p.", "pIp", ".p."] }, // 左の空中にうかぶ紫の水晶
-
-  // ここから下は、ガチャを48種類にしたときに足した装備の絵
-  "iron-helmet": { x: 2, y: 1, rows: ["..KKKKK..", ".KsssssK.", "KsDDDDDsK"] }, // 銀のかぶと（ぼうしの形ちがい）
-  "wizard-hat": { x: 2, y: 0, rows: ["....K....", "...KpK...", "..KpppK..", "KpppppppK"] }, // 紫のとんがり帽子
-  "hand-axe": { x: 13, y: 3, rows: ["Gss", "Gss", "G..", "G..", "G..", "G..", "G..", "G..", "G.."] }, // 手おの
   "trident": {
-    x: 11,
+    x: 19,
     y: 0,
-    rows: ["s.s.s", "sssss", "..s..", "..G..", "..G..", "..G..", "..G..", "..G..", "..G..", "..G..", "..G.."], // 三つ又の槍
+    rows: [
+      "s.s.s",
+      "s.s.s",
+      "W.s.W",
+      "sssss",
+      "..s..",
+      "..G..",
+      "..G..",
+      "..G..",
+      "..G..",
+      "..G..",
+      "..G..",
+      "..G..",
+      "..G..",
+      "..G..",
+      "..G..",
+      "..G..",
+      "..G..",
+      "..G..",
+      "..G..",
+      "..G..",
+      "..G..",
+      "..G..",
+      "..G..",
+      "..G..",
+      "..G..",
+      "..s..",
+    ], // 三つ又の槍
   },
   "magic-staff": {
-    x: 12,
-    y: 1,
-    rows: [".p.", "pIp", ".p.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G."], // 先に紫の玉が付いた杖
+    x: 21,
+    y: 3,
+    rows: [".6.", "6Tp", "6pp", "p77", ".7.", ".Y.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".o."], // 先に紫の玉が付いた杖
   },
-  "leather-boots": { x: 3, y: 13, rows: [".CC.CC.", ".CC.CC.", "CCC.CCC"] }, // 明るい茶色のブーツ（旅人のブーツの色ちがい）
-  "swift-shoes": { x: 3, y: 13, rows: [".FF.FF.", ".FF.FF.", "FFF.FFF"] }, // 緑のくつ（旅人のブーツの色ちがい）
-  "leather-gloves": { x: 2, y: 9, rows: ["L.........L", "L.........."] }, // 両手の茶色の手袋
-  "scarf": { x: 4, y: 8, rows: ["RRRRR", "....R"] }, // 首の赤いマフラー
-  "charm": { x: 5, y: 9, rows: [".T.", "TBT", ".T."] }, // 胸の青いお守り
+  "legend-sword": {
+    x: 21,
+    y: 1,
+    rows: [".o.", "oTo", "oTl", "oTl", "oTl", "oTl", "oTl", "oTl", "oTl", "oTl", "oTl", "oTl", "oTl", "oTl", "oTl", "oTl", "oTl", "oTl", "YjY", "YBY", ".G.", ".G.", ".B."], // 光る水色の長い剣（左にふちどり）
+  },
+
+  // ここから下は、盾（左手に持つ。聖騎士の盾と同じ場所）
+  "iron-shield": {
+    x: 0,
+    y: 17,
+    rows: ["ooooooo", "oWWssDo", "oWsDsDo", "oWDYDDo", "oWsDsDo", "oWsssDo", "oWsssDo", ".osDDo.", "..ooo.."], // 鉄の盾（まん中に金の飾り）
+  },
+
+  // ここから下は、足の装備（ブーツの上に重ねる）
+  "travel-boots": { x: 5, y: 26, rows: ["..obCbo..obCbo", ".obCbbo..obbCbo", "oLbbbbo..obbbbLo"] }, // こげ茶色のブーツ
+  "leather-boots": { x: 5, y: 26, rows: ["..oCtCo..oCtCo", ".oCtCCo..oCCtCo", "oLCCCCo..oCCCCLo"] }, // 明るい茶色のブーツ
+  "swift-shoes": { x: 5, y: 26, rows: [".TofFfo..ofFfoT", "TofFffo..offFfoT", "oiffffo..offffio"] }, // 白い羽の付いた緑のくつ
+
+  // ここから下は、アクセサリー
+  "leather-gloves": { x: 4, y: 20, rows: ["CC............CC", "Lb............bL"] }, // 両手の茶色の手袋（手首まで）
+  "scarf": { x: 7, y: 16, rows: ["oaaaRRRRRo", "oQQQQRaRQo", ".....oRQo.", "......oo.."] }, // 首の赤いマフラー
+  "power-ring": { x: 4, y: 21, rows: ["Ar"] }, // 左手の金の指輪（赤い石）
+  "charm": { x: 9, y: 17, rows: [".oo.", "ozBo", "oBxo", ".oo."] }, // 胸の青いお守り
+  "sage-crystal": { x: 0, y: 1, rows: [".6.", "6Tp", "6pp", "p77", ".7."] }, // 頭の左横にうかぶ紫の水晶
 };
 
 // 今、モンスターが点滅して消えている途中かどうか
@@ -594,6 +696,8 @@ const HERO_COLORS = {
   3: "#7f78a8", // 銀白色の髪（影）
   4: "#e0a010", // 金色の目（明るい）
   5: "#8a5a00", // 金色の目（影）
+  6: "#c08ad8", // 紫（明るい）。魔法使いの帽子・杖・水晶。ふつうは p
+  7: "#5e2d7a", // 紫（影）
 };
 
 // 見習い冒険者のドット絵の設計図（16×16マス）
@@ -1037,25 +1141,19 @@ function smoothOldStyle(grid) {
   return grid;
 }
 
-// キャラクターの16×16の色の表を作り、装備しているアイテムの絵を重ねて返す
+// キャラクターの色の表（24×30マス）を作り、装備しているアイテムの絵を重ねて返す
 function makeHeroGrid() {
   const grid = makeColorGrid(getTitle(getLevel()).pixels);
 
-  // 装備の絵は、今は16×16マスのキャラ用なので、新しい描き方（24×32マス）のキャラには重ねない
-  // （全部のキャラを描き直して、装備の絵も作り直すまでのあいだ）
-  if (grid[0].length !== 16) {
-    return grid;
-  }
-
   // 武器を装備しているときは、キャラがもともと持っている武器（右側）を先に消す
   if (equipped.weapon) {
-    clearGridArea(grid, 12, 0, 4, 9); // 右上（剣の刃やつばのあたり）
-    clearGridArea(grid, 13, 9, 3, 5); // 右下（持ち手のあたり。腕は消さない）
+    clearOldWeapon(grid);
   }
 
-  // 頭の装備をしているときは、もともとの王冠や光の輪がはみ出さないように、いちばん上の1行（頭の上）を先に消す
+  // 頭の装備をしているときは、もともとの帽子・王冠・かぶと・角・光の輪がはみ出さないように、頭の上のほうを先に消す
   if (equipped.head) {
-    clearGridArea(grid, 0, 0, 12, 1);
+    clearGridArea(grid, 0, 0, 24, 5); // いちばん上の5行（角や光の輪のあたり）
+    clearGridArea(grid, 0, 5, 22, 3); // その下の3行（右はしの剣は消さない）
   }
 
   // 部位ごとに、装備しているアイテムの絵を重ねる
@@ -1067,6 +1165,31 @@ function makeHeroGrid() {
     }
   }
   return grid;
+}
+
+// キャラがもともと持っている武器を消す
+// 右はしの3列（上から6行目より下）にある、武器の色（刃・つば・持ち手）のマスだけを消す
+// （髪のふちどりや、マントは消さない）
+function clearOldWeapon(grid) {
+  const weaponColors = [HERO_COLORS.W, HERO_COLORS.s, HERO_COLORS.G, HERO_COLORS.Y, HERO_COLORS.j, HERO_COLORS.V];
+  for (let row = 5; row < grid.length; row++) {
+    for (let col = 21; col < 24; col++) {
+      if (weaponColors.includes(grid[row][col])) {
+        grid[row][col] = fillGap(grid, row, col);
+      }
+    }
+  }
+}
+
+// 消したマスの上と下が同じ色なら、その色を返す（マントなどに穴があかないようにする）
+// ちがう色なら null（塗らない）を返す
+function fillGap(grid, row, col) {
+  const above = grid[row - 1][col];
+  const below = row + 1 < grid.length ? grid[row + 1][col] : null;
+  if (above && above === below) {
+    return above;
+  }
+  return null;
 }
 
 // 設計図（文字の表）から、色の表を作って返す
