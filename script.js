@@ -18,6 +18,10 @@ const questList = document.getElementById("quest-list");
 // 「本日のタスク」を表示する場所
 const todayQuest = document.getElementById("today-quest");
 
+// 「毎日の習慣」を表示する場所と、「🔁 毎日の習慣として追加」のチェックボックス
+const habitList = document.getElementById("habit-list");
+const habitCheckbox = document.getElementById("habit-checkbox");
+
 // 「他のタスク ▽」のボタン
 const otherToggle = document.getElementById("other-toggle");
 
@@ -100,6 +104,13 @@ let quests = [];
 
 // localStorage にクエスト一覧をしまうときの名前
 const QUESTS_KEY = "tasclear-tasks";
+
+// 毎日の習慣をすべて入れておく配列
+// 1つの習慣は { name: 習慣の名前, exp: 獲得EXP, doneDate: 最後に撃破した日（「2026-10-01」のような文字） } の形
+let habits = [];
+
+// localStorage に毎日の習慣をしまうときの名前
+const HABITS_KEY = "tasclear-habits";
 
 // これまでに貯めた経験値の合計（累計EXP）
 let totalExp = 0;
@@ -2178,6 +2189,9 @@ function renderQuests() {
 
   // まとめて撃破のボタンを表示し直す
   renderBulkDefeatButton();
+
+  // 毎日の習慣のカードも表示し直す（レベルアップ中に撃破ボタンを隠すのも、ここで反映する）
+  renderHabits();
 }
 
 // 撃破済みのクエストが何件あるか数えて返す
@@ -3052,15 +3066,22 @@ function completeQuest(index) {
   saveQuests();
   console.log("クエストを撃破しました", quests[index]);
 
-  // そのクエストのEXPを累計EXPに足す
-  totalExp = totalExp + quests[index].exp;
+  // EXP・今日の撃破数・コインをもらう
+  giveDefeatRewards(quests[index].exp, quests[index].rare === true);
+}
+
+// 撃破したときのごほうび（EXP・今日の撃破数・コイン）をもらって保存する（クエストと習慣で同じものを使う）
+// exp は獲得EXP、isRare はレアなクエストかどうか
+function giveDefeatRewards(exp, isRare) {
+  // EXPを累計EXPに足す
+  totalExp = totalExp + exp;
 
   // 今日の撃破数を 1 増やす（日付が変わっていたら、先に 0 に戻す）
   resetTodayCountIfNewDay();
   todayCount = todayCount + 1;
 
   // コインを足す（レアなクエストは多めにもらえる）
-  if (quests[index].rare) {
+  if (isRare) {
     coins = coins + COIN_PER_RARE_DEFEAT;
   } else {
     coins = coins + COIN_PER_DEFEAT;
@@ -3068,6 +3089,158 @@ function completeQuest(index) {
 
   savePlayer();
   console.log("累計EXP", totalExp, "今日の撃破数", todayCount);
+}
+
+// ===== 毎日の習慣 =====
+
+// 毎日の習慣を localStorage に保存する
+function saveHabits() {
+  localStorage.setItem(HABITS_KEY, JSON.stringify(habits));
+}
+
+// localStorage から、保存しておいた毎日の習慣を取り出す
+function loadHabits() {
+  const saved = localStorage.getItem(HABITS_KEY);
+  if (saved === null) {
+    return;
+  }
+
+  // 保存されたデータが壊れていても止まらないように、try で囲みます
+  try {
+    habits = JSON.parse(saved);
+  } catch (error) {
+    console.log("習慣の保存データが壊れていたので、空の一覧から始めます");
+    habits = [];
+  }
+}
+
+// 新しい習慣を追加する（EXPは登録したときに20〜30で決まり、毎日同じ）
+function addHabit(habitName) {
+  const newHabit = {
+    name: habitName,
+    exp: getRandomExp(20, 30),
+    doneDate: "", // まだ一度も撃破していない
+  };
+  habits.push(newHabit);
+  saveHabits();
+  console.log("習慣を追加しました", newHabit);
+}
+
+// 習慣を、今日もう撃破したかどうかを返す（最後に撃破した日が今日なら true）
+function isHabitDoneToday(habit) {
+  return habit.doneDate === getTodayString();
+}
+
+// index 番目の習慣を撃破する（今日はクリアにして、ごほうびと演出を出す）
+function defeatHabit(index) {
+  const habit = habits[index];
+  if (isHabitDoneToday(habit)) {
+    return; // 今日はもう撃破しているので、何もしない
+  }
+
+  // 撃破する前のレベルと今日の撃破数を覚えておく（日付が変わっていたら、先に 0 に戻す）
+  resetTodayCountIfNewDay();
+  const levelBefore = getLevel();
+  const countBefore = todayCount;
+
+  habit.doneDate = getTodayString();
+  saveHabits();
+  giveDefeatRewards(habit.exp, false);
+  console.log("習慣を撃破しました", habit);
+
+  renderQuests(); // この中で、習慣のカードも表示し直す
+  renderStatus();
+
+  // 撃破・レベルアップ・お祝いの演出を、順番待ちの列に並べる
+  addDefeatEffects(1, habit.exp, levelBefore, getLevel(), countBefore, todayCount);
+}
+
+// index 番目の習慣を削除する（もらったEXPは減らさない）
+function deleteHabit(index) {
+  const removed = habits.splice(index, 1);
+  saveHabits();
+  renderQuests();
+  console.log("習慣を削除しました", removed[0]);
+}
+
+// 習慣1つ分の行を作って返す
+function createHabitItem(habit, index) {
+  const item = document.createElement("div");
+  item.className = "today-item";
+  const isDone = isHabitDoneToday(habit);
+  if (isDone) {
+    item.classList.add("is-habit-done"); // 今日クリアした習慣は薄くする
+  }
+
+  // 習慣の名前（今日クリアしていたら、前に ✅ を付ける）
+  const name = document.createElement("p");
+  name.className = "today-name";
+  name.textContent = (isDone ? "✅ " : "") + habit.name;
+  item.appendChild(name);
+
+  // 「（〇 EXP get）」と、ボタンを横に並べる行
+  const row = document.createElement("div");
+  row.className = "today-row";
+  const exp = document.createElement("p");
+  exp.className = "today-exp";
+  exp.textContent = isDone ? "今日はクリア（明日また出ます）" : "（" + habit.exp + " EXP get）";
+  row.appendChild(exp);
+
+  const actions = document.createElement("div");
+  actions.className = "today-actions";
+  if (!isDone) {
+    actions.appendChild(createHabitDefeatButton(index));
+  }
+  actions.appendChild(createHabitDeleteButton(index));
+  row.appendChild(actions);
+
+  item.appendChild(row);
+  return item;
+}
+
+// 習慣の「⚔️ 撃破する」ボタンを作って返す（レベルアップの演出の間は、代わりに「レベルアップ中…」）
+function createHabitDefeatButton(index) {
+  if (isDefeatLocked) {
+    const waiting = document.createElement("span");
+    waiting.className = "today-waiting";
+    waiting.textContent = "レベルアップ中…";
+    return waiting;
+  }
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "today-defeat-button";
+  button.textContent = "⚔️ 撃破する";
+  button.addEventListener("click", function () {
+    defeatHabit(index);
+  });
+  return button;
+}
+
+// 習慣の「削除」ボタンを作って返す
+function createHabitDeleteButton(index) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "delete-button";
+  button.textContent = "削除";
+  button.addEventListener("click", function () {
+    deleteHabit(index);
+  });
+  return button;
+}
+
+// 毎日の習慣のカードを表示し直す
+function renderHabits() {
+  habitList.innerHTML = "";
+  if (habits.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "today-empty";
+    empty.textContent = "まだありません（「🔁 毎日の習慣として追加」にチェックを付けて追加できます）";
+    habitList.appendChild(empty);
+    return;
+  }
+  for (let i = 0; i < habits.length; i++) {
+    habitList.appendChild(createHabitItem(habits[i], i));
+  }
 }
 
 // index 番目のクエストを削除する
@@ -3093,8 +3266,13 @@ questForm.addEventListener("submit", function (event) {
     return;
   }
 
-  addQuest(questName);
-  renderQuests();
+  // 「🔁 毎日の習慣として追加」にチェックが付いていれば習慣、なければクエストとして追加する
+  if (habitCheckbox.checked) {
+    addHabit(questName);
+  } else {
+    addQuest(questName);
+  }
+  renderQuests(); // この中で、習慣のカードも表示し直す
 
   // 入力欄を空にして、続けて入力できるようにする
   questInput.value = "";
@@ -3141,6 +3319,7 @@ clearDoneButton.addEventListener("click", function () {
 
 // 保存しておいたクエストを取り出して、一覧に表示する
 loadQuests();
+loadHabits(); // 毎日の習慣も取り出す（表示は、renderQuests の中で行う）
 renderQuests();
 
 // 保存しておいた累計EXPを取り出して、ステータスを表示する

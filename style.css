@@ -1491,3 +1491,24 @@ h1 {
 .gacha-rate.is-egg {
   border-left-color: #e88fb0;
 }
+
+/* 「🔁 毎日の習慣として追加」のチェックボックス（入力フォームのすぐ下） */
+.habit-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: -8px 0 16px; /* 入力フォームの下の余白に少し重ねて、フォームの近くに置く */
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+/* 「🔁 毎日の習慣」の見出し（本日のタスクと見分けやすいように、緑にする） */
+.today-label.habit-label {
+  background-color: #2e7d4f;
+}
+
+/* 今日クリアした習慣（薄くする） */
+.today-item.is-habit-done {
+  opacity: 0.55;
+}

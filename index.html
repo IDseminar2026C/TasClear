@@ -91,6 +91,18 @@
       <button type="submit">追加</button>
     </form>
 
+    <!-- チェックを付けて「追加」を押すと、クエストではなく「毎日の習慣」として登録します -->
+    <label class="habit-toggle">
+      <input id="habit-checkbox" type="checkbox">
+      🔁 毎日の習慣として追加
+    </label>
+
+    <!-- 毎日の習慣：撃破しても、次の日にまた出てくるタスク。中身は JavaScript で作ります -->
+    <section class="today-card">
+      <h2 class="today-label habit-label">🔁 毎日の習慣</h2>
+      <div id="habit-list" class="today-quest"></div>
+    </section>
+
     <!-- 本日のタスク：まだ撃破していない一番上のクエストを大きく表示します -->
     <section class="today-card">
       <h2 class="today-label">本日のタスク</h2>
