@@ -33,6 +33,17 @@ const bulkDefeatButton = document.getElementById("bulk-defeat-button");
 // 効果音を消したり戻したりするボタン
 const soundButton = document.getElementById("sound-button");
 
+// ポモドーロタイマーの部品
+const timerModeText = document.getElementById("timer-mode");
+const timerTimeText = document.getElementById("timer-time");
+const timerBarFill = document.getElementById("timer-bar-fill");
+const timerWalkerBox = document.getElementById("timer-walker-box");
+const timerWalker = document.getElementById("timer-walker");
+const timerStartButton = document.getElementById("timer-start-button");
+const timerPauseButton = document.getElementById("timer-pause-button");
+const timerResetButton = document.getElementById("timer-reset-button");
+const timerCountText = document.getElementById("timer-count");
+
 // 画面を切りかえるタブのボタン（3つ）と、画面の箱（3つ）
 const pageTabs = document.querySelectorAll(".page-tab");
 const pages = document.querySelectorAll(".page");
@@ -157,6 +168,27 @@ let closedRanks = {};
 
 // 効果音を消しているかどうか（true なら、どの効果音も鳴らさない）
 let isMuted = false;
+
+// ポモドーロタイマーの長さ（分）
+const FOCUS_MINUTES = 25; // 集中
+const BREAK_MINUTES = 5; // 休けい
+
+// 今が集中（"focus"）か、休けい（"break"）か
+let timerMode = "focus";
+
+// 一時停止しているときの残り時間（ミリ秒。1000 で 1秒）
+let timerRemaining = FOCUS_MINUTES * 60 * 1000;
+
+// 動いているときに、何時何分何秒に終わるか（動いていないときは null）
+// ほかのタブを見ていて時間の計り方がゆっくりになっても、終わる時刻から残り時間を正しく計算するため
+let timerEndTime = null;
+
+// タイマーを動かすための、くり返しの番号（止めるときに使う）
+let timerInterval = null;
+
+// 今日、集中タイムを何回終えたかと、それが何日の数なのか
+let focusCount = 0;
+let focusDate = "";
 
 // ガチャのランク。chance は出る確率（3つ足すと 1 になるようにする）
 const GACHA_RANKS = [
@@ -678,7 +710,9 @@ function finishMonsterDefeat() {
 
 // 今の称号に合ったキャラクターのドット絵を、装備を重ねて描く
 function drawHero() {
-  paintGrid(heroCanvas, scale2x(makeHeroGrid()));
+  const grid = scale2x(makeHeroGrid());
+  paintGrid(heroCanvas, grid);
+  paintGrid(timerWalker, grid); // タイマー画面のバーの上を歩くキャラも、同じ絵にする
 }
 
 // 設計図（pixels）のドット絵を、なめらかに広げて canvas に描く（モンスターに使う）
@@ -850,6 +884,8 @@ function savePlayer() {
     items: items,
     equipped: equipped,
     muted: isMuted,
+    focusCount: focusCount,
+    focusDate: focusDate,
   };
   localStorage.setItem(PLAYER_KEY, JSON.stringify(player));
 }
@@ -873,6 +909,8 @@ function loadPlayer() {
     items = player.items || {};
     equipped = player.equipped || {};
     isMuted = player.muted === true; // 前の形の保存データには無いので、そのときは「鳴らす」
+    focusCount = player.focusCount || 0;
+    focusDate = player.focusDate || "";
     console.log("プレイヤーの状態を読み込みました", player);
   } catch (error) {
     console.log("プレイヤーの保存データが壊れていたので、0 から始めます");
@@ -883,6 +921,8 @@ function loadPlayer() {
     items = {};
     equipped = {};
     isMuted = false;
+    focusCount = 0;
+    focusDate = "";
   }
 }
 
@@ -2358,6 +2398,155 @@ function renderGacha() {
   equipSummary.textContent = getEquipSummary();
 }
 
+// ===== ポモドーロタイマー =====
+
+// 集中・休けいの長さ（ミリ秒）を返す
+function getTimerLength(mode) {
+  if (mode === "focus") {
+    return FOCUS_MINUTES * 60 * 1000;
+  }
+  return BREAK_MINUTES * 60 * 1000;
+}
+
+// タイマーが動いているかどうかを返す
+function isTimerRunning() {
+  return timerEndTime !== null;
+}
+
+// 今の残り時間（ミリ秒）を返す（動いているときは、終わる時刻から計算する）
+function getTimerRemaining() {
+  if (isTimerRunning()) {
+    return Math.max(0, timerEndTime - Date.now());
+  }
+  return timerRemaining;
+}
+
+// 「▶ スタート」：タイマーを動かす（すでに動いていたら何もしない）
+function startTimer() {
+  if (isTimerRunning()) {
+    return;
+  }
+  timerEndTime = Date.now() + timerRemaining;
+  timerInterval = setInterval(tickTimer, 250); // 0.25秒ごとに、残り時間を確かめる
+  renderTimer();
+}
+
+// 「⏸ 一時停止」：タイマーを止めて、残り時間を覚えておく
+function pauseTimer() {
+  if (!isTimerRunning()) {
+    return;
+  }
+  timerRemaining = getTimerRemaining();
+  stopTimerInterval();
+  renderTimer();
+}
+
+// 「↺ リセット」：タイマーを止めて、今の集中・休けいの最初の時間に戻す
+function resetTimer() {
+  stopTimerInterval();
+  timerRemaining = getTimerLength(timerMode);
+  renderTimer();
+}
+
+// くり返しを止めて、「動いていない」にする
+function stopTimerInterval() {
+  clearInterval(timerInterval);
+  timerInterval = null;
+  timerEndTime = null;
+}
+
+// 0.25秒ごとに呼ばれる：時間になったら終わらせ、まだなら表示し直す
+function tickTimer() {
+  if (getTimerRemaining() <= 0) {
+    finishTimer();
+  } else {
+    renderTimer();
+  }
+}
+
+// 集中・休けいが終わったとき：演出を出して、次（休けい・集中）に切りかえる
+function finishTimer() {
+  stopTimerInterval();
+
+  if (timerMode === "focus") {
+    // 今日の集中の回数を1増やして保存する（日付が変わっていたら、先に 0 に戻す）
+    resetFocusCountIfNewDay();
+    focusCount = focusCount + 1;
+    savePlayer();
+    addTimerEffect("🍅 集中おわり！\n休けいしよう", true);
+    timerMode = "break";
+  } else {
+    addTimerEffect("☕ 休けいおわり！\n次の集中をはじめよう", false);
+    timerMode = "focus";
+  }
+
+  // 次の時間を用意する（スタートは自分で押す）
+  timerRemaining = getTimerLength(timerMode);
+  renderTimer();
+}
+
+// タイマーが終わったときの演出を列に並べる（集中が終わったときはファンファーレ、休けいのときはキラキラの音）
+function addTimerEffect(text, isFocusEnd) {
+  addEffect(function () {
+    clearEffectClasses();
+    effectText.textContent = text;
+    restartAnimation(effectOverlay, "is-celebrate");
+    if (isFocusEnd) {
+      playFanfareSound();
+    } else {
+      playSparkleSound();
+    }
+  }, CELEBRATE_EFFECT_TIME);
+}
+
+// 保存してある集中の回数が今日のものでなければ、今日の分として 0 に戻す
+function resetFocusCountIfNewDay() {
+  const today = getTodayString();
+  if (focusDate !== today) {
+    focusDate = today;
+    focusCount = 0;
+  }
+}
+
+// ミリ秒を「24:13」のような「分:秒」の文字にして返す
+function formatTime(milliseconds) {
+  const totalSeconds = Math.ceil(milliseconds / 1000); // 小数は切り上げ（0.5秒残っていたら「0:01」）
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return minutes + ":" + String(seconds).padStart(2, "0");
+}
+
+// タイマーの画面を表示し直す（残り時間・バー・歩くキャラ・ボタン・今日の回数）
+function renderTimer() {
+  const remaining = getTimerRemaining();
+  const progress = 1 - remaining / getTimerLength(timerMode); // 進み具合（0 から 1）
+
+  if (timerMode === "focus") {
+    timerModeText.textContent = "🔥 集中タイム";
+  } else {
+    timerModeText.textContent = "☕ 休けいタイム";
+  }
+  timerTimeText.textContent = formatTime(remaining);
+
+  // バーを進み具合の分だけ伸ばし、キャラをその先に立たせる
+  // （キャラの左はしをバーの先にそろえ、キャラの幅の分だけ左にずらして、はみ出さないようにする）
+  timerBarFill.style.width = progress * 100 + "%";
+  timerBarFill.classList.toggle("is-break", timerMode === "break");
+  timerWalkerBox.style.left = progress * 100 + "%";
+  timerWalkerBox.style.transform = "translateX(-" + progress * 100 + "%)";
+
+  // 動いているときだけ、キャラを歩かせる（上下にはねる）
+  timerWalker.classList.toggle("is-walking", isTimerRunning());
+
+  // 動いているときはスタートを、止まっているときは一時停止を押せなくする
+  timerStartButton.disabled = isTimerRunning();
+  timerPauseButton.disabled = !isTimerRunning();
+
+  // 今日の集中の回数（前の日の数のままにならないように、日付を確かめてから出す）
+  resetFocusCountIfNewDay();
+  timerCountText.textContent = "今日の集中：" + focusCount + "回";
+}
+
 // 効果音を消す・戻す（押すたびに切りかえて、保存する）
 function toggleSound() {
   isMuted = !isMuted;
@@ -2545,6 +2734,11 @@ gachaTenButton.addEventListener("click", drawGachaTen);
 // 音のボタンが押されたとき
 soundButton.addEventListener("click", toggleSound);
 
+// ポモドーロタイマーのボタンが押されたとき
+timerStartButton.addEventListener("click", startTimer);
+timerPauseButton.addEventListener("click", pauseTimer);
+timerResetButton.addEventListener("click", resetTimer);
+
 // 画面を切りかえるタブが押されたとき（タブに書いてある data-page の画面を見せる）
 for (let i = 0; i < pageTabs.length; i++) {
   pageTabs[i].addEventListener("click", function () {
@@ -2571,3 +2765,6 @@ renderStatus(); // この中で、キャラクターのドット絵も描きま�
 
 // 保存しておいた音の設定に合わせて、音のボタンを表示する
 renderSoundButton();
+
+// ポモドーロタイマーを表示する（最初は、集中 25:00 で止まっている）
+renderTimer();

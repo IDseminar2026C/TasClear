@@ -1078,8 +1078,12 @@ h1 {
 /* タブ1つ分（選んでいないときは、うすい色） */
 .page-tab {
   flex: 1;
-  padding: 8px 4px;
-  font-size: 15px;
+  display: flex;
+  flex-direction: column; /* 絵文字を上、文字を下に重ねる */
+  align-items: center;
+  padding: 6px 2px;
+  font-size: 13px; /* タブが4つになったので、少し小さくしてスマホの幅に収める */
+  white-space: nowrap; /* 文字を折り返さない */
   font-weight: bold;
   background-color: #f5f1e6;
   color: #1e2040;
@@ -1240,4 +1244,130 @@ h1 {
 
 .collection-heading.rank-3 {
   border-left-color: #d4a017;
+}
+
+/* タイマー：今が集中か休けいか */
+.timer-mode {
+  margin: 0;
+  font-size: 16px;
+  font-weight: bold;
+  text-align: center;
+}
+
+/* タイマー：残り時間（大きく） */
+.timer-time {
+  margin: 0 0 8px;
+  font-size: 48px;
+  font-weight: bold;
+  text-align: center;
+  font-variant-numeric: tabular-nums; /* 数字の幅をそろえて、時間が変わっても文字がゆれないようにする */
+}
+
+/* タイマー：バーとキャラを置く場所（キャラは、この中で左から右へ動く） */
+.timer-track {
+  position: relative;
+  height: 80px;
+  margin-bottom: 12px;
+}
+
+/* バーの外側の枠（いちばん下に置く） */
+.timer-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 14px;
+  background-color: #44476e;
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+/* バーの伸びる中身（集中は金色。幅は JavaScript で変えます） */
+.timer-bar-fill {
+  width: 0%;
+  height: 100%;
+  background-color: #d4a017;
+}
+
+/* 休けいのときは、水色のバーにする */
+.timer-bar-fill.is-break {
+  background-color: #4fb3e8;
+}
+
+/* 歩くキャラを入れる箱（バーの上に立たせる。左右の場所は JavaScript で変えます） */
+.timer-walker-box {
+  position: absolute;
+  left: 0;
+  bottom: 12px;
+}
+
+/* 歩くキャラ（32×32マスの絵を、2倍の大きさで表示する） */
+.timer-walker {
+  display: block;
+  width: 64px;
+  height: 64px;
+  image-rendering: pixelated;
+}
+
+/* 動いているときは、上下にはねて歩いているように見せる */
+.timer-walker.is-walking {
+  animation: walk-bounce 0.5s infinite; /* infinite＝ずっとくり返す */
+}
+
+/* 上下にはねる動き */
+@keyframes walk-bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+/* バーの右はしのゴールの旗 */
+.timer-goal {
+  position: absolute;
+  right: 0;
+  bottom: 14px;
+  font-size: 20px;
+}
+
+/* スタート・一時停止・リセットのボタンを横に並べる */
+.timer-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+/* タイマーのボタン1つ分 */
+.timer-button {
+  flex: 1;
+  padding: 10px 2px;
+  font-size: 14px;
+  font-weight: bold;
+  background-color: #d4a017;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* 押せないボタンは薄くする */
+.timer-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* 今日の集中の回数 */
+.timer-count {
+  margin: 12px 0 0;
+  font-size: 14px;
+  font-weight: bold;
+  text-align: center;
+}
+
+/* タブの絵文字（文字の上に、少し大きめに出す） */
+.tab-icon {
+  font-size: 18px;
+  line-height: 1.2;
 }
