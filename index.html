@@ -26,8 +26,14 @@
       <div class="title-row">
         <h1>⚔️ タスクリア</h1>
 
-        <!-- 押すと、効果音を消したり戻したりします（🔊 鳴る ／ 🔇 消している） -->
-        <button id="sound-button" class="sound-button" type="button" aria-label="効果音を消す">🔊</button>
+        <!-- 右上のボタンを横にならべる箱 -->
+        <div class="header-buttons">
+          <!-- 押すと、設定画面（音の大きさなど）を開きます -->
+          <button id="settings-button" class="sound-button" type="button" aria-label="設定を開く">⚙️</button>
+
+          <!-- 押すと、効果音を消したり戻したりします（🔊 鳴る ／ 🔇 消している） -->
+          <button id="sound-button" class="sound-button" type="button" aria-label="効果音を消す">🔊</button>
+        </div>
       </div>
 
       <!-- プレイヤーのステータス。中身は JavaScript で書き換えます -->
@@ -237,6 +243,26 @@
           <button id="timer-reset-button" class="timer-button" type="button">↺ リセット</button>
         </div>
 
+        <!-- 集中・休けいの長さをえらぶ欄（動いているときに変えたら、次の集中・休けいから変わる） -->
+        <div class="timer-sound-row timer-length-row">
+          <label for="timer-focus-select">🔥 集中</label>
+          <select id="timer-focus-select" class="timer-sound-select">
+            <option value="15">15分</option>
+            <option value="25">25分</option>
+            <option value="30">30分</option>
+            <option value="45">45分</option>
+            <option value="50">50分</option>
+            <option value="60">60分</option>
+          </select>
+          <label for="timer-break-select">☕ 休けい</label>
+          <select id="timer-break-select" class="timer-sound-select">
+            <option value="3">3分</option>
+            <option value="5">5分</option>
+            <option value="10">10分</option>
+            <option value="15">15分</option>
+          </select>
+        </div>
+
         <!-- 集中タイムのあいだに流す音をえらぶ欄（音のファイルは、このページと同じ場所にある mp3） -->
         <div class="timer-sound-row">
           <label for="timer-sound-select">🎵 集中中の音</label>
@@ -293,8 +319,62 @@
         <!-- マスの中のしるしの説明 -->
         <p class="calendar-legend">📝 締切までのやること（期限切れは赤）　⚔️ 撃破した数　📅 締切のクエスト（期限切れは赤）　🔁 クリアした習慣　🍅 集中した回数（ポモドーロ）</p>
 
+        <!-- 週のふりかえり（押して選んでいる日がふくまれる週の、撃破・集中・習慣のまとめ）。中身は JavaScript で作ります -->
+        <div id="calendar-week" class="calendar-week"></div>
+
         <!-- 押した日のくわしい中身。中身は JavaScript で作ります -->
         <div id="calendar-detail" class="calendar-detail"></div>
+      </section>
+    </div>
+
+    <!-- ===== 設定画面（最初は隠す。右上の ⚙️ ボタンで開く） ===== -->
+    <div id="page-settings" class="page" hidden>
+      <section class="gacha-card">
+        <h2 class="gacha-title">⚙️ 設定</h2>
+
+        <!-- 音の大きさ（つまみを左右に動かす。右上の 🔇 のときは、どちらも鳴らない） -->
+        <h3 class="settings-heading">🔊 音の大きさ</h3>
+        <div class="settings-row">
+          <label for="effect-volume-slider">🔔 効果音</label>
+          <input id="effect-volume-slider" class="settings-slider" type="range" min="0" max="100" step="10" value="100">
+          <span id="effect-volume-text" class="settings-value">100%</span>
+        </div>
+        <div class="settings-row">
+          <label for="focus-volume-slider">🎵 集中中の音</label>
+          <input id="focus-volume-slider" class="settings-slider" type="range" min="0" max="100" step="10" value="50">
+          <span id="focus-volume-text" class="settings-value">50%</span>
+        </div>
+        <p class="settings-help">効果音のつまみを動かすと、確かめるための音が1回鳴ります</p>
+
+        <!-- データの書き出し・読みこみ（バックアップや、別のブラウザ・スマホにデータを移すときに使う） -->
+        <h3 class="settings-heading">💾 データの書き出し・読みこみ</h3>
+        <p class="settings-help">クエスト・習慣・レベル・ペットなど、全部のデータを書き出せます。別のブラウザやスマホで読みこむと、そのまま続きから遊べます</p>
+
+        <!-- 書き出す（箱に文字で出す・コピーする・ファイルに保存する） -->
+        <div class="data-buttons">
+          <button id="export-button" class="data-button" type="button">📤 書き出す</button>
+          <button id="copy-button" class="data-button" type="button">📋 コピー</button>
+          <button id="download-button" class="data-button" type="button">💾 ファイルに保存</button>
+        </div>
+
+        <!-- 書き出したデータが出る箱。読みこむときは、ここに貼りつける -->
+        <textarea id="data-text" class="data-text" rows="5" placeholder="ここに書き出したデータが出ます。読みこむときは、ここに貼りつけてください（スマホは長押しで「ペースト」）"></textarea>
+
+        <!-- 読みこむ（箱に貼りつけた文字から・ファイルから）。ファイルをえらぶ部品は隠して、label をボタンに見せる -->
+        <div class="data-buttons">
+          <button id="import-button" class="data-button" type="button">📥 読みこむ</button>
+          <label class="data-button" for="import-file">📂 ファイルから読みこむ</label>
+          <input id="import-file" type="file" accept=".json,application/json,text/plain" hidden>
+        </div>
+
+        <!-- 「コピーしました」などのお知らせ -->
+        <p id="data-message" class="data-message"></p>
+        <p class="settings-help">⚠️ 読みこむと、今のデータは全部入れかわります。先に今のデータを書き出しておくと安心です。書き出した文字にはクエストの名前も入るので、ほかの人が見られる場所には貼らないでください</p>
+
+        <!-- データを全部消す（まちがえないように、2回確かめてから消す） -->
+        <h3 class="settings-heading">⚠️ データの消去</h3>
+        <p class="settings-help">クエスト・習慣・レベル・ペット・記録・実績・設定など、タスクリアのデータを全部消して、初めて開いたときの状態にもどします。消したデータはもとにもどせません</p>
+        <button id="delete-all-button" class="data-button delete-all-button" type="button">🗑️ データを全部消す</button>
       </section>
     </div>
 

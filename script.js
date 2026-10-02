@@ -63,6 +63,25 @@ const timerWalker = document.getElementById("timer-walker");
 const timerStartButton = document.getElementById("timer-start-button");
 const timerPauseButton = document.getElementById("timer-pause-button");
 const timerResetButton = document.getElementById("timer-reset-button");
+// 設定画面を開く ⚙️ ボタンと、音の大きさのつまみ・今の大きさの文字
+const settingsButton = document.getElementById("settings-button");
+const effectVolumeSlider = document.getElementById("effect-volume-slider");
+const effectVolumeText = document.getElementById("effect-volume-text");
+const focusVolumeSlider = document.getElementById("focus-volume-slider");
+const focusVolumeText = document.getElementById("focus-volume-text");
+
+// 設定画面の、データの書き出し・読みこみの部品
+const exportButton = document.getElementById("export-button");
+const copyButton = document.getElementById("copy-button");
+const downloadButton = document.getElementById("download-button");
+const dataText = document.getElementById("data-text");
+const importButton = document.getElementById("import-button");
+const importFileInput = document.getElementById("import-file");
+const dataMessage = document.getElementById("data-message");
+const deleteAllButton = document.getElementById("delete-all-button");
+
+const timerFocusSelect = document.getElementById("timer-focus-select");
+const timerBreakSelect = document.getElementById("timer-break-select");
 const timerSoundSelect = document.getElementById("timer-sound-select");
 const timerSound = document.getElementById("timer-sound");
 const timerCountText = document.getElementById("timer-count");
@@ -70,6 +89,7 @@ const timerCountText = document.getElementById("timer-count");
 // カレンダーの部品
 const calendarTitle = document.getElementById("calendar-title");
 const calendarGrid = document.getElementById("calendar-grid");
+const calendarWeek = document.getElementById("calendar-week");
 const calendarDetail = document.getElementById("calendar-detail");
 const calendarPrevButton = document.getElementById("calendar-prev");
 const calendarNextButton = document.getElementById("calendar-next");
@@ -225,15 +245,27 @@ let closedRanks = {};
 // 効果音を消しているかどうか（true なら、どの効果音も鳴らさない）
 let isMuted = false;
 
-// ポモドーロタイマーの長さ（分）
+// ポモドーロタイマーの長さ（分）。はじめはこの長さで、タイマーのカードでえらびなおせる
 const FOCUS_MINUTES = 25; // 集中
 const BREAK_MINUTES = 5; // 休けい
+
+// えらべる長さ（分）。タイマーのカードのえらぶ箱と同じ数にする
+const FOCUS_MINUTE_CHOICES = [15, 25, 30, 45, 50, 60];
+const BREAK_MINUTE_CHOICES = [3, 5, 10, 15];
+
+// えらんでいる集中・休けいの長さ（分）
+let focusMinutes = FOCUS_MINUTES;
+let breakMinutes = BREAK_MINUTES;
 
 // 今が集中（"focus"）か、休けい（"break"）か
 let timerMode = "focus";
 
 // 一時停止しているときの残り時間（ミリ秒。1000 で 1秒）
 let timerRemaining = FOCUS_MINUTES * 60 * 1000;
+
+// 今の集中・休けいの全体の長さ（ミリ秒。進み具合のバーに使う）
+// 途中で長さをえらびなおしても、今の分はこの長さのまま続ける
+let timerLength = FOCUS_MINUTES * 60 * 1000;
 
 // 動いているときに、何時何分何秒に終わるか（動いていないときは null）
 // ほかのタブを見ていて時間の計り方がゆっくりになっても、終わる時刻から残り時間を正しく計算するため
@@ -250,8 +282,11 @@ const FOCUS_SOUNDS = [
   { id: "furin", file: "風鈴が鳴る家1.mp3" },
 ];
 
-// 集中中の音の大きさ（0 から 1。効果音より小さめ）
-const FOCUS_SOUND_VOLUME = 0.5;
+// 音の大きさ（0 から 100 の %。設定画面のつまみで変える）。はじめは効果音 100%、集中中の音 50%（効果音より小さめ）
+const DEFAULT_EFFECT_VOLUME = 100;
+const DEFAULT_FOCUS_VOLUME = 50;
+let effectVolume = DEFAULT_EFFECT_VOLUME;
+let focusVolume = DEFAULT_FOCUS_VOLUME;
 
 // えらんでいる集中中の音の id（なしのときは ""）
 let focusSound = "";
@@ -785,6 +820,9 @@ const MONSTER_DYING_TIME = 500;
 
 // 音を作るための道具（最初に撃破したときに1回だけ用意する）
 let audioContext = null;
+
+// 効果音の大きさのつまみ（全部の効果音は、ここを通ってからスピーカーに行く。音の道具を用意したときに作る）
+let effectVolumeNode = null;
 
 // ドレミファソラシドの音の高さ（周波数。数字が大きいほど高い音）
 const SCALE_NOTES = [
@@ -1771,6 +1809,10 @@ function savePlayer() {
     equipped: equipped,
     muted: isMuted,
     focusSound: focusSound,
+    effectVolume: effectVolume,
+    focusVolume: focusVolume,
+    focusMinutes: focusMinutes,
+    breakMinutes: breakMinutes,
     focusCount: focusCount,
     focusDate: focusDate,
     eggs: eggs,
@@ -1806,6 +1848,10 @@ function loadPlayer() {
     equipped = player.equipped || {};
     isMuted = player.muted === true; // 前の形の保存データには無いので、そのときは「鳴らす」
     focusSound = getFocusSound(player.focusSound) ? player.focusSound : ""; // 表にない音は「なし」にする
+    focusMinutes = FOCUS_MINUTE_CHOICES.includes(player.focusMinutes) ? player.focusMinutes : FOCUS_MINUTES; // えらべない長さなら、はじめの長さ
+    breakMinutes = BREAK_MINUTE_CHOICES.includes(player.breakMinutes) ? player.breakMinutes : BREAK_MINUTES;
+    effectVolume = getSavedVolume(player.effectVolume, DEFAULT_EFFECT_VOLUME); // 前の形の保存データには無いので、そのときは、はじめの大きさ
+    focusVolume = getSavedVolume(player.focusVolume, DEFAULT_FOCUS_VOLUME);
     focusCount = player.focusCount || 0;
     focusDate = player.focusDate || "";
     eggs = player.eggs || {};
@@ -1828,6 +1874,10 @@ function loadPlayer() {
     equipped = {};
     isMuted = false;
     focusSound = "";
+    focusMinutes = FOCUS_MINUTES;
+    breakMinutes = BREAK_MINUTES;
+    effectVolume = DEFAULT_EFFECT_VOLUME;
+    focusVolume = DEFAULT_FOCUS_VOLUME;
     focusCount = 0;
     focusDate = "";
     eggs = {};
@@ -2019,8 +2069,193 @@ function getAudioContext() {
     // 古い Safari では名前が違うので、どちらか使えるほうを使う
     const AudioTool = window.AudioContext || window.webkitAudioContext;
     audioContext = new AudioTool();
+
+    // 効果音の大きさのつまみを作って、スピーカーにつないでおく
+    effectVolumeNode = audioContext.createGain();
+    effectVolumeNode.connect(audioContext.destination);
+    applyEffectVolume();
   }
   return audioContext;
+}
+
+// 効果音のつながる先（大きさのつまみ）を返す
+function getEffectOutput(audio) {
+  getAudioContext(); // まだ音の道具がなければ、つまみと一緒に用意する
+  return effectVolumeNode || audio.destination;
+}
+
+// 効果音の大きさのつまみを、設定の大きさにする（% を 0〜1 にする）
+function applyEffectVolume() {
+  if (effectVolumeNode) {
+    effectVolumeNode.gain.value = effectVolume / 100;
+  }
+}
+
+// 保存してあった音の大きさを確かめて返す（0〜100 の10きざみでなければ、はじめの大きさを返す）
+function getSavedVolume(saved, defaultVolume) {
+  if (Number.isInteger(saved) && saved >= 0 && saved <= 100 && saved % 10 === 0) {
+    return saved;
+  }
+  return defaultVolume;
+}
+
+// 設定画面の、音の大きさのつまみと文字を、今の大きさに合わせる
+function renderVolumeSettings() {
+  effectVolumeSlider.value = effectVolume;
+  effectVolumeText.textContent = effectVolume + "%";
+  focusVolumeSlider.value = focusVolume;
+  focusVolumeText.textContent = focusVolume + "%";
+}
+
+// 効果音のつまみを動かしているとき：大きさを変えて、文字を書きかえる
+function changeEffectVolume() {
+  effectVolume = Number(effectVolumeSlider.value);
+  applyEffectVolume();
+  renderVolumeSettings();
+}
+
+// 効果音のつまみをはなしたとき：保存して、確かめるための「シュキンッ」を1回鳴らす
+function finishEffectVolume() {
+  savePlayer();
+  playSlashSound();
+}
+
+// 集中中の音のつまみを動かしているとき：大きさを変えて（流れていれば、その場で変わる）、文字を書きかえる
+function changeFocusVolume() {
+  focusVolume = Number(focusVolumeSlider.value);
+  updateFocusSound();
+  renderVolumeSettings();
+}
+
+// ===== データの書き出し・読みこみ =====
+
+// 書き出したデータの目印（タスクリアのデータかどうかを、読みこむときに確かめる）
+const DATA_FORMAT = "tasclear-data";
+
+// 設定画面のお知らせを出す（isError が true なら赤い文字）
+function showDataMessage(text, isError) {
+  dataMessage.textContent = text;
+  dataMessage.classList.toggle("is-error", isError);
+}
+
+// 今の保存データ（クエスト・習慣・プレイヤー）を、1つの文字にまとめて返す
+function makeExportText() {
+  savePlayer(); // 今の状態を、先に保存しておく
+  const data = {
+    format: DATA_FORMAT,
+    version: 1,
+    exportedDate: getTodayString(),
+    tasks: JSON.parse(localStorage.getItem(QUESTS_KEY) || "[]"),
+    habits: JSON.parse(localStorage.getItem(HABITS_KEY) || "[]"),
+    player: JSON.parse(localStorage.getItem(PLAYER_KEY) || "{}"),
+  };
+  return JSON.stringify(data);
+}
+
+// 「📤 書き出す」：箱に、データの文字を出す
+function exportData() {
+  dataText.value = makeExportText();
+  showDataMessage("書き出しました。「📋 コピー」か「💾 ファイルに保存」で取っておけます", false);
+}
+
+// 「📋 コピー」：箱の文字をコピーする（まだ書き出していなければ、先に書き出す）
+function copyData() {
+  if (dataText.value === "") {
+    dataText.value = makeExportText();
+  }
+  // コピーの道具が使えないブラウザ（https でないページなど）では、自分でコピーしてもらう
+  if (!navigator.clipboard) {
+    showCopyHelp();
+    return;
+  }
+  navigator.clipboard.writeText(dataText.value).then(function () {
+    showDataMessage("コピーしました。メモ帳などに貼りつけて取っておけます", false);
+  }).catch(showCopyHelp);
+}
+
+// コピーできなかったとき：箱の文字をえらんでおいて、自分でコピーする方法を出す
+function showCopyHelp() {
+  dataText.focus();
+  dataText.select();
+  showDataMessage("コピーできませんでした。箱の文字を長押し（パソコンは右クリック）して「コピー」してください", true);
+}
+
+// 「💾 ファイルに保存」：データを「tasclear-data-2026-10-02.json」というファイルでダウンロードする
+function downloadData() {
+  const text = makeExportText();
+  dataText.value = text;
+  const file = new Blob([text], { type: "application/json" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(file);
+  link.download = "tasclear-data-" + getTodayString() + ".json";
+  link.click(); // 見えないリンクを押して、ダウンロードを始める
+  URL.revokeObjectURL(link.href);
+  showDataMessage("ファイルに保存しました（ダウンロードのフォルダに入ります）", false);
+}
+
+// 文字がタスクリアのデータなら、中身（{ tasks, habits, player }）を返す。ちがう・こわれているときは null
+function parseImportText(text) {
+  try {
+    const data = JSON.parse(text);
+    const isPlayerObject = data.player !== null && typeof data.player === "object" && !Array.isArray(data.player);
+    if (data.format === DATA_FORMAT && Array.isArray(data.tasks) && Array.isArray(data.habits) && isPlayerObject) {
+      return data;
+    }
+    return null;
+  } catch (error) {
+    return null; // JSON の形になっていない（こわれている）
+  }
+}
+
+// 文字からデータを読みこむ（確かめて、確認してから、今のデータと入れかえて、ページを読みこみ直す）
+function importData(text) {
+  const data = parseImportText(text.trim());
+  if (data === null) {
+    showDataMessage("このデータは読みこめません。タスクリアで書き出した文字か、ファイルをえらんでください", true);
+    return;
+  }
+  const ok = confirm("今のデータは全部消えて、読みこんだデータ（" + (data.exportedDate || "日付なし") + " に書き出したもの）に入れかわります。よいですか？");
+  if (!ok) {
+    showDataMessage("読みこむのをやめました（今のデータはそのままです）", false);
+    return;
+  }
+  localStorage.setItem(QUESTS_KEY, JSON.stringify(data.tasks));
+  localStorage.setItem(HABITS_KEY, JSON.stringify(data.habits));
+  localStorage.setItem(PLAYER_KEY, JSON.stringify(data.player));
+  location.reload(); // 読みこんだデータで、画面を全部描き直す
+}
+
+// 「🗑️ データを全部消す」：2回確かめてから、タスクリアの3つのデータだけを消して、ページを読みこみ直す
+// （localStorage.clear() は、同じ場所のほかのアプリのデータまで消してしまうので使わない）
+function deleteAllData() {
+  const ok = confirm("本当に全部消しますか？\n消したデータはもとにもどせません。\n先に「📤 書き出す」で取っておくと安心です。");
+  if (!ok) {
+    return;
+  }
+  const answer = prompt("消すときは「けす」と入力してください");
+  if (answer === null || answer.trim() !== "けす") {
+    alert("消すのをやめました（データはそのままです）");
+    return;
+  }
+  localStorage.removeItem(QUESTS_KEY);
+  localStorage.removeItem(HABITS_KEY);
+  localStorage.removeItem(PLAYER_KEY);
+  location.reload(); // 初めて開いたときと同じ状態で、画面を全部描き直す
+}
+
+// 「📂 ファイルから読みこむ」でファイルをえらんだとき：中身を箱に出して、読みこむ
+function importFromFile() {
+  const file = importFileInput.files[0];
+  if (!file) {
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function () {
+    dataText.value = reader.result;
+    importData(reader.result);
+  };
+  reader.readAsText(file);
+  importFileInput.value = ""; // 同じファイルをもう一度えらんでも、読みこめるようにする
 }
 
 // 「シュッ」という、風を切る音を鳴らす
@@ -2052,7 +2287,7 @@ function playSwooshSound(audio) {
   // 音のもと → しぼる → 大きさ → スピーカー の順につなぐ
   noise.connect(filter);
   filter.connect(volume);
-  volume.connect(audio.destination);
+  volume.connect(getEffectOutput(audio)); // 効果音の大きさのつまみを通して、スピーカーへ
   noise.start(now);
 }
 
@@ -2073,7 +2308,7 @@ function playClangSound(audio) {
 
   // 音のもと → 大きさ → スピーカー の順につなぐ
   tone.connect(volume);
-  volume.connect(audio.destination);
+  volume.connect(getEffectOutput(audio)); // 効果音の大きさのつまみを通して、スピーカーへ
   tone.start(start);
   tone.stop(start + duration);
 }
@@ -2124,7 +2359,7 @@ function playHeavySwooshSound(audio) {
   // 音のもと → しぼる → 大きさ → スピーカー の順につなぐ
   noise.connect(filter);
   filter.connect(volume);
-  volume.connect(audio.destination);
+  volume.connect(getEffectOutput(audio)); // 効果音の大きさのつまみを通して、スピーカーへ
   noise.start(now);
 }
 
@@ -2146,7 +2381,7 @@ function playHeavyClangSound(audio) {
     volume.gain.exponentialRampToValueAtTime(0.01, start + duration);
 
     tone.connect(volume);
-    volume.connect(audio.destination);
+    volume.connect(getEffectOutput(audio)); // 効果音の大きさのつまみを通して、スピーカーへ
     tone.start(start);
     tone.stop(start + duration);
   }
@@ -2170,7 +2405,7 @@ function playThudSound(audio) {
   volume.gain.exponentialRampToValueAtTime(0.01, start + duration);
 
   tone.connect(volume);
-  volume.connect(audio.destination);
+  volume.connect(getEffectOutput(audio)); // 効果音の大きさのつまみを通して、スピーカーへ
   tone.start(start);
   tone.stop(start + duration);
 }
@@ -2211,7 +2446,7 @@ function playPianoNote(audio, frequency, start) {
 
   // 音のもと → 大きさ → スピーカー の順につなぐ
   tone.connect(volume);
-  volume.connect(audio.destination);
+  volume.connect(getEffectOutput(audio)); // 効果音の大きさのつまみを通して、スピーカーへ
   tone.start(start);
   tone.stop(start + duration);
 }
@@ -2258,7 +2493,7 @@ function playBrassNote(audio, frequency, start, length) {
   // 音のもと → けずる → 大きさ → スピーカー の順につなぐ
   tone.connect(filter);
   filter.connect(volume);
-  volume.connect(audio.destination);
+  volume.connect(getEffectOutput(audio)); // 効果音の大きさのつまみを通して、スピーカーへ
   tone.start(start);
   tone.stop(start + length);
 }
@@ -2303,7 +2538,7 @@ function playBellNote(audio, frequency, start, length) {
 
   // 音のもと → 大きさ → スピーカー の順につなぐ
   tone.connect(volume);
-  volume.connect(audio.destination);
+  volume.connect(getEffectOutput(audio)); // 効果音の大きさのつまみを通して、スピーカーへ
   tone.start(start);
   tone.stop(start + length);
 }
@@ -2808,7 +3043,85 @@ function renderCalendar() {
     calendarGrid.appendChild(createCalendarDay(calendarYear, calendarMonth, day));
   }
 
+  renderWeekSummary();
   renderCalendarDetail();
+}
+
+// ===== 週のふりかえり =====
+
+// dateText（「2026-10-01」）がふくまれる週の、日曜〜土曜の7日分の日付の文字を、配列にして返す
+// moveWeeks に -1 を入れると、1つ前の週になる
+function getWeekDates(dateText, moveWeeks) {
+  const parts = dateText.split("-");
+  const date = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  const sunday = date.getDate() - date.getDay() + moveWeeks * 7; // その週の日曜日（getDay は日曜が 0）
+  const dates = [];
+  for (let i = 0; i < 7; i++) {
+    const day = new Date(date.getFullYear(), date.getMonth(), sunday + i);
+    dates.push(makeDateText(day.getFullYear(), day.getMonth(), day.getDate()));
+  }
+  return dates;
+}
+
+// 7日分の日付の、撃破・集中・習慣の数と、1体以上撃破した日の数を数えて返す
+function countWeek(dates) {
+  const result = { defeats: 0, focuses: 0, habits: 0, defeatDays: 0 };
+  dates.forEach(function (dateText) {
+    const defeats = defeatHistory[dateText] || 0;
+    result.defeats = result.defeats + defeats;
+    result.focuses = result.focuses + (focusHistory[dateText] || 0);
+    result.habits = result.habits + getHabitsDoneOn(dateText).length;
+    if (defeats > 0) {
+      result.defeatDays = result.defeatDays + 1;
+    }
+  });
+  return result;
+}
+
+// 先週とのちがいの文字（「+3」「−1」「±0」）を作って返す。ふえたら緑、へったら赤の目印を付ける
+function createWeekDiff(now, before) {
+  const diff = now - before;
+  const text = document.createElement("span");
+  text.className = "week-diff";
+  if (diff > 0) {
+    text.textContent = "（先週より +" + diff + "）";
+    text.classList.add("is-up");
+  } else if (diff < 0) {
+    text.textContent = "（先週より −" + Math.abs(diff) + "）";
+    text.classList.add("is-down");
+  } else {
+    text.textContent = "（先週より ±0）";
+  }
+  return text;
+}
+
+// ふりかえりの1行（「⚔️ 撃破　12体」と、先週とのちがい）を作って返す
+function createWeekLine(label, valueText, diffElement) {
+  const line = document.createElement("p");
+  line.className = "week-line";
+  line.textContent = label + "　" + valueText;
+  if (diffElement) {
+    line.appendChild(diffElement);
+  }
+  return line;
+}
+
+// 週のふりかえりを表示し直す（押して選んでいる日がふくまれる週と、その1つ前の週をくらべる）
+function renderWeekSummary() {
+  const dates = getWeekDates(selectedDate, 0);
+  const now = countWeek(dates);
+  const before = countWeek(getWeekDates(selectedDate, -1));
+
+  calendarWeek.innerHTML = "";
+  const title = document.createElement("h3");
+  title.className = "week-title";
+  title.textContent = "📊 週のふりかえり　" + formatDeadline(dates[0]) + " 〜 " + formatDeadline(dates[6]);
+  calendarWeek.appendChild(title);
+
+  calendarWeek.appendChild(createWeekLine("⚔️ 撃破", now.defeats + "体", createWeekDiff(now.defeats, before.defeats)));
+  calendarWeek.appendChild(createWeekLine("🍅 集中", now.focuses + "回", createWeekDiff(now.focuses, before.focuses)));
+  calendarWeek.appendChild(createWeekLine("🔁 習慣", now.habits + "回", createWeekDiff(now.habits, before.habits)));
+  calendarWeek.appendChild(createWeekLine("🔥 撃破した日", now.defeatDays + " / 7日", null));
 }
 
 // 選んでいる日の、くわしい中身を表示し直す
@@ -3778,12 +4091,31 @@ function renderGacha() {
 
 // ===== ポモドーロタイマー =====
 
-// 集中・休けいの長さ（ミリ秒）を返す
+// えらんでいる集中・休けいの長さ（ミリ秒）を返す
 function getTimerLength(mode) {
   if (mode === "focus") {
-    return FOCUS_MINUTES * 60 * 1000;
+    return focusMinutes * 60 * 1000;
   }
-  return BREAK_MINUTES * 60 * 1000;
+  return breakMinutes * 60 * 1000;
+}
+
+// 今の集中・休けいを、最初（えらんでいる長さ）から始められるように用意する
+function setupTimer() {
+  timerLength = getTimerLength(timerMode);
+  timerRemaining = timerLength;
+}
+
+// 集中・休けいの長さをえらびなおしたとき：保存して、まだ始めていなければすぐに新しい長さにする
+// （動いているときや、途中まで進んでいるときは、今の分はそのまま。次から新しい長さになる）
+function changeTimerLength() {
+  const isAtStart = !isTimerRunning() && timerRemaining === timerLength;
+  focusMinutes = Number(timerFocusSelect.value);
+  breakMinutes = Number(timerBreakSelect.value);
+  savePlayer();
+  if (isAtStart) {
+    setupTimer();
+  }
+  renderTimer();
 }
 
 // タイマーが動いているかどうかを返す
@@ -3824,7 +4156,7 @@ function pauseTimer() {
 function resetTimer() {
   stopTimerInterval();
   timerMode = "focus"; // 休けい中に押しても、集中タイムに戻す
-  timerRemaining = getTimerLength(timerMode);
+  setupTimer();
   renderTimer();
 }
 
@@ -3869,7 +4201,7 @@ function finishTimer() {
   }
 
   // 次の時間を用意する（スタートは自分で押す）
-  timerRemaining = getTimerLength(timerMode);
+  setupTimer();
   renderTimer();
 }
 
@@ -4449,7 +4781,7 @@ function formatTime(milliseconds) {
 // タイマーの画面を表示し直す（残り時間・バー・歩くキャラ・ボタン・今日の回数）
 function renderTimer() {
   const remaining = getTimerRemaining();
-  const progress = 1 - remaining / getTimerLength(timerMode); // 進み具合（0 から 1）
+  const progress = 1 - remaining / timerLength; // 進み具合（0 から 1）
 
   if (timerMode === "focus") {
     timerModeText.textContent = "🔥 集中タイム";
@@ -4511,7 +4843,7 @@ function updateFocusSound() {
     timerSound.src = sound.file;
     timerSound.dataset.soundId = sound.id;
   }
-  timerSound.volume = FOCUS_SOUND_VOLUME;
+  timerSound.volume = focusVolume / 100; // 設定画面のつまみの大きさ（% を 0〜1 にする）
   if (timerSound.paused) {
     // 流せなかったとき（ファイルが読めないなど）も、アプリが止まらないようにする
     timerSound.play().catch(function (error) {
@@ -4564,6 +4896,9 @@ function showPage(pageId) {
       pageTabs[i].classList.remove("is-active");
     }
   }
+
+  // 設定画面を開いているときは、⚙️ ボタンを目立たせる（タブはどれも選んでいない色になる）
+  settingsButton.classList.toggle("is-active", pageId === "page-settings");
 }
 
 // レベルを Lv1 に戻す（確認してから）
@@ -4974,6 +5309,33 @@ timerResetButton.addEventListener("click", resetTimer);
 // 「🎵 集中中の音」をえらびなおしたとき
 timerSoundSelect.addEventListener("change", changeFocusSound);
 
+// 集中・休けいの長さをえらびなおしたとき
+timerFocusSelect.addEventListener("change", changeTimerLength);
+timerBreakSelect.addEventListener("change", changeTimerLength);
+
+// 右上の ⚙️ ボタンが押されたとき：設定画面を開く
+settingsButton.addEventListener("click", function () {
+  showPage("page-settings");
+});
+
+// 設定画面の、音の大きさのつまみを動かしたとき（input は動かしているあいだ、change ははなしたとき）
+effectVolumeSlider.addEventListener("input", changeEffectVolume);
+effectVolumeSlider.addEventListener("change", finishEffectVolume);
+focusVolumeSlider.addEventListener("input", changeFocusVolume);
+focusVolumeSlider.addEventListener("change", savePlayer);
+
+// 設定画面の、データの書き出し・読みこみのボタン
+exportButton.addEventListener("click", exportData);
+copyButton.addEventListener("click", copyData);
+downloadButton.addEventListener("click", downloadData);
+importButton.addEventListener("click", function () {
+  importData(dataText.value);
+});
+importFileInput.addEventListener("change", importFromFile);
+
+// 設定画面の「🗑️ データを全部消す」のボタン
+deleteAllButton.addEventListener("click", deleteAllData);
+
 // 画面を切りかえるタブが押されたとき（タブに書いてある data-page の画面を見せる）
 for (let i = 0; i < pageTabs.length; i++) {
   pageTabs[i].addEventListener("click", function () {
@@ -5004,9 +5366,13 @@ renderCalendar(); // プレイヤーの状態（撃破の記録）を読み込�
 
 // 保存しておいた音の設定に合わせて、音のボタンを表示する
 renderSoundButton();
+renderVolumeSettings(); // 保存しておいた音の大きさを、設定画面のつまみに出しておく
 
 // ポモドーロタイマーを表示する（最初は、集中 25:00 で止まっている）
 timerSoundSelect.value = focusSound; // 保存しておいた「集中中の音」を、えらぶ欄に出しておく
+timerFocusSelect.value = focusMinutes; // 保存しておいた集中・休けいの長さも、えらぶ欄に出して
+timerBreakSelect.value = breakMinutes;
+setupTimer(); // その長さでタイマーを用意しておく
 renderTimer();
 
 // 連れていくペットを描いて、ペットのカードを表示する
