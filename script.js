@@ -21,9 +21,11 @@ const todayQuest = document.getElementById("today-quest");
 // 「毎日の習慣」を表示する場所と、「🔁 毎日の習慣として追加」のチェックボックス
 const habitList = document.getElementById("habit-list");
 const habitCheckbox = document.getElementById("habit-checkbox");
+const habitDaysBox = document.getElementById("habit-days"); // 日課をやる曜日をえらぶボタンの箱
 
 // 締切の日付を選ぶ欄
 const deadlineInput = document.getElementById("deadline-input");
+const categoryInput = document.getElementById("category-input"); // クエストのカテゴリをえらぶ箱
 
 // 「他のタスク ▽」のボタン
 const otherToggle = document.getElementById("other-toggle");
@@ -38,6 +40,7 @@ const resetLevelButton = document.getElementById("reset-level-button");
 const bulkDefeatButton = document.getElementById("bulk-defeat-button");
 
 // 「本日のタスク」と「毎日の習慣」の切りかえボタンと、2つのカード
+const bossDayBanner = document.getElementById("boss-day-banner"); // ボス戦の日のお知らせ
 const switchTodayButton = document.getElementById("switch-today-button");
 const switchHabitButton = document.getElementById("switch-habit-button");
 const todayCard = document.getElementById("today-card");
@@ -145,6 +148,7 @@ const expText = document.getElementById("exp-text");
 
 // 今日の撃破数を表示する場所
 const todayCountText = document.getElementById("today-count");
+const streakText = document.getElementById("streak-text"); // 連続記録（「🔥 3日連続」）
 
 // ランクの星を表示する場所
 const rankStars = document.getElementById("rank-stars");
@@ -230,6 +234,10 @@ let items = {};
 const COIN_PER_DEFEAT = 10;
 const COIN_PER_RARE_DEFEAT = 50;
 
+// ボス戦の日（0 が日曜日。Date の getDay と同じ）と、その日にクエストを撃破したときのコインの倍の数
+const BOSS_DAY = 0;
+const BOSS_COIN_MULTIPLIER = 3;
+
 // ガチャ1回に使うコイン
 const GACHA_COST = 50;
 
@@ -306,6 +314,9 @@ let monsterDefeats = {};
 
 // とった実績と、とった日（{ "first-defeat": "2026-10-01" } のような形）
 let achievements = {};
+
+// もうごほうびのコインをわたした実績（{ "first-defeat": true } のような形。同じ実績のコインを2回わたさないため）
+let rewardedAchievements = {};
 
 // カレンダーで見ている年と月（月は 0〜11。1月が 0）と、押して選んでいる日（「2026-10-05」のような文字）
 let calendarYear = new Date().getFullYear();
@@ -1529,11 +1540,25 @@ const RARE_MONSTER = { id: "golden-slime", name: "ゴールデンスライム", 
 
 // --- 関数 ---
 
+// 今日がボス戦の日（日曜日）かどうかを返す
+function isBossDay() {
+  return new Date().getDay() === BOSS_DAY;
+}
+
+// ボス戦の日だけ、メイン画面に「👑 今日はボス戦の日！」のお知らせを出す
+function renderBossDayBanner() {
+  bossDayBanner.hidden = !isBossDay();
+}
+
 // 本日のタスクのクエストから、出すモンスターを決めて返す
-// レアなクエストならゴールデンスライム、それ以外は EXP で決める
+// レアなクエストならゴールデンスライム、ボス戦の日ならドラゴン、それ以外は EXP で決める
 function getMonster(quest) {
   if (quest.rare) {
     return RARE_MONSTER;
+  }
+  // ボス戦の日は、EXP に関係なく、全部ボス（表のいちばん上＝ドラゴン）にする
+  if (isBossDay()) {
+    return MONSTERS[0];
   }
   const exp = quest.exp;
   for (let i = 0; i < MONSTERS.length; i++) {
@@ -1793,9 +1818,47 @@ function resetTodayCountIfNewDay() {
   }
 }
 
-// 今日の撃破数を画面に表示し直す
+// 今日の撃破数を画面に表示し直す（連続記録も、いっしょに表示し直す）
 function renderTodayCount() {
   todayCountText.textContent = "今日 " + todayCount + "体 撃破";
+  renderStreak();
+}
+
+// 今、1体以上撃破した日が何日続いているかを数えて返す（カレンダーの撃破の記録を使う）
+// 今日まだ撃破していなくても、昨日まで続いていれば、昨日までの日数を返す（今日のうちは切れない）
+function countCurrentStreak() {
+  let day = getTodayString();
+  if (!(defeatHistory[day] > 0)) {
+    day = getPreviousDateText(day); // 今日まだなら、昨日から数える
+  }
+  let count = 0;
+  while (defeatHistory[day] > 0) {
+    count = count + 1;
+    day = getPreviousDateText(day);
+  }
+  return count;
+}
+
+// 「2026-10-01」のような日付の、前の日の日付の文字を返す
+function getPreviousDateText(dateText) {
+  const parts = dateText.split("-");
+  const previous = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]) - 1);
+  return makeDateText(previous.getFullYear(), previous.getMonth(), previous.getDate());
+}
+
+// 連続記録（「🔥 3日連続」）を表示し直す。今日まだ撃破していなければ「（今日まだ）」を付ける。0日なら出さない
+function renderStreak() {
+  const streak = countCurrentStreak();
+  streakText.hidden = streak === 0;
+  const doneToday = defeatHistory[getTodayString()] > 0;
+  streakText.textContent = "🔥 " + streak + "日連続";
+  // 「（今日まだ）」は、せまくても変なところで折り返さないように、次の行に小さく出す
+  if (!doneToday) {
+    const notYet = document.createElement("span");
+    notYet.className = "streak-not-yet";
+    notYet.textContent = "（今日まだ）";
+    streakText.appendChild(notYet);
+  }
 }
 
 // プレイヤーの状態（累計EXP・今日の撃破数・その日付）を localStorage に保存する
@@ -1823,6 +1886,7 @@ function savePlayer() {
     focusHistory: focusHistory,
     monsterDefeats: monsterDefeats,
     achievements: achievements,
+    rewardedAchievements: rewardedAchievements,
   };
   localStorage.setItem(PLAYER_KEY, JSON.stringify(player));
 }
@@ -1863,6 +1927,7 @@ function loadPlayer() {
     focusHistory = player.focusHistory || {}; // 前の形の保存データには無いので、そのときは空
     monsterDefeats = player.monsterDefeats || {}; // 前の形の保存データには無いので、そのときは空（だれもたおしていない）
     achievements = player.achievements || {}; // 前の形の保存データには無いので、そのときは空（まだ1つもとっていない）
+    rewardedAchievements = player.rewardedAchievements || {}; // 前の形の保存データには無いので、そのときは空（まだ1つもコインをわたしていない）
     console.log("プレイヤーの状態を読み込みました", player);
   } catch (error) {
     console.log("プレイヤーの保存データが壊れていたので、0 から始めます");
@@ -1888,6 +1953,7 @@ function loadPlayer() {
     focusHistory = {};
     monsterDefeats = {};
     achievements = {};
+    rewardedAchievements = {};
     giveStarterPets(true); // データが壊れていたときも、初めての人と同じように、最初からいるペットを入れる
   }
 }
@@ -2074,6 +2140,11 @@ function getAudioContext() {
     effectVolumeNode = audioContext.createGain();
     effectVolumeNode.connect(audioContext.destination);
     applyEffectVolume();
+  }
+  // ボタンを押す前（ページを開いたときの演出など）に用意すると、音の道具は止まった状態になる
+  // そのままだとずっと鳴らないので、止まっていたら動かし直す（ボタンを押したあとなら動く）
+  if (audioContext.state === "suspended") {
+    audioContext.resume();
   }
   return audioContext;
 }
@@ -2843,6 +2914,81 @@ function createDoneLabel() {
   return label;
 }
 
+// ===== クエストのカテゴリ =====
+
+// カテゴリの表。id は保存するときの名前（札の色は、style.css の「category-（id）」で決める）
+const QUEST_CATEGORIES = [
+  { id: "study", icon: "📚", name: "勉強" },
+  { id: "work", icon: "💼", name: "しごと" },
+  { id: "home", icon: "🏠", name: "家事" },
+  { id: "sport", icon: "🏃", name: "運動" },
+  { id: "hobby", icon: "🎨", name: "しゅみ" },
+  { id: "other", icon: "✨", name: "その他" },
+];
+
+// カテゴリの id から、表の行を返す（なし・知らない id なら undefined）
+function getCategory(id) {
+  return QUEST_CATEGORIES.find(function (category) {
+    return category.id === id;
+  });
+}
+
+// カテゴリをえらぶ箱の中身（なし＋表の6つ）を作る。selectedId のカテゴリをえらんだ状態にする
+function fillCategoryOptions(select, selectedId) {
+  select.innerHTML = "";
+  const none = document.createElement("option");
+  none.value = "";
+  none.textContent = "なし";
+  select.appendChild(none);
+  QUEST_CATEGORIES.forEach(function (category) {
+    const option = document.createElement("option");
+    option.value = category.id;
+    option.textContent = category.icon + " " + category.name;
+    select.appendChild(option);
+  });
+  select.value = getCategory(selectedId) ? selectedId : "";
+}
+
+// クエストのカテゴリの札を作って返す（札を出さないときは null）
+// まだ撃破していないクエストは、押すとえらぶ箱が出て、えらびなおせる（カテゴリなしなら「🏷️ ＋」）
+function createCategoryLabel(quest, index) {
+  const category = getCategory(quest.category);
+  if (quest.done && !category) {
+    return null; // 撃破済みで、カテゴリもないなら何も出さない
+  }
+  const label = document.createElement(quest.done ? "span" : "button");
+  label.className = "category-label";
+  if (category) {
+    label.classList.add("category-" + category.id);
+    label.textContent = category.icon + " " + category.name;
+  } else {
+    label.classList.add("is-empty");
+    label.textContent = "🏷️ ＋";
+  }
+  if (!quest.done) {
+    label.type = "button";
+    label.addEventListener("click", function () {
+      openCategorySelect(label, index);
+    });
+  }
+  return label;
+}
+
+// 札を押したとき：札の場所に、えらぶ箱を出す。えらんだら保存して、表示し直す
+function openCategorySelect(label, index) {
+  const select = document.createElement("select");
+  select.className = "category-select";
+  fillCategoryOptions(select, quests[index].category);
+  select.addEventListener("change", function () {
+    quests[index].category = select.value;
+    saveQuests();
+    renderQuests();
+  });
+  select.addEventListener("blur", renderQuests); // えらばずに外を押したら、札にもどす
+  label.replaceWith(select);
+  select.focus();
+}
+
 // 押すと名前を直せるクエスト名を作って返す（名前のうしろに ✏️ を付ける）
 // tagName は作る部品の種類（"span" や "p"）、className は見た目を決めるクラスの名前
 function createQuestName(quest, index, tagName, className) {
@@ -3120,7 +3266,7 @@ function renderWeekSummary() {
 
   calendarWeek.appendChild(createWeekLine("⚔️ 撃破", now.defeats + "体", createWeekDiff(now.defeats, before.defeats)));
   calendarWeek.appendChild(createWeekLine("🍅 集中", now.focuses + "回", createWeekDiff(now.focuses, before.focuses)));
-  calendarWeek.appendChild(createWeekLine("🔁 習慣", now.habits + "回", createWeekDiff(now.habits, before.habits)));
+  calendarWeek.appendChild(createWeekLine("🔁 日課", now.habits + "回", createWeekDiff(now.habits, before.habits)));
   calendarWeek.appendChild(createWeekLine("🔥 撃破した日", now.defeatDays + " / 7日", null));
 }
 
@@ -3165,9 +3311,9 @@ function renderCalendarDetail() {
   // 🔁 この日にクリアした習慣
   const habitsDone = getHabitsDoneOn(selectedDate);
   if (habitsDone.length === 0) {
-    addDetailLine("🔁 クリアした習慣：なし");
+    addDetailLine("🔁 クリアした日課：なし");
   } else {
-    addDetailLine("🔁 クリアした習慣：" + habitsDone.map(function (habit) {
+    addDetailLine("🔁 クリアした日課：" + habitsDone.map(function (habit) {
       return habit.name;
     }).join("、"));
   }
@@ -3485,7 +3631,11 @@ function createQuestItemTop(quest, index) {
   const top = document.createElement("div");
   top.className = "quest-top";
 
-  // タスク名（押すと名前を直せる）
+  // カテゴリの札（押すとえらびなおせる）と、タスク名（押すと名前を直せる）
+  const categoryLabel = createCategoryLabel(quest, index);
+  if (categoryLabel) {
+    top.appendChild(categoryLabel);
+  }
   top.appendChild(createQuestName(quest, index, "span", "quest-name"));
 
   // 撃破済みなら「撃破済み」の目印を出す
@@ -3589,6 +3739,10 @@ function createTodayItem(quest, index) {
   if (quest.rare) {
     nameLine.appendChild(createRareLabel());
   }
+  const categoryLabel = createCategoryLabel(quest, index); // カテゴリの札（押すとえらびなおせる）
+  if (categoryLabel) {
+    nameLine.appendChild(categoryLabel);
+  }
   nameLine.appendChild(createQuestName(quest, index, "p", "today-name")); // 押すと名前を直せる
   nameLine.appendChild(createPinButton(quest, index)); // 📌ボタン
   nameLine.appendChild(createMoveButtons(index, false)); // 右はしに、横に並べた▲▼ボタン
@@ -3633,6 +3787,7 @@ function createTodayItem(quest, index) {
 
 // 画面のクエスト表示（本日のタスクと、他のタスクの一覧）をすべて表示し直す
 function renderQuests() {
+  renderBossDayBanner(); // ボス戦の日のお知らせ（日付が変わったときのため、描き直すたびに確かめる）
   const todayIndexes = findTodayIndexes(); // 本日のタスク（最大5つ）
   renderToday(todayIndexes);
   renderMonster(findTodayIndex()); // モンスターは、本日のタスクのいちばん上のクエストの分
@@ -4485,39 +4640,40 @@ function makeSilhouette(grid) {
 
 // ===== 実績（トロフィー） =====
 
-// 実績の表。id は保存するときの名前、condition は画面に出す条件、check は「条件を満たしたら true を返す」関数
+// 実績の表。id は保存するときの名前、coins はとったときにもらえるコイン（むずかしいほど多い）
+// condition は画面に出す条件、check は「条件を満たしたら true を返す」関数
 const ACHIEVEMENTS = [
   // ⚔️ 撃破
-  { id: "defeat-1", name: "はじめての一撃", condition: "合計 1体 撃破する", check: function () { return countAllDefeats() >= 1; } },
-  { id: "defeat-10", name: "見習いハンター", condition: "合計 10体 撃破する", check: function () { return countAllDefeats() >= 10; } },
-  { id: "defeat-50", name: "一人前ハンター", condition: "合計 50体 撃破する", check: function () { return countAllDefeats() >= 50; } },
-  { id: "defeat-100", name: "伝説のハンター", condition: "合計 100体 撃破する", check: function () { return countAllDefeats() >= 100; } },
+  { id: "defeat-1", coins: 50, name: "はじめての一撃", condition: "合計 1体 撃破する", check: function () { return countAllDefeats() >= 1; } },
+  { id: "defeat-10", coins: 100, name: "見習いハンター", condition: "合計 10体 撃破する", check: function () { return countAllDefeats() >= 10; } },
+  { id: "defeat-50", coins: 200, name: "一人前ハンター", condition: "合計 50体 撃破する", check: function () { return countAllDefeats() >= 50; } },
+  { id: "defeat-100", coins: 500, name: "伝説のハンター", condition: "合計 100体 撃破する", check: function () { return countAllDefeats() >= 100; } },
   // 🔥 連続
-  { id: "streak-3", name: "三日坊主じゃない", condition: "3日連続で 1体以上 撃破する", check: function () { return countLongestStreak() >= 3; } },
-  { id: "streak-7", name: "一週間の勇者", condition: "7日連続で 1体以上 撃破する", check: function () { return countLongestStreak() >= 7; } },
+  { id: "streak-3", coins: 100, name: "三日坊主じゃない", condition: "3日連続で 1体以上 撃破する", check: function () { return countLongestStreak() >= 3; } },
+  { id: "streak-7", coins: 200, name: "一週間の勇者", condition: "7日連続で 1体以上 撃破する", check: function () { return countLongestStreak() >= 7; } },
   // ⭐ レベル
-  { id: "level-3", name: "戦士になった", condition: "Lv3 になる", check: function () { return getLevel() >= 3; } },
-  { id: "level-5", name: "勇者になった", condition: "Lv5 になる", check: function () { return getLevel() >= 5; } },
-  { id: "level-10", name: "竜殺し", condition: "Lv10 になる", check: function () { return getLevel() >= 10; } },
-  { id: "level-20", name: "神話の勇者", condition: "Lv20 になる", check: function () { return getLevel() >= 20; } },
+  { id: "level-3", coins: 50, name: "戦士になった", condition: "Lv3 になる", check: function () { return getLevel() >= 3; } },
+  { id: "level-5", coins: 100, name: "勇者になった", condition: "Lv5 になる", check: function () { return getLevel() >= 5; } },
+  { id: "level-10", coins: 200, name: "竜殺し", condition: "Lv10 になる", check: function () { return getLevel() >= 10; } },
+  { id: "level-20", coins: 500, name: "神話の勇者", condition: "Lv20 になる", check: function () { return getLevel() >= 20; } },
   // 🍅 集中
-  { id: "focus-1", name: "はじめての集中", condition: "集中タイムを 合計 1回 終える", check: function () { return sumValues(focusHistory) >= 1; } },
-  { id: "focus-20", name: "集中マスター", condition: "集中タイムを 合計 20回 終える", check: function () { return sumValues(focusHistory) >= 20; } },
+  { id: "focus-1", coins: 50, name: "はじめての集中", condition: "集中タイムを 合計 1回 終える", check: function () { return sumValues(focusHistory) >= 1; } },
+  { id: "focus-20", coins: 200, name: "集中マスター", condition: "集中タイムを 合計 20回 終える", check: function () { return sumValues(focusHistory) >= 20; } },
   // 🔁 習慣
-  { id: "habit-1", name: "習慣の第一歩", condition: "習慣を 合計 1回 クリアする", check: function () { return countHabitClears() >= 1; } },
-  { id: "habit-30", name: "習慣の達人", condition: "習慣を 合計 30回 クリアする", check: function () { return countHabitClears() >= 30; } },
+  { id: "habit-1", coins: 50, name: "日課の第一歩", condition: "日課を 合計 1回 クリアする", check: function () { return countHabitClears() >= 1; } },
+  { id: "habit-30", coins: 200, name: "日課の達人", condition: "日課を 合計 30回 クリアする", check: function () { return countHabitClears() >= 30; } },
   // 🎰 ガチャ
-  { id: "gacha-10", name: "コレクター", condition: "図鑑のアイテムを 10種類 集める", check: function () { return countOwnedItems(GACHA_ITEMS) >= 10; } },
-  { id: "gacha-super", name: "スーパーレア", condition: "★★★ のアイテムを 1つ 手に入れる", check: function () { return hasSuperRareItem(); } },
-  { id: "gacha-all", name: "図鑑コンプリート", condition: "図鑑のアイテムを 48種類 全部 集める", check: function () { return countOwnedItems(GACHA_ITEMS) >= GACHA_ITEMS.length; } },
+  { id: "gacha-10", coins: 50, name: "コレクター", condition: "図鑑のアイテムを 10種類 集める", check: function () { return countOwnedItems(GACHA_ITEMS) >= 10; } },
+  { id: "gacha-super", coins: 100, name: "スーパーレア", condition: "★★★ のアイテムを 1つ 手に入れる", check: function () { return hasSuperRareItem(); } },
+  { id: "gacha-all", coins: 500, name: "図鑑コンプリート", condition: "図鑑のアイテムを 48種類 全部 集める", check: function () { return countOwnedItems(GACHA_ITEMS) >= GACHA_ITEMS.length; } },
   // 🐣 ペット
-  { id: "pet-hatch", name: "はじめての孵化", condition: "卵を 1回 かえす", check: function () { return hasHatchedEgg(); } },
-  { id: "pet-5", name: "ペットなかま", condition: "ペットを 5種類 なかまにする", check: function () { return countPetKinds() >= 5; } },
-  { id: "pet-all", name: "ペットマスター", condition: "ペットを 11種類 全部 なかまにする", check: function () { return countPetKinds() >= PETS.length; } },
+  { id: "pet-hatch", coins: 50, name: "はじめての孵化", condition: "卵を 1回 かえす", check: function () { return hasHatchedEgg(); } },
+  { id: "pet-5", coins: 100, name: "ペットなかま", condition: "ペットを 5種類 なかまにする", check: function () { return countPetKinds() >= 5; } },
+  { id: "pet-all", coins: 500, name: "ペットマスター", condition: "ペットを 11種類 全部 なかまにする", check: function () { return countPetKinds() >= PETS.length; } },
   // 👾 モンスター
-  { id: "monster-golden", name: "黄金の出会い", condition: "ゴールデンスライムを たおす", check: function () { return (monsterDefeats[RARE_MONSTER.id] || 0) > 0; } },
-  { id: "monster-5", name: "モンスター博士", condition: "モンスターを 5種類 たおす", check: function () { return countMonsterKinds() >= 5; } },
-  { id: "monster-all", name: "モンスター図鑑コンプリート", condition: "モンスターを 11種類 全部 たおす", check: function () { return countMonsterKinds() >= MONSTERS.length + 1; } },
+  { id: "monster-golden", coins: 100, name: "黄金の出会い", condition: "ゴールデンスライムを たおす", check: function () { return (monsterDefeats[RARE_MONSTER.id] || 0) > 0; } },
+  { id: "monster-5", coins: 100, name: "モンスター博士", condition: "モンスターを 5種類 たおす", check: function () { return countMonsterKinds() >= 5; } },
+  { id: "monster-all", coins: 500, name: "モンスター図鑑コンプリート", condition: "モンスターを 11種類 全部 たおす", check: function () { return countMonsterKinds() >= MONSTERS.length + 1; } },
 ];
 
 // { a: 2, b: 3 } のような記録の、数を全部たして返す
@@ -4591,33 +4747,64 @@ function countMonsterKinds() {
   }).length;
 }
 
-// まだとっていない実績の条件を確かめて、満たしていたら「とった」にする
+// まだとっていない実績の条件を確かめて、満たしていたら「とった」にする。とった実績のコインもわたす
 // showEffect が true なら「🏆 実績解除！」の演出を出す（ページを開いたときは出さない）
+// ページを開いたときに、前にとった実績のコインをまだわたしていなければ、まとめてわたして、その演出を出す
 function checkAchievements(showEffect) {
   const newOnes = ACHIEVEMENTS.filter(function (achievement) {
     return !achievements[achievement.id] && achievement.check();
   });
-  if (newOnes.length === 0) {
-    return;
-  }
   newOnes.forEach(function (achievement) {
     achievements[achievement.id] = getTodayString();
   });
+  const reward = giveAchievementRewards();
+  if (newOnes.length === 0 && reward.coins === 0) {
+    return; // 新しくとった実績も、わたすコインもない
+  }
   savePlayer();
   renderAchievements();
-  if (showEffect) {
-    addAchievementEffect(newOnes);
+  renderGacha(); // コインの数の表示も新しくする
+  if (showEffect && newOnes.length > 0) {
+    addAchievementEffect(newOnes, reward.coins);
+  } else if (reward.coins > 0) {
+    addPastRewardEffect(reward);
   }
 }
 
+// とった実績のうち、まだコインをわたしていない実績のコインを、まとめてわたす
+// 返すのは { count: 何こ分か, coins: 合計のコイン }
+function giveAchievementRewards() {
+  const unpaid = ACHIEVEMENTS.filter(function (achievement) {
+    return achievements[achievement.id] && !rewardedAchievements[achievement.id];
+  });
+  let total = 0;
+  unpaid.forEach(function (achievement) {
+    rewardedAchievements[achievement.id] = true;
+    total = total + achievement.coins;
+  });
+  coins = coins + total;
+  return { count: unpaid.length, coins: total };
+}
+
 // 「🏆 実績解除！」の演出を、順番待ちの列に並べる（いくつか同時にとれたら、1つの演出にまとめて名前をならべる）
-function addAchievementEffect(newOnes) {
+// 最後に、もらったコインの合計（「🪙 +100」）も出す
+function addAchievementEffect(newOnes, rewardCoins) {
   const names = newOnes.map(function (achievement) {
     return "「" + achievement.name + "」";
   }).join("\n");
   addEffect(function () {
     clearEffectClasses();
-    effectText.textContent = "🏆 実績解除！\n" + names;
+    effectText.textContent = "🏆 実績解除！\n" + names + "\n🪙 +" + rewardCoins;
+    restartAnimation(effectOverlay, "is-celebrate");
+    playFanfareSound();
+  }, CELEBRATE_EFFECT_TIME);
+}
+
+// 前にとった実績のコインを、ページを開いたときにまとめてわたしたときの演出
+function addPastRewardEffect(reward) {
+  addEffect(function () {
+    clearEffectClasses();
+    effectText.textContent = "🏆 実績のごほうび！\n前にとった実績 " + reward.count + "こ分\n🪙 +" + reward.coins;
     restartAnimation(effectOverlay, "is-celebrate");
     playFanfareSound();
   }, CELEBRATE_EFFECT_TIME);
@@ -4658,6 +4845,12 @@ function createAchievementItem(achievement, date) {
   text.appendChild(name);
   text.appendChild(condition);
   row.appendChild(text);
+
+  // ごほうびのコイン（とってコインをもらった実績は「もらった」を付ける）
+  const reward = document.createElement("span");
+  reward.className = "achievement-reward";
+  reward.textContent = "🪙 " + achievement.coins + (rewardedAchievements[achievement.id] ? " もらった" : "");
+  row.appendChild(reward);
   return row;
 }
 
@@ -4932,7 +5125,7 @@ function toggleOtherQuests() {
 
 // 新しいクエストを追加する
 // deadline は締切の日付（「2026-10-05」のような文字。締切なしなら ""）
-function addQuest(questName, deadline) {
+function addQuest(questName, deadline, category) {
   // 50回に1回くらいの確率で、レアなクエストにする
   // （Math.random() は 0 以上 1 未満のランダムな数。それが RARE_CHANCE より小さければレア）
   const isRare = Math.random() < RARE_CHANCE;
@@ -4944,6 +5137,7 @@ function addQuest(questName, deadline) {
     rare: isRare, // レアなクエストかどうか
     deadline: deadline || "", // 締切の日付（締切なしなら ""）
     createdDate: getTodayString(), // 追加した日（カレンダーで、締切までの毎日に出すときの始まりの日）
+    category: category || "", // カテゴリの id（なしなら ""）
   };
 
   // レアなクエストなら、EXP を 100 にして、「あらわれた！」の演出を出す
@@ -4993,7 +5187,7 @@ function completeQuest(index) {
   recordMonsterDefeat(quest);
 
   // EXP・今日の撃破数・コインをもらう
-  giveDefeatRewards(quest.exp, quest.rare === true);
+  giveDefeatRewards(quest.exp, quest.rare === true, true); // 最後の true は「クエストを撃破した」（ボス戦の日のコインのため）
   renderCreatures(); // 図鑑の「モンスターとペット」も描き直す
 }
 
@@ -5005,7 +5199,7 @@ function recordMonsterDefeat(quest) {
 
 // 撃破したときのごほうび（EXP・今日の撃破数・コイン）をもらって保存する（クエストと習慣で同じものを使う）
 // exp は獲得EXP、isRare はレアなクエストかどうか
-function giveDefeatRewards(exp, isRare) {
+function giveDefeatRewards(exp, isRare, isQuest) {
   // EXPを累計EXPに足す
   totalExp = totalExp + exp;
 
@@ -5017,9 +5211,11 @@ function giveDefeatRewards(exp, isRare) {
   const today = getTodayString();
   defeatHistory[today] = (defeatHistory[today] || 0) + 1;
 
-  // コインを足す（レアなクエストは多めにもらえる）
+  // コインを足す（レアなクエストは多めにもらえる。ボス戦の日のクエストは3倍）
   if (isRare) {
     coins = coins + COIN_PER_RARE_DEFEAT;
+  } else if (isQuest && isBossDay()) {
+    coins = coins + COIN_PER_DEFEAT * BOSS_COIN_MULTIPLIER;
   } else {
     coins = coins + COIN_PER_DEFEAT;
   }
@@ -5059,16 +5255,110 @@ function loadHabits() {
 }
 
 // 新しい習慣を追加する（EXPは登録したときに10〜30で決まり、毎日同じ）
-function addHabit(habitName) {
+function addHabit(habitName, days) {
   const newHabit = {
     name: habitName,
     exp: getRandomExp(10, 30),
     doneDate: "", // まだ一度も撃破していない
     doneDates: [], // クリアした日の記録（カレンダーで使う）
+    days: days.slice(), // やる曜日（0 が日曜、6 が土曜）。slice で、表のコピーを入れる
   };
   habits.push(newHabit);
   saveHabits();
   console.log("習慣を追加しました", newHabit);
+}
+
+// ===== 日課の曜日 =====
+
+// 曜日の番号（0 が日曜、6 が土曜。Date の getDay と同じ）と、その名前
+const ALL_WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
+const WEEKDAY_NAMES = ["日", "月", "火", "水", "木", "金", "土"];
+
+// これから追加する日課の曜日（入力フォームの曜日ボタンでえらぶ。はじめは毎日）
+let newHabitDays = ALL_WEEKDAYS.slice();
+
+// 曜日をえらびなおしている日課の番号（だれもえらびなおしていないときは -1）
+let editingHabitIndex = -1;
+
+// 日課をやる曜日の配列を返す（前からある日課は曜日の記録がないので、毎日にする）
+function getHabitDays(habit) {
+  if (Array.isArray(habit.days) && habit.days.length > 0) {
+    return habit.days;
+  }
+  return ALL_WEEKDAYS;
+}
+
+// 今日が、その日課をやる曜日かどうかを返す
+function isHabitScheduledToday(habit) {
+  return getHabitDays(habit).includes(new Date().getDay());
+}
+
+// 曜日の配列を「月・水・金」のような文字にして返す（全部なら「毎日」）
+function formatHabitDays(days) {
+  if (days.length === 7) {
+    return "毎日";
+  }
+  return days.map(function (day) {
+    return WEEKDAY_NAMES[day];
+  }).join("・");
+}
+
+// 曜日の配列に day があれば外し、なければ入れて、小さい順にならべた新しい配列を返す
+function toggleDayInList(days, day) {
+  const result = days.includes(day) ? days.filter(function (d) { return d !== day; }) : days.concat([day]);
+  return result.sort(function (a, b) { return a - b; });
+}
+
+// container の中に、日〜土の曜日ボタンを作る（えらんでいる曜日は濃い色）。押したら onToggle(曜日の番号) を呼ぶ
+function renderHabitDayButtons(container, days, onToggle) {
+  container.innerHTML = "";
+  ALL_WEEKDAYS.forEach(function (day) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "habit-day-button";
+    button.classList.toggle("is-active", days.includes(day));
+    button.textContent = WEEKDAY_NAMES[day];
+    button.addEventListener("click", function () {
+      onToggle(day);
+    });
+    container.appendChild(button);
+  });
+}
+
+// 入力フォームの曜日ボタンを押したとき：これから追加する日課の曜日を切りかえる
+function toggleNewHabitDay(day) {
+  newHabitDays = toggleDayInList(newHabitDays, day);
+  renderHabitDayButtons(habitDaysBox, newHabitDays, toggleNewHabitDay);
+}
+
+// 一覧の日課の曜日ボタンを押したとき：その日課の曜日を切りかえて保存する（1つもなくなるときは切りかえない）
+function toggleHabitDay(index, day) {
+  const days = toggleDayInList(getHabitDays(habits[index]), day);
+  if (days.length === 0) {
+    alert("曜日を1つ以上えらんでください");
+    return;
+  }
+  habits[index].days = days;
+  saveHabits();
+  renderQuests(); // この中で、日課のカードも表示し直す
+}
+
+// 一覧の日課の ✏️ を押したとき：曜日ボタンを出す・しまう
+function toggleHabitDaysEditor(index) {
+  editingHabitIndex = editingHabitIndex === index ? -1 : index;
+  renderQuests();
+}
+
+// 次にその日課をやる曜日の名前を返す（明日なら「明日」）
+function getNextHabitDayText(habit) {
+  const today = new Date().getDay();
+  for (let i = 1; i <= 7; i++) {
+    const day = (today + i) % 7;
+    if (getHabitDays(habit).includes(day)) {
+      return i === 1 ? "明日" : WEEKDAY_NAMES[day] + "曜日";
+    }
+  }
+  return "明日";
 }
 
 // 習慣を、今日もう撃破したかどうかを返す（最後に撃破した日が今日なら true）
@@ -5091,7 +5381,7 @@ function defeatHabit(index) {
   habit.doneDate = getTodayString();
   habit.doneDates.push(habit.doneDate); // カレンダーのために、クリアした日を全部覚えておく
   saveHabits();
-  giveDefeatRewards(habit.exp, false);
+  giveDefeatRewards(habit.exp, false, false); // 日課はモンスターが出ないので、ボス戦の日でもコインはふだんどおり
   console.log("習慣を撃破しました", habit);
 
   renderQuests(); // この中で、習慣のカードも表示し直す
@@ -5115,34 +5405,73 @@ function createHabitItem(habit, index) {
   const item = document.createElement("div");
   item.className = "today-item";
   const isDone = isHabitDoneToday(habit);
-  if (isDone) {
-    item.classList.add("is-habit-done"); // 今日クリアした習慣は薄くする
+  const isRest = !isHabitScheduledToday(habit); // 今日がお休みの曜日か
+  if (isDone || isRest) {
+    item.classList.add("is-habit-done"); // 今日クリアした日課と、今日お休みの日課は薄くする
   }
 
-  // 習慣の名前（今日クリアしていたら、前に ✅ を付ける）
+  // 日課の名前（今日クリアしていたら、前に ✅ を付ける）
   const name = document.createElement("p");
   name.className = "today-name";
   name.textContent = (isDone ? "✅ " : "") + habit.name;
   item.appendChild(name);
+
+  // やる曜日（「📅 月・水・金」）と ✏️。✏️ を押すと、その下に曜日ボタンが出る
+  item.appendChild(createHabitDaysLine(index));
+  if (editingHabitIndex === index) {
+    const editor = document.createElement("div");
+    editor.className = "habit-days";
+    renderHabitDayButtons(editor, getHabitDays(habit), function (day) {
+      toggleHabitDay(index, day);
+    });
+    item.appendChild(editor);
+  }
 
   // 「（〇 EXP get）」と、ボタンを横に並べる行
   const row = document.createElement("div");
   row.className = "today-row";
   const exp = document.createElement("p");
   exp.className = "today-exp";
-  exp.textContent = isDone ? "今日はクリア（明日また出ます）" : "（" + habit.exp + " EXP get）";
+  exp.textContent = getHabitStateText(habit, isDone, isRest);
   row.appendChild(exp);
 
   const actions = document.createElement("div");
   actions.className = "today-actions";
-  if (!isDone) {
-    actions.appendChild(createHabitDefeatButton(index));
+  if (!isDone && !isRest) {
+    actions.appendChild(createHabitDefeatButton(index)); // お休みの日は、撃破ボタンを出さない
   }
   actions.appendChild(createHabitDeleteButton(index));
   row.appendChild(actions);
 
   item.appendChild(row);
   return item;
+}
+
+// 日課の「📅 月・水・金 ✏️」の行を作って返す
+function createHabitDaysLine(index) {
+  const line = document.createElement("p");
+  line.className = "habit-days-text";
+  line.textContent = "📅 " + formatHabitDays(getHabitDays(habits[index])) + " ";
+  const editButton = document.createElement("button");
+  editButton.type = "button";
+  editButton.className = "habit-days-edit";
+  editButton.textContent = editingHabitIndex === index ? "✅ とじる" : "✏️";
+  editButton.addEventListener("click", function () {
+    toggleHabitDaysEditor(index);
+  });
+  line.appendChild(editButton);
+  return line;
+}
+
+// 日課の状態の文字を返す（クリアした・お休み・まだ）
+function getHabitStateText(habit, isDone, isRest) {
+  if (isRest) {
+    return "💤 今日はお休み";
+  }
+  if (isDone) {
+    return "今日はクリア（次は" + getNextHabitDayText(habit) + "）";
+  }
+  return "（" + habit.exp + " EXP get）";
 }
 
 // 習慣の「⚔️ 撃破する」ボタンを作って返す（レベルアップの演出の間は、代わりに「レベルアップ中…」）
@@ -5178,21 +5507,21 @@ function createHabitDeleteButton(index) {
 // 今日まだクリアしていない習慣の数を返す
 function countRemainingHabits() {
   return habits.filter(function (habit) {
-    return !isHabitDoneToday(habit);
+    return isHabitScheduledToday(habit) && !isHabitDoneToday(habit); // 今日がお休みの日課は数えない
   }).length;
 }
 
-// 「🔁 毎日の習慣」の切りかえボタンに、今日の残りの数を出す
-// まだ残っている →「（あと2）」、全部クリア →「✅」、習慣がない → 何も付けない
+// 「🔁 今日の日課」の切りかえボタンに、今日の残りの数を出す
+// まだ残っている →「（あと2）」、全部クリア →「✅」、今日やる日課がない（ない・全部お休み） → 何も付けない
 // 2けた（10以上）のときは、ボタンに入りきるように、かっこを取って「 あと12」にする
 function renderHabitSwitchText() {
   const remaining = countRemainingHabits();
-  let text = "🔁 毎日の習慣";
+  let text = "🔁 今日の日課";
   if (remaining >= 10) {
     text = text + " あと" + remaining;
   } else if (remaining > 0) {
     text = text + "（あと" + remaining + "）";
-  } else if (habits.length > 0) {
+  } else if (habits.some(isHabitScheduledToday)) {
     text = text + " ✅";
   }
   switchHabitButton.textContent = text;
@@ -5205,12 +5534,20 @@ function renderHabits() {
   if (habits.length === 0) {
     const empty = document.createElement("p");
     empty.className = "today-empty";
-    empty.textContent = "まだありません（「🔁 毎日の習慣として追加」にチェックを付けて追加できます）";
+    empty.textContent = "まだありません（「🔁 日課として追加」にチェックを付けて追加できます）";
     habitList.appendChild(empty);
     return;
   }
+  // 今日やる日課を先に、今日お休みの日課をいちばん下にならべる（ボタンで使う番号 i は、もとの番号のまま）
   for (let i = 0; i < habits.length; i++) {
-    habitList.appendChild(createHabitItem(habits[i], i));
+    if (isHabitScheduledToday(habits[i])) {
+      habitList.appendChild(createHabitItem(habits[i], i));
+    }
+  }
+  for (let i = 0; i < habits.length; i++) {
+    if (!isHabitScheduledToday(habits[i])) {
+      habitList.appendChild(createHabitItem(habits[i], i));
+    }
   }
 }
 
@@ -5237,11 +5574,18 @@ questForm.addEventListener("submit", function (event) {
     return;
   }
 
-  // 「🔁 毎日の習慣として追加」にチェックが付いていれば習慣、なければクエストとして追加する
+  // 「🔁 日課として追加」にチェックが付いていれば日課、なければクエストとして追加する
   if (habitCheckbox.checked) {
-    addHabit(questName);
+    // 曜日を1つもえらんでいなければ、追加しない
+    if (newHabitDays.length === 0) {
+      alert("曜日を1つ以上えらんでください");
+      return;
+    }
+    addHabit(questName, newHabitDays);
+    newHabitDays = ALL_WEEKDAYS.slice(); // 次に追加するときのために、毎日にもどしておく
+    renderHabitDayButtons(habitDaysBox, newHabitDays, toggleNewHabitDay);
   } else {
-    addQuest(questName, deadlineInput.value); // 締切の欄が空なら、締切なし
+    addQuest(questName, deadlineInput.value, categoryInput.value); // 締切の欄が空なら締切なし、カテゴリが「なし」なら札なし
   }
   renderQuests(); // この中で、習慣のカードも表示し直す
 
@@ -5257,6 +5601,8 @@ questForm.addEventListener("submit", function (event) {
 // （習慣は毎日なので締切はない。チェックが付いている間は、締切の欄を押せなくする）
 habitCheckbox.addEventListener("change", function () {
   deadlineInput.disabled = habitCheckbox.checked;
+  categoryInput.disabled = habitCheckbox.checked; // 日課にはカテゴリを付けないので、えらべなくする
+  habitDaysBox.hidden = !habitCheckbox.checked; // 曜日をえらぶボタンは、日課のときだけ出す
 });
 
 // 「他のタスク ▽」のボタンが押されたとき
@@ -5355,6 +5701,8 @@ clearDoneButton.addEventListener("click", function () {
 loadQuests();
 sortQuests(); // 今までのデータも、締切が近い順に並べる
 loadHabits(); // 毎日の習慣も取り出す（表示は、renderQuests の中で行う）
+renderHabitDayButtons(habitDaysBox, newHabitDays, toggleNewHabitDay); // 日課を追加するときの曜日ボタンを作っておく
+fillCategoryOptions(categoryInput, ""); // クエストを追加するときの、カテゴリをえらぶ箱の中身を作っておく
 renderQuests();
 
 // 保存しておいた累計EXPを取り出して、ステータスを表示する

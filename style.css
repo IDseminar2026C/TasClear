@@ -682,6 +682,32 @@ h1 {
   display: none;
 }
 
+/* ボス戦の日のお知らせ（こい赤に金色の文字で、目立たせる） */
+.boss-day-banner {
+  margin: 0 0 10px;
+  padding: 8px;
+  font-size: 14px;
+  font-weight: bold;
+  text-align: center;
+  background-color: #8e1f16;
+  color: #ffe066;
+  border: 2px solid #d4a017;
+  border-radius: 8px;
+}
+
+/* お知らせの2行目（「撃破すると 🪙 3倍」。少し小さく） */
+.boss-day-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: #ffffff;
+}
+
+/* 見えないようにする設定（hidden）を、確実に効かせる */
+.boss-day-banner[hidden] {
+  display: none;
+}
+
 /* 「本日のタスク」と「毎日の習慣」の切りかえボタンを、横にならべる */
 .today-switch {
   display: flex;
@@ -819,6 +845,17 @@ h1 {
   flex-direction: column;
   min-width: 0;
   font-size: 14px;
+}
+
+/* ごほうびのコイン（右はしに、折り返さずに出す） */
+.achievement-reward {
+  flex-shrink: 0;
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: bold;
+  color: #b8860b;
+  white-space: nowrap;
+  text-align: right;
 }
 
 /* 条件（とった実績は、とった日も） */
@@ -1220,6 +1257,26 @@ h1 {
   100% {
     background-color: rgba(240, 201, 74, 0);
   }
+}
+
+/* 連続記録（「🔥 3日連続」。オレンジ色） */
+.streak-text {
+  margin: 2px 0 0;
+  font-size: 13px;
+  font-weight: bold;
+  color: #ff9f43;
+  text-align: right;
+}
+
+/* 「（今日まだ）」（次の行に、小さく出す） */
+.streak-not-yet {
+  display: block;
+  font-size: 11px;
+}
+
+/* 見えないようにする設定（hidden）を、確実に効かせる */
+.streak-text[hidden] {
+  display: none;
 }
 
 /* 持っているコイン（今日の撃破数の下に、右にそろえる） */
@@ -1817,7 +1874,61 @@ h1 {
   cursor: pointer;
 }
 
-/* 「🔁 毎日の習慣」の見出し（本日のタスクと見分けやすいように、緑にする） */
+/* 日課をやる曜日をえらぶボタンを、横にならべる */
+.habit-days {
+  display: flex;
+  gap: 4px;
+  margin: -8px 0 16px; /* 「🔁 日課として追加」のすぐ下に置く */
+}
+
+/* 日課の一覧の中の曜日ボタン（名前のすぐ下に置く） */
+.today-item .habit-days {
+  margin: 4px 0;
+}
+
+/* 見えないようにする設定（hidden）を、確実に効かせる */
+.habit-days[hidden] {
+  display: none;
+}
+
+/* 曜日ボタン1つ分（えらんでいないときは、うすい色） */
+.habit-day-button {
+  flex: 1;
+  min-width: 0;
+  min-height: 36px;
+  padding: 4px 0;
+  font-size: 14px;
+  font-weight: bold;
+  background-color: #f5f1e6;
+  color: #1e2040;
+  border: 2px solid #2e7d4f;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+/* えらんでいる曜日は、濃い緑（日課の見出しと同じ色） */
+.habit-day-button.is-active {
+  background-color: #2e7d4f;
+  color: #ffffff;
+}
+
+/* 日課のやる曜日（「📅 月・水・金 ✏️」） */
+.habit-days-text {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #555555;
+}
+
+/* 曜日をえらびなおす ✏️ のボタン */
+.habit-days-edit {
+  padding: 0 4px;
+  font-size: 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+/* 「🔁 今日の日課」の見出し（本日のタスクと見分けやすいように、緑にする） */
 .today-label.habit-label {
   background-color: #2e7d4f;
 }
@@ -1835,6 +1946,71 @@ h1 {
   margin: -8px 0 8px; /* 入力フォームのすぐ下に置く */
   font-size: 14px;
   font-weight: bold;
+}
+
+/* カテゴリの行（締切の行のすぐ下に置く） */
+.category-row {
+  margin-top: 0;
+}
+
+/* カテゴリをえらぶ箱（入力フォームと、札を押したときに出るもの） */
+.category-select {
+  padding: 4px 6px;
+  font-size: 14px;
+  border: 2px solid #1e2040;
+  border-radius: 6px;
+  background-color: #ffffff;
+}
+
+/* クエストのカテゴリの札（名前の前に出す、色つきの小さな札） */
+.category-label {
+  flex-shrink: 0;
+  margin-right: 4px;
+  padding: 2px 6px;
+  font-size: 12px;
+  font-weight: bold;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* 撃破済みのクエストの札は、押せない（span なので、見た目だけ） */
+span.category-label {
+  cursor: default;
+}
+
+/* カテゴリごとの札の色 */
+.category-label.category-study {
+  background-color: #2e6bd6;
+}
+
+.category-label.category-work {
+  background-color: #6b7280;
+}
+
+.category-label.category-home {
+  background-color: #2e7d4f;
+}
+
+.category-label.category-sport {
+  background-color: #e67e22;
+}
+
+.category-label.category-hobby {
+  background-color: #8e44ad;
+}
+
+.category-label.category-other {
+  background-color: #d4a017;
+}
+
+/* カテゴリなしの札（「🏷️ ＋」。目立たないように、うすい灰色のふち） */
+.category-label.is-empty {
+  background-color: transparent;
+  color: #888888;
+  border: 1px dashed #aaaaaa;
 }
 
 /* 締切の日付を選ぶ欄 */

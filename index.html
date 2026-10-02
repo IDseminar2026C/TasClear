@@ -59,6 +59,9 @@
           <!-- 今日の撃破数 -->
           <p id="today-count" class="today-count">今日 0体 撃破</p>
 
+          <!-- 連続記録（1体以上撃破した日が、今日まで何日続いているか。0日のときは隠す） -->
+          <p id="streak-text" class="streak-text" hidden>🔥 0日連続</p>
+
           <!-- 持っているコイン -->
           <p id="coin-text" class="coin-text">🪙 0 コイン</p>
         </div>
@@ -107,21 +110,33 @@
       <span class="deadline-help">（なくてもOK）</span>
     </div>
 
-    <!-- チェックを付けて「追加」を押すと、クエストではなく「毎日の習慣」として登録します -->
+    <!-- クエストのカテゴリ（色つきの札）。えらぶ箱の中身は JavaScript で作ります。「なし」なら札を付けない -->
+    <div class="deadline-row category-row">
+      <label for="category-input">🏷️ カテゴリ</label>
+      <select id="category-input" class="category-select"></select>
+    </div>
+
+    <!-- チェックを付けて「追加」を押すと、クエストではなく「日課」として登録します -->
     <label class="habit-toggle">
       <input id="habit-checkbox" type="checkbox">
-      🔁 毎日の習慣として追加
+      🔁 日課として追加
     </label>
 
+    <!-- 日課をやる曜日をえらぶボタン（チェックを付けたときだけ出す。はじめは全部えらんでいる＝毎日）。中身は JavaScript で作ります -->
+    <div id="habit-days" class="habit-days" hidden></div>
+
     <!-- 「本日のタスク」と「毎日の習慣」の切りかえボタン（押したほうのカードだけを出す） -->
+    <!-- ボス戦の日（日曜日）だけ出すお知らせ。モンスターが全部ボスになり、クエストのコインが3倍 -->
+    <p id="boss-day-banner" class="boss-day-banner" hidden>👑 今日はボス戦の日！<span class="boss-day-sub">モンスターは全部ボス・撃破で 🪙 3倍</span></p>
+
     <div class="today-switch">
       <button id="switch-today-button" class="today-switch-button is-active" type="button">⚔️ 本日のタスク</button>
-      <button id="switch-habit-button" class="today-switch-button" type="button">🔁 毎日の習慣</button>
+      <button id="switch-habit-button" class="today-switch-button" type="button">🔁 今日の日課</button>
     </div>
 
     <!-- 毎日の習慣：撃破しても、次の日にまた出てくるタスク。中身は JavaScript で作ります（最初は隠す） -->
     <section id="habit-card" class="today-card" hidden>
-      <h2 class="today-label habit-label">🔁 毎日の習慣</h2>
+      <h2 class="today-label habit-label">🔁 今日の日課</h2>
       <div id="habit-list" class="today-quest"></div>
     </section>
 
@@ -317,7 +332,7 @@
         <div id="calendar-grid" class="calendar-grid"></div>
 
         <!-- マスの中のしるしの説明 -->
-        <p class="calendar-legend">📝 締切までのやること（期限切れは赤）　⚔️ 撃破した数　📅 締切のクエスト（期限切れは赤）　🔁 クリアした習慣　🍅 集中した回数（ポモドーロ）</p>
+        <p class="calendar-legend">📝 締切までのやること（期限切れは赤）　⚔️ 撃破した数　📅 締切のクエスト（期限切れは赤）　🔁 クリアした日課　🍅 集中した回数（ポモドーロ）</p>
 
         <!-- 週のふりかえり（押して選んでいる日がふくまれる週の、撃破・集中・習慣のまとめ）。中身は JavaScript で作ります -->
         <div id="calendar-week" class="calendar-week"></div>
@@ -348,7 +363,7 @@
 
         <!-- データの書き出し・読みこみ（バックアップや、別のブラウザ・スマホにデータを移すときに使う） -->
         <h3 class="settings-heading">💾 データの書き出し・読みこみ</h3>
-        <p class="settings-help">クエスト・習慣・レベル・ペットなど、全部のデータを書き出せます。別のブラウザやスマホで読みこむと、そのまま続きから遊べます</p>
+        <p class="settings-help">クエスト・日課・レベル・ペットなど、全部のデータを書き出せます。別のブラウザやスマホで読みこむと、そのまま続きから遊べます</p>
 
         <!-- 書き出す（箱に文字で出す・コピーする・ファイルに保存する） -->
         <div class="data-buttons">
@@ -373,7 +388,7 @@
 
         <!-- データを全部消す（まちがえないように、2回確かめてから消す） -->
         <h3 class="settings-heading">⚠️ データの消去</h3>
-        <p class="settings-help">クエスト・習慣・レベル・ペット・記録・実績・設定など、タスクリアのデータを全部消して、初めて開いたときの状態にもどします。消したデータはもとにもどせません</p>
+        <p class="settings-help">クエスト・日課・レベル・ペット・記録・実績・設定など、タスクリアのデータを全部消して、初めて開いたときの状態にもどします。消したデータはもとにもどせません</p>
         <button id="delete-all-button" class="data-button delete-all-button" type="button">🗑️ データを全部消す</button>
       </section>
     </div>
