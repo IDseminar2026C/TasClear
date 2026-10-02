@@ -778,6 +778,12 @@ h1 {
   background-color: #fff8dc;
 }
 
+/* ショップ限定（ピンクの枠） */
+.creature-item.rank-4 {
+  border-color: #e0559a;
+  background-color: #fff0f6;
+}
+
 /* まだ見つけていないもの（黒いかげ）は、少し薄くする */
 .creature-item.is-unknown {
   opacity: 0.6;
@@ -1369,6 +1375,12 @@ h1 {
   background-color: #fff8dc;
 }
 
+/* ショップ限定のアイテム（ピンクの枠） */
+.collection-item.rank-4 {
+  border-color: #e0559a;
+  background-color: #fff0f6;
+}
+
 /* まだ持っていないアイテム（❓ を薄く表示する） */
 .collection-item.is-unknown {
   font-size: 22px;
@@ -1539,6 +1551,96 @@ h1 {
   border-left-color: #d4a017;
 }
 
+/* ショップの見出し（「🛒 ショップ限定」「🥚 卵」「★ ノーマル」など。ランクの色の線を左に付ける） */
+.shop-heading {
+  margin: 12px 0 6px;
+  padding: 4px 8px;
+  font-size: 15px;
+  color: #1e2040;
+  border-left: 6px solid #cccccc;
+}
+
+.shop-heading.rank-2 {
+  border-left-color: #2e6bd6;
+}
+
+.shop-heading.rank-3 {
+  border-left-color: #d4a017;
+}
+
+.shop-heading.rank-4 {
+  border-left-color: #e0559a;
+}
+
+/* ショップの一覧（たてにならべる） */
+.shop-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* ショップの1行（名前・値段・買うボタンを横にならべる） */
+.shop-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  padding: 6px 8px;
+  background-color: #ffffff;
+  border: 2px solid #e5e0d0;
+  border-radius: 6px;
+}
+
+/* ショップ限定の行は、ピンクの枠 */
+.shop-row.rank-4 {
+  border-color: #e0559a;
+  background-color: #fff0f6;
+}
+
+/* 名前（のこりのはばいっぱい） */
+.shop-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+/* 持っている数（「×2」「持っている」） */
+.shop-owned {
+  margin-left: 4px;
+  font-size: 11px;
+  font-weight: normal;
+  color: #666666;
+}
+
+/* 値段 */
+.shop-price {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: bold;
+  color: #b8860b;
+}
+
+/* 買うボタン（指で押しやすい大きさ） */
+.shop-buy-button {
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: 4px 10px;
+  font-size: 13px;
+  font-weight: bold;
+  background-color: #d4a017;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+/* 押せない買うボタン（コインが足りない・もう持っている）は薄くする */
+.shop-buy-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 /* 図鑑の、ランクごとの見出し（「★★ レア 3 / 16」。ランクの色の線を左に付ける） */
 .collection-heading {
   /* 押せるボタンにしたので、横いっぱいに広げて、文字と △▽ を左右に分ける */
@@ -1565,6 +1667,11 @@ h1 {
 
 .collection-heading.rank-3 {
   border-left-color: #d4a017;
+}
+
+/* 「🛒 ショップ限定」の見出し（ピンク） */
+.collection-heading.rank-4 {
+  border-left-color: #e0559a;
 }
 
 /* タイマー：今が集中か休けいか */
@@ -1827,6 +1934,11 @@ h1 {
   border-left-color: #d4a017;
 }
 
+/* ショップ限定のペット（ピンク） */
+.pet-row.rank-4 {
+  border-left-color: #e0559a;
+}
+
 /* まだ何もないときの説明 */
 .pet-empty {
   font-size: 12px;
@@ -2004,6 +2116,109 @@ span.category-label {
 
 .category-label.category-other {
   background-color: #d4a017;
+}
+
+/* 他のタスクを、カテゴリでしぼりこむボタンをならべる（入りきらなければ次の行へ） */
+.category-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 0 8px;
+}
+
+/* 見えないようにする設定（hidden）を、確実に効かせる */
+.category-filter[hidden] {
+  display: none;
+}
+
+/* しぼりこみのボタン1つ分（えらんでいないときは、白にカテゴリの色のふち） */
+.category-filter-button {
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: bold;
+  background-color: #ffffff;
+  color: #1e2040;
+  border: 2px solid #1e2040;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.category-filter-button.category-study {
+  border-color: #2e6bd6;
+}
+
+.category-filter-button.category-work {
+  border-color: #6b7280;
+}
+
+.category-filter-button.category-home {
+  border-color: #2e7d4f;
+}
+
+.category-filter-button.category-sport {
+  border-color: #e67e22;
+}
+
+.category-filter-button.category-hobby {
+  border-color: #8e44ad;
+}
+
+.category-filter-button.category-other {
+  border-color: #d4a017;
+}
+
+.category-filter-button.is-none {
+  border-color: #aaaaaa;
+  border-style: dashed;
+}
+
+/* 0このカテゴリのボタンは、うすくする（押すことはできる） */
+.category-filter-button.is-zero {
+  opacity: 0.45;
+}
+
+/* えらんでいるボタンは、カテゴリの色でぬる（「すべて」は紺色） */
+.category-filter-button.is-active {
+  background-color: #1e2040;
+  color: #ffffff;
+  opacity: 1;
+}
+
+.category-filter-button.category-study.is-active {
+  background-color: #2e6bd6;
+}
+
+.category-filter-button.category-work.is-active {
+  background-color: #6b7280;
+}
+
+.category-filter-button.category-home.is-active {
+  background-color: #2e7d4f;
+}
+
+.category-filter-button.category-sport.is-active {
+  background-color: #e67e22;
+}
+
+.category-filter-button.category-hobby.is-active {
+  background-color: #8e44ad;
+}
+
+.category-filter-button.category-other.is-active {
+  background-color: #d4a017;
+}
+
+.category-filter-button.is-none.is-active {
+  background-color: #888888;
+}
+
+/* しぼりこんで1つもないときの説明 */
+.category-filter-empty {
+  padding: 10px;
+  font-size: 13px;
+  color: #888888;
+  text-align: center;
+  list-style: none;
 }
 
 /* カテゴリなしの札（「🏷️ ＋」。目立たないように、うすい灰色のふち） */

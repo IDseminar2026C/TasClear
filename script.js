@@ -29,6 +29,7 @@ const categoryInput = document.getElementById("category-input"); // クエスト
 
 // 「他のタスク ▽」のボタン
 const otherToggle = document.getElementById("other-toggle");
+const categoryFilterBox = document.getElementById("category-filter"); // 他のタスクを、カテゴリでしぼりこむボタンの箱
 
 // 「撃破済みをまとめて削除」のボタン
 const clearDoneButton = document.getElementById("clear-done-button");
@@ -47,6 +48,15 @@ const todayCard = document.getElementById("today-card");
 const habitCard = document.getElementById("habit-card");
 
 // 図鑑の中の切りかえボタン（アイテム・モンスターとペット・実績）と、3つのページ
+// ガチャ画面の中の切りかえボタン（ガチャ・ショップ）と、2つのページ。ショップのコインの数と一覧
+const gachaSwitchButtons = document.querySelectorAll(".gacha-switch-button");
+const gachaSections = {
+  gacha: document.getElementById("gacha-main"),
+  shop: document.getElementById("gacha-shop"),
+};
+const shopCoins = document.getElementById("shop-coins");
+const shopList = document.getElementById("shop-list");
+
 const collectionSwitchButtons = document.querySelectorAll(".collection-switch-button");
 const collectionSections = {
   items: document.getElementById("collection-items"),
@@ -72,6 +82,11 @@ const effectVolumeSlider = document.getElementById("effect-volume-slider");
 const effectVolumeText = document.getElementById("effect-volume-text");
 const focusVolumeSlider = document.getElementById("focus-volume-slider");
 const focusVolumeText = document.getElementById("focus-volume-text");
+
+// 設定画面の、ボス戦の日の部品（えらぶ箱・今日の曜日・変えられるかの説明）
+const bossDaySelect = document.getElementById("boss-day-select");
+const bossDayToday = document.getElementById("boss-day-today");
+const bossDayHelp = document.getElementById("boss-day-help");
 
 // 設定画面の、データの書き出し・読みこみの部品
 const exportButton = document.getElementById("export-button");
@@ -234,9 +249,23 @@ let items = {};
 const COIN_PER_DEFEAT = 10;
 const COIN_PER_RARE_DEFEAT = 50;
 
-// ボス戦の日（0 が日曜日。Date の getDay と同じ）と、その日にクエストを撃破したときのコインの倍の数
-const BOSS_DAY = 0;
+// ボス戦の日にクエストを撃破したときの、コインの倍の数
 const BOSS_COIN_MULTIPLIER = 3;
+
+// ボス戦の日の曜日（0 が日曜日〜6 が土曜日。Date の getDay と同じ。-1 は「なし」）。はじめは日曜日。設定画面でえらびなおせる
+const DEFAULT_BOSS_DAY = 0;
+let bossDay = DEFAULT_BOSS_DAY;
+
+// ボス戦の曜日を最後に変えた日（「2026-10-02」のような文字。1回も変えていなければ ""）と、次に変えられるまでの日数
+let bossDayChangedDate = "";
+const BOSS_CHANGE_DAYS = 7;
+
+// ログインボーナス：続けて開いた日（1日目〜7日目）ごとにもらえるコイン。7日目のあとは、また1日目にもどる
+const LOGIN_BONUS_COINS = [20, 30, 40, 50, 60, 70, 200];
+
+// 最後にログインボーナスをもらった日（「2026-10-02」のような文字。まだなら ""）と、続けて開いた日数（1〜7）
+let lastLoginDate = "";
+let loginStreak = 0;
 
 // ガチャ1回に使うコイン
 const GACHA_COST = 50;
@@ -388,6 +417,26 @@ const GACHA_ITEMS = [
   { id: "forbidden-book", icon: "📕", name: "禁断の書", rank: 3, slot: null },
   { id: "sky-orb", icon: "💠", name: "天空の宝珠", rank: 3, slot: null },
 ];
+
+// ===== ショップ =====
+
+// ショップでしか買えない装備（ガチャからは出ない）。price は値段（コイン）
+// 1つずつしか買えない。図鑑では「🛒 ショップ限定」の見出しにならべる
+const SHOP_ITEMS = [
+  { id: "star-crown", icon: "🌟", name: "星のかんむり", rank: 4, slot: "head", price: 2000 },
+  { id: "flame-sword", icon: "🔥", name: "炎の剣", rank: 4, slot: "weapon", price: 2000 },
+  { id: "rainbow-shield", icon: "🌈", name: "虹の盾", rank: 4, slot: "shield", price: 2000 },
+  { id: "angel-wings", icon: "🪽", name: "天使の羽", rank: 4, slot: "accessory", price: 2000 },
+];
+
+// 図鑑とショップで、ショップ限定のまとまりを、ガチャのランクと同じ形であつかうための行（rank 4 にする）
+const SHOP_RANK = { rank: 4, stars: "🛒", name: "ショップ限定" };
+
+// ショップで売る、ガチャのアイテムの値段（ランクごと）
+const SHOP_ITEM_PRICES = { 1: 100, 2: 300, 3: 1000 };
+
+// ショップで売る卵の値段（卵の種類ごと）
+const SHOP_EGG_PRICES = { white: 250, blue: 500, gold: 1000 };
 
 // ===== 卵とペット =====
 
@@ -624,6 +673,46 @@ const PIXELS_PET_UNICORN = [
   "....oAAoAAo.oAAo..",
 ];
 
+// パンダ（ショップ限定）：白黒のちびパンダ
+const PIXELS_PET_PANDA = [
+  ".........oo...oo..",
+  "........o99o.o99o.",
+  "........oOOOOOOOo.",
+  ".......oOO99OO99Oo",
+  ".......oO9Te99Te9o",
+  ".......oOO99OO99Oo",
+  ".......oOOcOeOcOOo",
+  "..oo....oOOOOOOOo.",
+  ".o99ooo99OOOOOOO9o",
+  "o9999o99OOOOOOOO9o",
+  "o999999OOOOOOOOO9o",
+  "o99999OOOOOOOOOP9o",
+  ".o9999OOOOOOOOPP9o",
+  "..o999oPPPPPPo99o.",
+  "..o999o......o99o.",
+  "...ooo........ooo.",
+];
+
+// ちびフェニックス（ショップ限定）：赤と金色の、燃える小鳥
+const PIXELS_PET_PHOENIX = [
+  "...........oVo....",
+  "..........oVAVo...",
+  ".........oaRRRRo..",
+  ".........oRRTeRoAo",
+  ".........oRRRRRoAo",
+  "..........oRRRQo..",
+  "oo......ooRRRRQo..",
+  "oVoo..ooaRRRRRQo..",
+  "oAVVooaaRRRRRRQo..",
+  ".oAVVVaRRRAARRQo..",
+  "..oAAaRRRAAARRQo..",
+  "...ooaRRRRRRRQo...",
+  ".....oQRRRRQQo....",
+  "......ooQQQoo.....",
+  ".......oA.oA......",
+  "......oAA.oAA.....",
+];
+
 // ペットの表（なかまの一覧は、この順に並ぶ。卵のランク（rank）の順に書く）
 const PETS = [
   { id: "slime", icon: "🫧", name: "ちびスライム", rank: 1, pixels: PIXELS_PET_SLIME }, // 最初からいるペット
@@ -637,6 +726,9 @@ const PETS = [
   { id: "owl", icon: "🦉", name: "ふくろう", rank: 2, pixels: PIXELS_PET_OWL },
   { id: "dragon", icon: "🐲", name: "ちびドラゴン", rank: 3, pixels: PIXELS_PET_DRAGON },
   { id: "unicorn", icon: "🦄", name: "ちびユニコーン", rank: 3, pixels: PIXELS_PET_UNICORN },
+  // ここから下は、ショップ限定のペット（卵からはかえらない。shop: true、price は値段）
+  { id: "panda", icon: "🐼", name: "パンダ", rank: 4, pixels: PIXELS_PET_PANDA, shop: true, price: 1500 },
+  { id: "phoenix", icon: "🐦‍🔥", name: "ちびフェニックス", rank: 4, pixels: PIXELS_PET_PHOENIX, shop: true, price: 3000 },
 ];
 
 // 持っている卵の数（{ white: 2, gold: 1 } のような形）
@@ -818,6 +910,51 @@ const EQUIP_SPRITES = {
   "power-ring": { x: 4, y: 21, rows: ["Ar"] }, // 左手の金の指輪（赤い石）
   "charm": { x: 9, y: 17, rows: [".oo.", "ozBo", "oBxo", ".oo."] }, // 胸の青いお守り
   "sage-crystal": { x: 0, y: 1, rows: [".6.", "6Tp", "6pp", "p77", ".7."] }, // 頭の左横にうかぶ紫の水晶
+
+  // ここから下は、ショップ限定の装備
+  "star-crown": {
+    x: 2,
+    y: 0,
+    rows: [
+      "...o.....oo.....o...",
+      "..oVo...oVVo...oVo..",
+      ".oVjVo.oVjjVo.oVjVo.",
+      "oooVoooooVVoooooVooo",
+      "oYAAjAAAAAAAAAAjAAYo",
+      "oYAVAAAAVVVVAAAAVAYo",
+      "oYYYYYYYYYYYYYYYYYYo",
+      "ommmmmmmmmmmmmmmmmmo",
+    ], // 光る星がならんだ、金のかんむり
+  },
+  "flame-sword": {
+    x: 21,
+    y: 1,
+    rows: [".o.", "oVo", "oVa", "oVa", "oVR", "oVa", "oVa", "oVR", "oVa", "oVa", "oVR", "oVa", "oVa", "oVR", "oVa", "oVa", "oVR", "QYQ", "YRY", ".G.", ".G.", ".R."], // 赤とオレンジに光る炎の剣
+  },
+  "rainbow-shield": {
+    x: 0,
+    y: 17,
+    rows: ["ooooooo", "oRRRRRo", "ouuuuuo", "oAAAAAo", "oFFFFFo", "oBBBBBo", "opppppo", ".o666o.", "..ooo.."], // 虹色のしまもようの盾
+  },
+  "angel-wings": {
+    x: 0,
+    y: 11,
+    behind: true, // キャラのうしろ（何も描いていないマスだけ）に描く
+    rows: [
+      "..oo................oo..",
+      ".oTo................oTo.",
+      "oTTo................oTTo",
+      "oTOo................oOTo",
+      "oTOo................oOTo",
+      "oOTo................oTOo",
+      "oTOo................oOTo",
+      "oTOP................POTo",
+      "oOPo................oPOo",
+      ".oPo................oPo.",
+      ".oTo................oTo.",
+      "..oo................oo..",
+    ], // 背中の左右の、白い羽
+  },
 };
 
 // 今、モンスターが点滅して消えている途中かどうか
@@ -1191,9 +1328,81 @@ const PIXELS_MYTH = [
   ".....ooooooo..ooooooo...",
 ];
 
+// 天空の勇者（Lv25〜）：新しい描き方（24×30マス）。空色の長い髪、銀のサークレット（水色の宝石）、青い目
+// 白と空色のよろい（胸に水色の宝石）、星がちらばった紺色のマント、銀のズボン、空色のブーツ、光る水色の剣
+const PIXELS_SKY_HERO = [
+  "........oooooooo........",
+  "......ooIIzIIzIIoo......",
+  ".....ozIIIIIIIIIIzo.....",
+  "...ozzzzIIIIIIIIzzzzo...",
+  "..ozzWWWWWWllWWWWWWzzo..",
+  "..ozzzzzzzzzzzzzzzzzzo..",
+  "..ozIzzzzzzzzzzzzzzIzo..",
+  "..ozzzzzzzzzzzzzzzzzzo..",
+  "..ozzBzzISSSSSSIzzBzzo..",
+  "..ozzBSBBSSSSSSBBSBzzol.",
+  "..ozzSSoooSSSSoooSSzzolT",
+  "..ozzSSlzzSSSSlzzSSzzolT",
+  "..ozzSSxxxSSSSxxxSSzzolT",
+  "..ozzSccSSSkkSSSccSzzolT",
+  "..ozBSSSSSSMMSSSSSSBzolT",
+  "..ozzokkSSSSSSSSkkozzolT",
+  "..ozzo..ookSSkoo..ozzolT",
+  "..xoTTOOOOOOOOOOOOTToxlT",
+  "..xoTOOOOOOllOOOOOOzoxlT",
+  "..xoOOOOOOOOOOOOOOOzoxlT",
+  "..xozzzzzzzllzzzzzzzozzz",
+  "..xoSkoOOOOOOOOOOokSoxG.",
+  "..x.ooOTOOOOOOOOTOoo.xG.",
+  "..xVxoOOOOOOOOOOOOoxVx..",
+  "..xKxozOzOzOzOzOzOoxKx..",
+  "..VKx..oPPPo..oPPPoxKx..",
+  "..xKK..oPPPo..oPPPoKKV..",
+  ".xKT..ozOzzo..ozzOzoKKx.",
+  ".xKK.ozzzzzo..ozzzzzoKKx",
+  ".....ooooooo..ooooooo...",
+];
+
+// 勇者王（Lv30〜）：新しい描き方（24×30マス）。赤い宝石の大きな金の王冠、金色の長い髪、赤い目
+// 黒と金のよろい（胸に赤い宝石）、赤いマント、黒いズボン、金のブーツ、金色に光る剣
+const PIXELS_HERO_KING = [
+  ".....oo....oo....oo.....",
+  ".....oVo..oVVo..oVo.....",
+  "....oYAYooYAAYooYAYo....",
+  "...oYAARAAAYYAAARAAYo...",
+  "..oAAYYYYYYRRYYYYYYAAo..",
+  "..oAAAAAAAAAAAAAAAAAAo..",
+  "..oAjAAAAAAAAAAAAAAjAo..",
+  "..oAAAAAAAAAAAAAAAAAAo..",
+  "..oAAYAAjSSSSSSjAAYAAo..",
+  "..oAAYSYYSSSSSSYYSYAAoV.",
+  "..oAASSoooSSSSoooSSAAoVj",
+  "..oAASSRaaSSSSRaaSSAAoVj",
+  "..oAASSRRRSSSSRRRSSAAoVj",
+  "..oAASccSSSkkSSSccSAAoVj",
+  "..oAYSSSSSSMMSSSSSSYAoVj",
+  "..oAAokkSSSSSSSSkkoAAoVj",
+  "..oAAo..ookSSkoo..oAAoVj",
+  "..RoDD999999999999DDoRVj",
+  "..RoD999999RR999999YoRVj",
+  "..Ro999999999999999YoRVj",
+  "..RoYYYYYYYRRYYYYYYYoYYY",
+  "..RoSko9999999999okSoRG.",
+  "..R.oo9D99999999D9oo.RG.",
+  "..RRRo999999999999oRRR..",
+  "..RQRoY9Y9Y9Y9Y9Y9oRQR..",
+  "..RQR..oKKKo..oKKKoRQR..",
+  "..RQQ..oKKKo..oKKKoQQR..",
+  ".RQQ..oY9YYo..oYY9YoQQR.",
+  ".RQQ.oYYYYYo..oYYYYYoQQR",
+  ".....ooooooo..ooooooo...",
+];
+
 // 称号（二つ名）の表。minLevel は「何レベルから」、pixels はキャラクターの設計図
 // 高いレベルから順に書きます。1行足すと、称号を増やせます
 const TITLES = [
+  { minLevel: 30, icon: "🏆", name: "勇者王", pixels: PIXELS_HERO_KING },
+  { minLevel: 25, icon: "🌌", name: "天空の勇者", pixels: PIXELS_SKY_HERO },
   { minLevel: 20, icon: "✨", name: "神話の勇者", pixels: PIXELS_MYTH },
   { minLevel: 15, icon: "🌟", name: "伝説の英雄", pixels: PIXELS_LEGEND },
   { minLevel: 10, icon: "🐉", name: "竜殺しの勇者", pixels: PIXELS_DRAGON_SLAYER },
@@ -1540,9 +1749,96 @@ const RARE_MONSTER = { id: "golden-slime", name: "ゴールデンスライム", 
 
 // --- 関数 ---
 
-// 今日がボス戦の日（日曜日）かどうかを返す
+// ===== ログインボーナス =====
+
+// 今日まだログインボーナスをもらっていなければ、コインをわたして演出を出す
+// 昨日ももらっていれば、続けて開いた日数を1つふやす（7日目のあとは1日目）。1日でもあいたら1日目にもどる
+function checkLoginBonus() {
+  const today = getTodayString();
+  if (lastLoginDate === today) {
+    return; // 今日はもうもらった
+  }
+  if (lastLoginDate === getPreviousDateText(today)) {
+    loginStreak = (loginStreak % LOGIN_BONUS_COINS.length) + 1;
+  } else {
+    loginStreak = 1;
+  }
+  const bonus = LOGIN_BONUS_COINS[loginStreak - 1];
+  coins = coins + bonus;
+  lastLoginDate = today;
+  savePlayer();
+  renderGacha(); // コインの数の表示を新しくする
+  addLoginBonusEffect(loginStreak, bonus);
+  console.log("ログインボーナス", loginStreak + "日目", bonus);
+}
+
+// 「🎁 ログインボーナス！ 3日目 🪙 +40」の演出を、順番待ちの列に並べる（7日目は「大当たり」）
+function addLoginBonusEffect(day, bonus) {
+  const dayText = day + "日目" + (day === LOGIN_BONUS_COINS.length ? "（大当たり）" : "");
+  addEffect(function () {
+    clearEffectClasses();
+    effectText.textContent = "🎁 ログインボーナス！\n" + dayText + "\n🪙 +" + bonus;
+    restartAnimation(effectOverlay, "is-celebrate");
+    playSparkleSound();
+  }, CELEBRATE_EFFECT_TIME);
+}
+
+// 今日がボス戦の日（設定画面でえらんだ曜日。はじめは日曜日）かどうかを返す（「なし」なら、いつも false）
 function isBossDay() {
-  return new Date().getDay() === BOSS_DAY;
+  return bossDay >= 0 && new Date().getDay() === bossDay;
+}
+
+// 「2026-10-02」のような日付の、days 日あとの日付の文字を返す
+function addDaysToDateText(dateText, days) {
+  const parts = dateText.split("-");
+  const date = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]) + days);
+  return makeDateText(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+// 次にボス戦の曜日を変えられる日を返す（1回も変えていなければ ""）
+function getNextBossChangeDate() {
+  if (bossDayChangedDate === "") {
+    return "";
+  }
+  return addDaysToDateText(bossDayChangedDate, BOSS_CHANGE_DAYS);
+}
+
+// 今、ボス戦の曜日を変えられるかを返す（変えてから7日たっていれば、変えられる）
+function canChangeBossDay() {
+  const next = getNextBossChangeDate();
+  return next === "" || getTodayString() >= next;
+}
+
+// 設定画面の「👑 ボス戦の日」を表示し直す（えらんでいる曜日・今日の曜日・変えられるかどうか）
+function renderBossDaySetting() {
+  bossDaySelect.value = String(bossDay);
+  bossDaySelect.disabled = !canChangeBossDay();
+  bossDayToday.textContent = "今日は" + WEEKDAY_NAMES[new Date().getDay()] + "曜日です";
+  if (canChangeBossDay()) {
+    bossDayHelp.textContent = "今は変えられます（変えると、" + BOSS_CHANGE_DAYS + "日間は変えられません）";
+  } else {
+    bossDayHelp.textContent = "次に変えられるのは " + formatDeadline(getNextBossChangeDate()) + " から";
+  }
+}
+
+// ボス戦の曜日をえらびなおしたとき：確認してから変えて、変えた日を保存する（キャンセルなら元にもどす）
+function changeBossDay() {
+  const newDay = Number(bossDaySelect.value);
+  if (!canChangeBossDay() || newDay === bossDay) {
+    renderBossDaySetting();
+    return;
+  }
+  const dayName = newDay >= 0 ? WEEKDAY_NAMES[newDay] + "曜日" : "なし";
+  const nextDate = formatDeadline(addDaysToDateText(getTodayString(), BOSS_CHANGE_DAYS));
+  if (!confirm("ボス戦の日を「" + dayName + "」にしますか？\n変えると、" + nextDate + " まで変えられません")) {
+    renderBossDaySetting(); // キャンセルなので、えらぶ箱を元にもどす
+    return;
+  }
+  bossDay = newDay;
+  bossDayChangedDate = getTodayString();
+  savePlayer();
+  renderBossDaySetting();
+  renderQuests(); // ボス戦の日のお知らせとモンスターを、すぐ変える
 }
 
 // ボス戦の日だけ、メイン画面に「👑 今日はボス戦の日！」のお知らせを出す
@@ -1658,7 +1954,7 @@ function makeHeroGrid() {
     const itemId = equipped[EQUIP_SLOTS[i].slot];
     if (itemId) {
       const sprite = EQUIP_SPRITES[itemId];
-      overlayOnGrid(grid, sprite.rows, sprite.x, sprite.y);
+      overlayOnGrid(grid, sprite.rows, sprite.x, sprite.y, sprite.behind === true);
     }
   }
   return grid;
@@ -1714,11 +2010,13 @@ function clearGridArea(grid, x, y, width, height) {
 
 // 設計図（rows）の絵を、色の表の左から left・上から top の場所に重ねる
 // （「.」のマスは重ねないので、下の絵がそのまま残る）
-function overlayOnGrid(grid, rows, left, top) {
+function overlayOnGrid(grid, rows, left, top, isBehind) {
   for (let y = 0; y < rows.length; y++) {
     for (let x = 0; x < rows[y].length; x++) {
       const color = HERO_COLORS[rows[y][x]];
-      if (color) {
+      // isBehind が true（天使の羽など）のときは、キャラのうしろに見えるように、何も描いていないマスだけに塗る
+      const canPaint = !isBehind || grid[top + y][left + x] === null;
+      if (color && canPaint) {
         grid[top + y][left + x] = color;
       }
     }
@@ -1873,6 +2171,10 @@ function savePlayer() {
     muted: isMuted,
     focusSound: focusSound,
     effectVolume: effectVolume,
+    bossDay: bossDay,
+    bossDayChangedDate: bossDayChangedDate,
+    lastLoginDate: lastLoginDate,
+    loginStreak: loginStreak,
     focusVolume: focusVolume,
     focusMinutes: focusMinutes,
     breakMinutes: breakMinutes,
@@ -1916,6 +2218,10 @@ function loadPlayer() {
     breakMinutes = BREAK_MINUTE_CHOICES.includes(player.breakMinutes) ? player.breakMinutes : BREAK_MINUTES;
     effectVolume = getSavedVolume(player.effectVolume, DEFAULT_EFFECT_VOLUME); // 前の形の保存データには無いので、そのときは、はじめの大きさ
     focusVolume = getSavedVolume(player.focusVolume, DEFAULT_FOCUS_VOLUME);
+    bossDay = Number.isInteger(player.bossDay) && player.bossDay >= -1 && player.bossDay <= 6 ? player.bossDay : DEFAULT_BOSS_DAY; // おかしい数なら日曜日
+    bossDayChangedDate = typeof player.bossDayChangedDate === "string" ? player.bossDayChangedDate : "";
+    lastLoginDate = typeof player.lastLoginDate === "string" ? player.lastLoginDate : ""; // 前の形の保存データには無いので、そのときは「まだもらっていない」
+    loginStreak = Number.isInteger(player.loginStreak) && player.loginStreak >= 0 && player.loginStreak <= 7 ? player.loginStreak : 0;
     focusCount = player.focusCount || 0;
     focusDate = player.focusDate || "";
     eggs = player.eggs || {};
@@ -1943,6 +2249,10 @@ function loadPlayer() {
     breakMinutes = BREAK_MINUTES;
     effectVolume = DEFAULT_EFFECT_VOLUME;
     focusVolume = DEFAULT_FOCUS_VOLUME;
+    bossDay = DEFAULT_BOSS_DAY;
+    bossDayChangedDate = "";
+    lastLoginDate = "";
+    loginStreak = 0;
     focusCount = 0;
     focusDate = "";
     eggs = {};
@@ -2974,6 +3284,53 @@ function createCategoryLabel(quest, index) {
   return label;
 }
 
+// ===== カテゴリでしぼりこむ（他のタスクの一覧） =====
+
+// 今えらんでいるしぼりこみ（"all" はすべて、"" はカテゴリなし、それ以外はカテゴリの id）。保存はしない
+let categoryFilter = "all";
+
+// クエストが、今のしぼりこみに合っているかを返す
+function matchesCategoryFilter(quest) {
+  if (categoryFilter === "all") {
+    return true;
+  }
+  if (categoryFilter === "") {
+    return !getCategory(quest.category); // カテゴリなし（前からあるクエストもふくむ）
+  }
+  return quest.category === categoryFilter;
+}
+
+// しぼりこみのボタン（すべて・カテゴリごと・なし）を作る。数は、他のタスクの一覧にあるクエストの数
+function renderCategoryFilter(otherIndexes) {
+  categoryFilterBox.innerHTML = "";
+  categoryFilterBox.appendChild(createFilterButton("all", "すべて", otherIndexes.length, ""));
+  QUEST_CATEGORIES.forEach(function (category) {
+    const count = otherIndexes.filter(function (i) {
+      return quests[i].category === category.id;
+    }).length;
+    categoryFilterBox.appendChild(createFilterButton(category.id, category.icon + " " + category.name, count, "category-" + category.id));
+  });
+  const noneCount = otherIndexes.filter(function (i) {
+    return !getCategory(quests[i].category);
+  }).length;
+  categoryFilterBox.appendChild(createFilterButton("", "🏷️ なし", noneCount, "is-none"));
+}
+
+// しぼりこみのボタンを1つ作って返す（えらんでいるボタンは濃い色。0こなら、うすくする）
+function createFilterButton(value, text, count, colorClass) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "category-filter-button " + colorClass;
+  button.classList.toggle("is-active", categoryFilter === value);
+  button.classList.toggle("is-zero", count === 0);
+  button.textContent = text + " " + count;
+  button.addEventListener("click", function () {
+    categoryFilter = value;
+    renderQuests();
+  });
+  return button;
+}
+
 // 札を押したとき：札の場所に、えらぶ箱を出す。えらんだら保存して、表示し直す
 function openCategorySelect(label, index) {
   const select = document.createElement("select");
@@ -3801,18 +4158,33 @@ function renderQuests() {
   // 他のタスクの一覧を、いったん空にする
   questList.innerHTML = "";
 
-  // 1回目：まだ撃破していないクエストを先に並べる（本日のタスクの分は除く）
+  // 他のタスクの一覧に入るクエストの番号（本日のタスクの分は除く）。しぼりこみのボタンの数にも使う
+  const otherIndexes = [];
   for (let i = 0; i < quests.length; i++) {
-    if (!todayIndexes.includes(i) && !quests[i].done) {
-      questList.appendChild(createQuestItem(quests[i], i));
+    if (!todayIndexes.includes(i) || quests[i].done) {
+      otherIndexes.push(i);
     }
   }
+  renderCategoryFilter(otherIndexes);
 
-  // 2回目：撃破済みのクエストをあとに並べる
-  for (let i = 0; i < quests.length; i++) {
-    if (quests[i].done) {
-      questList.appendChild(createQuestItem(quests[i], i));
-    }
+  // 1回目：まだ撃破していないクエストを先に並べる。2回目：撃破済みのクエストをあとに並べる
+  // （どちらも、カテゴリでしぼりこんでいるときは、そのカテゴリのクエストだけ）
+  let shownCount = 0;
+  [false, true].forEach(function (isDone) {
+    otherIndexes.forEach(function (i) {
+      if (quests[i].done === isDone && matchesCategoryFilter(quests[i])) {
+        questList.appendChild(createQuestItem(quests[i], i));
+        shownCount = shownCount + 1;
+      }
+    });
+  });
+
+  // しぼりこんでいて1つもないときは、そう出す
+  if (categoryFilter !== "all" && shownCount === 0) {
+    const empty = document.createElement("li");
+    empty.className = "category-filter-empty";
+    empty.textContent = "このカテゴリのクエストはありません";
+    questList.appendChild(empty);
   }
 
   // 撃破済みが0件なら、まとめて削除のボタンを押せなくする
@@ -3884,8 +4256,11 @@ function pickGachaItem() {
   return candidates[Math.floor(Math.random() * candidates.length)];
 }
 
-// ランク（1〜3）の★を返す
+// ランク（1〜3、ショップ限定は 4）の★を返す
 function getRankStars(rank) {
+  if (rank === SHOP_RANK.rank) {
+    return SHOP_RANK.stars + " " + SHOP_RANK.name; // ショップ限定は「🛒 ショップ限定」
+  }
   return GACHA_RANKS[rank - 1].stars;
 }
 
@@ -4143,6 +4518,13 @@ function toggleEquip(item) {
   console.log("装備を変えました", equipped);
 }
 
+// アイテムの id から、ガチャのアイテムとショップ限定の装備の表の行を返す
+function findItem(itemId) {
+  return GACHA_ITEMS.concat(SHOP_ITEMS).find(function (item) {
+    return item.id === itemId;
+  });
+}
+
 // 「そうび：頭 👑 ／ 武器 🗡️ ／ …」の文字を作って返す
 function getEquipSummary() {
   const parts = [];
@@ -4150,9 +4532,7 @@ function getEquipSummary() {
     const itemId = equipped[EQUIP_SLOTS[i].slot];
     let icon = "―"; // 何も装備していない部位は「―」
     if (itemId) {
-      icon = GACHA_ITEMS.find(function (item) {
-        return item.id === itemId;
-      }).icon;
+      icon = findItem(itemId).icon;
     }
     parts.push(EQUIP_SLOTS[i].name + " " + icon);
   }
@@ -4171,11 +4551,12 @@ function countOwnedItems(list) {
 }
 
 // 図鑑の、1つのランク分のまとまりを作って返す（「★★ レア 3 / 16」の見出しと、アイテムの一覧）
-function createCollectionGroup(rank) {
+// itemList はアイテムの表（ガチャのアイテム、またはショップ限定の装備）
+function createCollectionGroup(rank, itemList) {
   const group = document.createElement("div");
 
   // そのランクのアイテムだけを取り出す
-  const rankItems = GACHA_ITEMS.filter(function (item) {
+  const rankItems = itemList.filter(function (item) {
     return item.rank === rank.rank;
   });
 
@@ -4231,8 +4612,9 @@ function renderGacha() {
   // 図鑑：ランクごとに見出しを付けて、アイテムの一覧を並べる
   collectionList.innerHTML = "";
   for (let i = 0; i < GACHA_RANKS.length; i++) {
-    collectionList.appendChild(createCollectionGroup(GACHA_RANKS[i]));
+    collectionList.appendChild(createCollectionGroup(GACHA_RANKS[i], GACHA_ITEMS));
   }
+  collectionList.appendChild(createCollectionGroup(SHOP_RANK, SHOP_ITEMS)); // いちばん下に「🛒 ショップ限定」
 
   // 全部で何種類集めたか
   collectionCount.textContent = "図鑑 " + countOwnedItems(GACHA_ITEMS) + " / " + GACHA_ITEMS.length;
@@ -4240,8 +4622,151 @@ function renderGacha() {
   // 今の装備
   equipSummary.textContent = getEquipSummary();
 
+  // ショップのページも、コインの数に合わせて表示し直す
+  renderShop();
+
   // ガチャで卵が出たときのために、ペットのカード（持っている卵）も表示し直す
   renderPets();
+}
+
+// ===== ショップの画面 =====
+
+// ガチャ画面の中のページを切りかえる（name は "gacha" か "shop"）
+function switchGachaPage(name) {
+  gachaSections.gacha.hidden = name !== "gacha";
+  gachaSections.shop.hidden = name !== "shop";
+  gachaSwitchButtons.forEach(function (button) {
+    button.classList.toggle("is-active", button.dataset.gacha === name);
+  });
+}
+
+// ショップで売るもの（1つ）の形にして返す
+// kind は "item"（アイテム）・"egg"（卵）・"pet"（ペット）、owned は持っている数、limited は1つしか買えないか
+function makeShopThing(kind, id, icon, name, price, owned, limited) {
+  return { kind: kind, id: id, icon: icon, name: name, price: price, owned: owned, limited: limited };
+}
+
+// ショップの売りものを、見出しごとのまとまりにして返す（{ title, things } の配列）
+function getShopGroups() {
+  const groups = [];
+
+  // 🛒 ショップ限定（装備は1つずつ、ペットは何回でも）
+  const limitedThings = SHOP_ITEMS.map(function (item) {
+    return makeShopThing("item", item.id, item.icon, item.name, item.price, items[item.id] || 0, true);
+  }).concat(PETS.filter(function (pet) {
+    return pet.shop;
+  }).map(function (pet) {
+    return makeShopThing("pet", pet.id, pet.icon, pet.name + "（ペット）", pet.price, pets[pet.id] || 0, false);
+  }));
+  groups.push({ title: "🛒 ショップ限定", rank: SHOP_RANK.rank, things: limitedThings });
+
+  // 🥚 卵
+  groups.push({ title: "🥚 卵", rank: 0, things: EGG_TYPES.map(function (egg) {
+    return makeShopThing("egg", egg.type, "🥚", egg.name + " " + egg.stars, SHOP_EGG_PRICES[egg.type], eggs[egg.type] || 0, false);
+  }) });
+
+  // ★・★★・★★★ のアイテム（ガチャで出るもの）
+  GACHA_RANKS.forEach(function (rank) {
+    const rankThings = GACHA_ITEMS.filter(function (item) {
+      return item.rank === rank.rank;
+    }).map(function (item) {
+      return makeShopThing("item", item.id, item.icon, item.name, SHOP_ITEM_PRICES[rank.rank], items[item.id] || 0, false);
+    });
+    groups.push({ title: rank.stars + " " + rank.name, rank: rank.rank, things: rankThings });
+  });
+  return groups;
+}
+
+// ショップのページを表示し直す（コインの数と、見出しごとの売りもの）
+function renderShop() {
+  shopCoins.textContent = "🪙 " + coins.toLocaleString() + " コイン";
+  shopList.innerHTML = "";
+  getShopGroups().forEach(function (group) {
+    const heading = document.createElement("h3");
+    heading.className = "shop-heading rank-" + group.rank;
+    heading.textContent = group.title;
+    shopList.appendChild(heading);
+
+    const list = document.createElement("ul");
+    list.className = "shop-list";
+    group.things.forEach(function (thing) {
+      list.appendChild(createShopRow(thing, group.rank));
+    });
+    shopList.appendChild(list);
+  });
+}
+
+// ショップの1行（絵文字・名前・持っている数・値段・「買う」ボタン）を作って返す
+function createShopRow(thing, rank) {
+  const row = document.createElement("li");
+  row.className = "shop-row rank-" + rank;
+
+  const name = document.createElement("span");
+  name.className = "shop-name";
+  name.textContent = thing.icon + " " + thing.name;
+  if (thing.owned > 0) {
+    const owned = document.createElement("span");
+    owned.className = "shop-owned";
+    owned.textContent = thing.limited ? "持っている" : "×" + thing.owned;
+    name.appendChild(owned);
+  }
+  row.appendChild(name);
+
+  const price = document.createElement("span");
+  price.className = "shop-price";
+  price.textContent = "🪙" + thing.price.toLocaleString();
+  row.appendChild(price);
+
+  // コインが足りないときと、もう持っている限定の装備は、押せなくする
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "shop-buy-button";
+  const isSoldOut = thing.limited && thing.owned > 0;
+  button.textContent = isSoldOut ? "買った" : "買う";
+  button.disabled = isSoldOut || coins < thing.price;
+  button.addEventListener("click", function () {
+    buyShopThing(thing);
+  });
+  row.appendChild(button);
+  return row;
+}
+
+// ショップで1つ買う（確認してから、コインをへらして、アイテム・卵・ペットを1つふやす）
+function buyShopThing(thing) {
+  if (coins < thing.price || (thing.limited && thing.owned > 0)) {
+    return;
+  }
+  const ok = confirm(thing.icon + " " + thing.name + " を 🪙" + thing.price.toLocaleString() + " で買いますか？");
+  if (!ok) {
+    return;
+  }
+  coins = coins - thing.price;
+  if (thing.kind === "egg") {
+    eggs[thing.id] = (eggs[thing.id] || 0) + 1;
+  } else if (thing.kind === "pet") {
+    pets[thing.id] = (pets[thing.id] || 0) + 1;
+    if (activePets.length === 0) {
+      activePets.push(thing.id); // まだ誰も連れていなければ、買ったペットを連れていく（卵がかえったときと同じ）
+    }
+    drawPets();
+  } else {
+    items[thing.id] = (items[thing.id] || 0) + 1;
+  }
+  savePlayer();
+  console.log("ショップで買いました", thing);
+  renderGacha(); // コイン・ショップ・図鑑・ペットのカードを表示し直す
+  addShopEffect(thing);
+  checkAchievements(true); // 図鑑10種類などの実績がとれたら、演出を出す
+}
+
+// 「🛒 〇〇 を買った！」の演出を、順番待ちの列に並べる
+function addShopEffect(thing) {
+  addEffect(function () {
+    clearEffectClasses();
+    effectText.textContent = "🛒 " + thing.icon + " " + thing.name + "\nを買った！";
+    restartAnimation(effectOverlay, "is-celebrate");
+    playSparkleSound();
+  }, CELEBRATE_EFFECT_TIME);
 }
 
 // ===== ポモドーロタイマー =====
@@ -4597,12 +5122,15 @@ function getMonsterExpText(monster) {
   return min + "〜" + max + " EXP";
 }
 
-// ペットが、どの卵からかえるかの文字を返す（卵からかえらないペットは「最初からいる」）
+// ペットが、どの卵からかえるかの文字を返す（卵からかえらないペットは「最初からいる」、ショップ限定は「🛒 ショップで買える」）
 function getPetFromText(petId) {
   const egg = EGG_TYPES.find(function (eggType) {
     return eggType.pets.includes(petId);
   });
-  return egg ? "🥚 " + egg.name : "最初からいる";
+  if (egg) {
+    return "🥚 " + egg.name;
+  }
+  return getPet(petId).shop ? "🛒 ショップで買える" : "最初からいる";
 }
 
 // 一覧の1つ分（絵・名前・小さな説明）を作って返す。found が false なら、黒いかげで描く
@@ -4669,7 +5197,7 @@ const ACHIEVEMENTS = [
   // 🐣 ペット
   { id: "pet-hatch", coins: 50, name: "はじめての孵化", condition: "卵を 1回 かえす", check: function () { return hasHatchedEgg(); } },
   { id: "pet-5", coins: 100, name: "ペットなかま", condition: "ペットを 5種類 なかまにする", check: function () { return countPetKinds() >= 5; } },
-  { id: "pet-all", coins: 500, name: "ペットマスター", condition: "ペットを 11種類 全部 なかまにする", check: function () { return countPetKinds() >= PETS.length; } },
+  { id: "pet-all", coins: 500, name: "ペットマスター", condition: "ペットを 11種類 全部 なかまにする", check: function () { return countPetKinds() >= countNormalPets(); } },
   // 👾 モンスター
   { id: "monster-golden", coins: 100, name: "黄金の出会い", condition: "ゴールデンスライムを たおす", check: function () { return (monsterDefeats[RARE_MONSTER.id] || 0) > 0; } },
   { id: "monster-5", coins: 100, name: "モンスター博士", condition: "モンスターを 5種類 たおす", check: function () { return countMonsterKinds() >= 5; } },
@@ -4728,15 +5256,22 @@ function hasSuperRareItem() {
 // 卵をかえしたことがあるか（最初からいるペット以外がいる、またはねこが2匹以上いる）
 function hasHatchedEgg() {
   const hasOtherPet = PETS.some(function (pet) {
-    return !STARTER_PETS.includes(pet.id) && pets[pet.id];
+    return !STARTER_PETS.includes(pet.id) && !pet.shop && pets[pet.id]; // ショップで買ったペットは入れない
   });
   return hasOtherPet || (pets.cat || 0) >= 2;
 }
 
-// 仲間にいるペットの種類の数
+// 仲間にいるペットの種類の数（実績で使う。ショップ限定のペットは、お金で買えば取れる実績にしないため数えない）
 function countPetKinds() {
   return PETS.filter(function (pet) {
-    return pets[pet.id];
+    return !pet.shop && pets[pet.id];
+  }).length;
+}
+
+// 卵からかえる・最初からいるペット（ショップ限定ではないペット）の種類の数
+function countNormalPets() {
+  return PETS.filter(function (pet) {
+    return !pet.shop;
   }).length;
 }
 
@@ -5114,6 +5649,7 @@ function toggleOtherQuests() {
 
   // まとめて削除のボタンも、一覧と一緒に出したり消したりする
   clearDoneButton.hidden = questList.hidden;
+  categoryFilterBox.hidden = questList.hidden; // しぼりこみのボタンも、一覧と一緒に出したり消したりする
 
   // 開いているときは △、閉じているときは ▽ にする
   if (questList.hidden) {
@@ -5622,6 +6158,13 @@ switchHabitButton.addEventListener("click", function () {
   switchTodayView(true);
 });
 
+// ガチャ画面の中の切りかえボタンが押されたとき（ボタンに書いてある data-gacha のページを見せる）
+gachaSwitchButtons.forEach(function (button) {
+  button.addEventListener("click", function () {
+    switchGachaPage(button.dataset.gacha);
+  });
+});
+
 // 図鑑の中の切りかえボタンが押されたとき（ボタンに書いてある data-collection のページを見せる）
 collectionSwitchButtons.forEach(function (button) {
   button.addEventListener("click", function () {
@@ -5670,6 +6213,9 @@ effectVolumeSlider.addEventListener("change", finishEffectVolume);
 focusVolumeSlider.addEventListener("input", changeFocusVolume);
 focusVolumeSlider.addEventListener("change", savePlayer);
 
+// 設定画面の、ボス戦の日の曜日をえらびなおしたとき
+bossDaySelect.addEventListener("change", changeBossDay);
+
 // 設定画面の、データの書き出し・読みこみのボタン
 exportButton.addEventListener("click", exportData);
 copyButton.addEventListener("click", copyData);
@@ -5715,6 +6261,8 @@ renderCalendar(); // プレイヤーの状態（撃破の記録）を読み込�
 // 保存しておいた音の設定に合わせて、音のボタンを表示する
 renderSoundButton();
 renderVolumeSettings(); // 保存しておいた音の大きさを、設定画面のつまみに出しておく
+renderBossDaySetting(); // 保存しておいたボス戦の日の曜日を、設定画面に出しておく
+renderQuests(); // ボス戦の日は保存データで決まるので、読みこんだあとに、お知らせとモンスターを描き直す
 
 // ポモドーロタイマーを表示する（最初は、集中 25:00 で止まっている）
 timerSoundSelect.value = focusSound; // 保存しておいた「集中中の音」を、えらぶ欄に出しておく
@@ -5730,3 +6278,13 @@ renderPets();
 // ページを開いたときに、もう条件を満たしている実績は、演出なしで「とった」にしてから、実績のページを表示する
 checkAchievements(false);
 renderAchievements();
+
+// その日はじめて開いたときは、ログインボーナスをわたす
+checkLoginBonus();
+
+// 別のタブやアプリからもどってきたとき：開いたまま日付が変わっていたら、ログインボーナスをわたす
+document.addEventListener("visibilitychange", function () {
+  if (document.visibilityState === "visible") {
+    checkLoginBonus();
+  }
+});

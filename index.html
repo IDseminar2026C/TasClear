@@ -153,6 +153,9 @@
     <!-- 他のタスク：押すと、残りのクエストの一覧が閉じたり開いたりします -->
     <button id="other-toggle" class="other-toggle" type="button">他のタスク △</button>
 
+    <!-- 他のタスクの一覧を、カテゴリでしぼりこむボタン（「すべて」とカテゴリごと）。中身は JavaScript で作ります -->
+    <div id="category-filter" class="category-filter"></div>
+
     <!-- 残りのクエストの一覧（最初から開いている）。中身は JavaScript で作ります -->
     <ul id="quest-list" class="quest-list"></ul>
 
@@ -166,8 +169,14 @@
 
     <!-- ===== ガチャ画面（最初は隠す） ===== -->
     <div id="page-gacha" class="page" hidden>
+      <!-- 「🎰 ガチャ」と「🛒 ショップ」の切りかえボタン（押したほうだけを出す。図鑑の切りかえボタンと同じ形） -->
+      <div class="today-switch">
+        <button class="today-switch-button gacha-switch-button is-active" type="button" data-gacha="gacha">🎰 ガチャ</button>
+        <button class="today-switch-button gacha-switch-button" type="button" data-gacha="shop">🛒 ショップ</button>
+      </div>
+
       <!-- ガチャ：コインを使ってアイテムを引く -->
-      <section class="gacha-card">
+      <section id="gacha-main" class="gacha-card collection-section">
         <h2 class="gacha-title">🎰 ガチャ</h2>
         <button id="gacha-button" class="gacha-button" type="button" disabled>🎰 1回引く（🪙50）</button>
         <button id="gacha-ten-button" class="gacha-button gacha-ten-button" type="button" disabled>🎰 10連ガチャ（🪙500）</button>
@@ -180,6 +189,14 @@
         <!-- 出る確率の表。中身は JavaScript で作ります -->
         <h3 class="gacha-subtitle">― 出る確率 ―</h3>
         <ul id="gacha-rate-list" class="gacha-rate-list"></ul>
+      </section>
+
+      <!-- ショップ：コインで、ほしいものをえらんで買う（最初は隠す）。一覧の中身は JavaScript で作ります -->
+      <section id="gacha-shop" class="gacha-card collection-section" hidden>
+        <h2 class="gacha-title">🛒 ショップ</h2>
+        <p id="shop-coins" class="collection-count">🪙 0 コイン</p>
+        <p class="equip-help">ほしいものの「買う」を押すと、コインで買えます。🛒 限定のものは、ショップでしか買えません</p>
+        <div id="shop-list"></div>
       </section>
     </div>
 
@@ -360,6 +377,24 @@
           <span id="focus-volume-text" class="settings-value">50%</span>
         </div>
         <p class="settings-help">効果音のつまみを動かすと、確かめるための音が1回鳴ります</p>
+
+        <!-- ボス戦の日の曜日（モンスターが全部ボスになり、クエストのコインが3倍になる日）。変えられるのは1週間に1回 -->
+        <h3 class="settings-heading">👑 ボス戦の日</h3>
+        <div class="settings-row">
+          <label for="boss-day-select">曜日</label>
+          <select id="boss-day-select" class="timer-sound-select">
+            <option value="0">日曜日</option>
+            <option value="1">月曜日</option>
+            <option value="2">火曜日</option>
+            <option value="3">水曜日</option>
+            <option value="4">木曜日</option>
+            <option value="5">金曜日</option>
+            <option value="6">土曜日</option>
+            <option value="-1">なし</option>
+          </select>
+        </div>
+        <p id="boss-day-today" class="settings-help"></p>
+        <p id="boss-day-help" class="settings-help"></p>
 
         <!-- データの書き出し・読みこみ（バックアップや、別のブラウザ・スマホにデータを移すときに使う） -->
         <h3 class="settings-heading">💾 データの書き出し・読みこみ</h3>
