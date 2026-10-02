@@ -114,6 +114,13 @@
       <span class="deadline-help">（なくてもOK）</span>
     </div>
 
+    <!-- やる日（明日以降の、この日にやる予定。空のままなら、すぐやるクエスト）。やる日になるまで本日のタスクに出さない -->
+    <div class="deadline-row plan-row">
+      <label for="plan-input">🗓️ やる日</label>
+      <input id="plan-input" class="deadline-input" type="date">
+      <span class="deadline-help">（明日以降）</span>
+    </div>
+
     <!-- クエストのカテゴリ（色つきの札）。えらぶ箱の中身は JavaScript で作ります。「なし」なら札を付けない -->
     <div class="deadline-row category-row">
       <label for="category-input">🏷️ カテゴリ</label>
@@ -155,13 +162,23 @@
     <button id="bulk-defeat-button" class="bulk-defeat-button" type="button" disabled>⚔️ 選んだ 0体 をまとめて撃破</button>
 
     <!-- 他のタスク：押すと、残りのクエストの一覧が閉じたり開いたりします -->
-    <button id="other-toggle" class="other-toggle" type="button">他のタスク △</button>
+    <!-- 「他のタスク △」（押すと一覧を閉じる・開く）と、その横の切りかえボタン（他のタスク・明日以降） -->
+    <div class="other-header">
+      <button id="other-toggle" class="other-toggle" type="button">他のタスク △</button>
+      <div id="other-switch" class="other-switch">
+        <button class="other-switch-button is-active" type="button" data-list="other">他のタスク 0</button>
+        <button class="other-switch-button" type="button" data-list="future">🗓️ 明日以降 0</button>
+      </div>
+    </div>
 
     <!-- 他のタスクの一覧を、カテゴリでしぼりこむボタン（「すべて」とカテゴリごと）。中身は JavaScript で作ります -->
     <div id="category-filter" class="category-filter"></div>
 
     <!-- 残りのクエストの一覧（最初から開いている）。中身は JavaScript で作ります -->
     <ul id="quest-list" class="quest-list"></ul>
+
+    <!-- 明日以降の予定（やる日がまだ先のクエスト）の一覧。日付ごとの見出しの下にならべる（最初は隠す）。中身は JavaScript で作ります -->
+    <ul id="future-list" class="quest-list future-list" hidden></ul>
 
     <!-- 撃破済みのクエストをまとめて消すボタン（一覧が開いているときだけ見える） -->
     <button id="clear-done-button" class="clear-done-button" type="button">撃破済みをまとめて削除</button>
@@ -360,7 +377,7 @@
         <div id="calendar-grid" class="calendar-grid"></div>
 
         <!-- マスの中のしるしの説明 -->
-        <p class="calendar-legend">📝 締切までのやること（期限切れは赤）　⚔️ 撃破した数　📅 締切のクエスト（期限切れは赤）　🔁 クリアした日課　🍅 集中した回数（ポモドーロ）</p>
+        <p class="calendar-legend">📝 締切までのやること（期限切れは赤）　⚔️ 撃破した数　📅 締切のクエスト（期限切れは赤）　🔁 クリアした日課　🍅 集中した回数（ポモドーロ）　🗓️ この日の予定</p>
 
         <!-- 週のふりかえり（押して選んでいる日がふくまれる週の、撃破・集中・習慣のまとめ）。中身は JavaScript で作ります -->
         <div id="calendar-week" class="calendar-week"></div>

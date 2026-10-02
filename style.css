@@ -337,6 +337,11 @@ h1 {
   opacity: 0.5;
 }
 
+/* やる日がまだ先のクエスト（少し薄くする。撃破済みほどは薄くしない） */
+.quest-item.is-future-plan {
+  opacity: 0.7;
+}
+
 /* ▲▼ボタンを2つまとめた箱（ふだんは横に並べる） */
 .move-buttons {
   display: flex;
@@ -986,6 +991,71 @@ h1 {
   background: none;
   border: none;
   cursor: pointer;
+}
+
+/* 「他のタスク △」と、切りかえボタンを横にならべる（入りきらなければ次の行へ） */
+.other-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 8px;
+  margin: 0 0 8px;
+}
+
+.other-header .other-toggle {
+  margin: 0;
+}
+
+/* 「他のタスク」「🗓️ 明日以降」の切りかえボタンをならべる */
+.other-switch {
+  display: flex;
+  gap: 4px;
+}
+
+/* 見えないようにする設定（hidden）を、確実に効かせる */
+.other-switch[hidden],
+.future-list[hidden] {
+  display: none;
+}
+
+/* 切りかえボタン1つ分（「本日のタスク」の切りかえボタンと同じ色。少し小さめ） */
+.other-switch-button {
+  padding: 5px 8px;
+  font-size: 12px;
+  white-space: nowrap; /* 文字を折り返さない */
+  font-weight: bold;
+  background-color: #f5f1e6;
+  color: #1e2040;
+  border: 2px solid #1e2040;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* えらんでいる切りかえボタンは、濃い紺色 */
+.other-switch-button.is-active {
+  background-color: #1e2040;
+  color: #ffffff;
+}
+
+/* 明日以降の一覧の、日付の見出し（「🗓️ 10/5（月）」） */
+.future-date-heading {
+  margin: 10px 0 4px;
+  padding: 2px 4px;
+  font-size: 14px;
+  font-weight: bold;
+  color: #2e6bd6;
+  border-bottom: 2px solid #2e6bd6;
+  list-style: none;
+}
+
+.future-date-heading:first-child {
+  margin-top: 0;
+}
+
+/* 明日以降の一覧では、予定のクエストもうすくしない（日付ごとにまとまっていて見分けがつくため） */
+.future-list .quest-item.is-future-plan {
+  opacity: 1;
 }
 
 /* まとめて撃破するクエストを選ぶチェックボックス（少し大きくして押しやすくする） */
@@ -1856,11 +1926,10 @@ h1 {
   left: 44px;
 }
 
-/* Lv5 のペットの頭の上の、ドット絵の王冠（7×5マス）。1匹のときは、ペットと同じ1マス 5px（35×25px） */
+/* Lv5 のペットの頭の上の、ドット絵の王冠（7×5マス）。1匹のときは、ペットと同じ1マス 5px（35×25px）
+   場所（left・bottom）は、ペットごとの頭のてっぺんに合わせて、script.js で決める */
 .pet-crown {
   position: absolute;
-  left: 50px;
-  bottom: 76px;
   width: auto;
   height: 25px;
   image-rendering: pixelated;
@@ -1869,13 +1938,7 @@ h1 {
 
 /* 2匹のとき（ペットが小さいとき）は、1マス 3px（21×15px） */
 .pet-crown.is-small {
-  left: 30px;
-  bottom: 46px;
   height: 15px;
-}
-
-.pet-crown.is-second.is-small {
-  left: 74px;
 }
 
 /* 見えないようにする設定（hidden）を、確実に効かせる */
@@ -1919,11 +1982,9 @@ h1 {
   display: block;
 }
 
-/* タイマーのペットの頭の上の王冠（ペットと同じ1マス 2px。7×5マスなので 14×10px） */
+/* タイマーのペットの頭の上の王冠（ペットと同じ1マス 2px。7×5マスなので 14×10px）。場所は script.js で決める */
 .timer-pet-crown {
   position: absolute;
-  left: 20px;
-  bottom: 28px;
   width: auto;
   height: 10px;
   image-rendering: pixelated;
@@ -2125,6 +2186,15 @@ h1 {
   font-weight: bold;
 }
 
+/* やる日の行（締切の行のすぐ下に置く。「🗓️ やる日」は折り返さない） */
+.plan-row {
+  margin-top: 0;
+}
+
+.plan-row label {
+  white-space: nowrap;
+}
+
 /* カテゴリの行（締切の行のすぐ下に置く） */
 .category-row {
   margin-top: 0;
@@ -2323,6 +2393,16 @@ span.category-label {
   flex-shrink: 0;
   font-size: 12px;
   color: #555555;
+}
+
+/* やる日の表示（締切と見分けやすいように、青い文字。すぎたときは、締切と同じ赤） */
+.deadline-label.plan-label {
+  display: block;
+  color: #2e6bd6;
+}
+
+.deadline-label.plan-label.is-overdue {
+  color: #c0392b;
 }
 
 /* 押して締切を変えられる表示（ボタンだが、文字のように見せる） */

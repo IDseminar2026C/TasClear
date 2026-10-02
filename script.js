@@ -25,11 +25,20 @@ const habitDaysBox = document.getElementById("habit-days"); // 日課をやる�
 
 // 締切の日付を選ぶ欄
 const deadlineInput = document.getElementById("deadline-input");
+const planInput = document.getElementById("plan-input"); // やる日（明日以降の、この日にやる予定）の欄
 const categoryInput = document.getElementById("category-input"); // クエストのカテゴリをえらぶ箱
 
 // 「他のタスク ▽」のボタン
 const otherToggle = document.getElementById("other-toggle");
 const categoryFilterBox = document.getElementById("category-filter"); // 他のタスクを、カテゴリでしぼりこむボタンの箱
+const otherSwitch = document.getElementById("other-switch"); // 「他のタスク」「🗓️ 明日以降」の切りかえボタンの箱
+const otherSwitchButtons = document.querySelectorAll(".other-switch-button"); // その切りかえボタン（2つ）
+const futureList = document.getElementById("future-list"); // 明日以降の予定のクエストの一覧
+
+// 他のタスクの所で、どちらの一覧を出しているか（"other"＝他のタスク、"future"＝明日以降）
+let otherListView = "other";
+// 他のタスクの所が開いているか（「他のタスク △」で開く・閉じる）
+let isOtherOpen = true;
 
 // 「撃破済みをまとめて削除」のボタン
 const clearDoneButton = document.getElementById("clear-done-button");
@@ -2399,8 +2408,9 @@ function saveQuests() {
 // クエストを並べかえる
 //   1. まだ撃破していないクエストが先、撃破済みはあと
 //   2. まだ撃破していない中では、📌 ピン止めしたクエストが先
-//   3. 同じピン止めの状態の中では、締切が近い順（締切のないクエストはいちばん下）
-//   4. ここまでが同じなら、今の順番のまま（sort は、同じものどうしの順番を変えません）
+//   3. 同じピン止めの状態の中では、やる日が今日（またはすぎた）のクエストが先、やる日がまだ先のクエストはあと
+//   4. その中では、締切が近い順（締切のないクエストはいちばん下）
+//   5. ここまでが同じなら、今の順番のまま（sort は、同じものどうしの順番を変えません）
 function sortQuests() {
   quests.sort(function (a, b) {
     return getSortKey(a).localeCompare(getSortKey(b));
@@ -2408,12 +2418,27 @@ function sortQuests() {
 }
 
 // 並べかえに使う「くらべるための文字」を返す（この文字が小さいクエストほど上に来る）
-// 例：まだ撃破していない・ピン止め・締切 10/5 → "0-0-2026-10-05"
+// 例：まだ撃破していない・ピン止め・やる日なし・締切 10/5 → "0-0-1-2026-10-05"
 function getSortKey(quest) {
   const doneKey = quest.done ? "1" : "0";
   const pinKey = isPinned(quest) && !quest.done ? "0" : "1";
+  const planKey = getPlanSortKey(quest);
   const deadlineKey = quest.deadline || "9999-99-99"; // 締切なしは、いちばんあとの日付として扱う
-  return doneKey + "-" + pinKey + "-" + deadlineKey;
+  return doneKey + "-" + pinKey + "-" + planKey + "-" + deadlineKey;
+}
+
+// やる日の並べかえの目印を返す（"0" は今日やる予定・すぎた予定、"1" はやる日なし、"2" はやる日がまだ先）
+// やる日がまだ先のクエストは、うしろにやる日を付けて、やる日が近い順にならぶようにする（例："2:2026-10-05"）
+function getPlanSortKey(quest) {
+  if (!quest.planDate) {
+    return "1";
+  }
+  return isFuturePlan(quest) ? "2:" + quest.planDate : "0";
+}
+
+// やる日がまだ先（明日以降）のクエストかどうかを返す
+function isFuturePlan(quest) {
+  return Boolean(quest.planDate) && quest.planDate > getTodayString();
 }
 
 // localStorage から、保存しておいたクエスト一覧を取り出す
@@ -3438,6 +3463,13 @@ function fillTodayHistory() {
   }
 }
 
+// その日にやる予定（やる日がその日）のクエストを、まとめて返す（撃破済みもふくむ）
+function getPlanQuests(dateText) {
+  return quests.filter(function (quest) {
+    return quest.planDate === dateText;
+  });
+}
+
 // その日が締切のクエストを、まとめて返す
 function getDeadlineQuests(dateText) {
   return quests.filter(function (quest) {
@@ -3454,7 +3486,7 @@ function getActiveQuestsOn(dateText) {
     if (quest.done || !quest.deadline) {
       return false; // 撃破済みと、締切のないクエストは出さない
     }
-    const start = quest.createdDate || today;
+    const start = quest.planDate || quest.createdDate || today; // やる日があれば、やる日から
     let end = quest.deadline;
     if (end < today) {
       end = today; // 締切をすぎていたら、今日まで出しつづける
@@ -3527,6 +3559,7 @@ function createCalendarDay(year, month, day) {
   const deadlines = getDeadlineQuests(dateText).length;
   const habitsDone = getHabitsDoneOn(dateText).length;
   const focuses = focusHistory[dateText] || 0;
+  const plans = getPlanQuests(dateText).length;
   if (actives > 0) {
     cell.appendChild(createCalendarMark("📝" + actives, hasOverdueActiveOn(dateText) ? "is-overdue" : "is-task"));
   }
@@ -3541,6 +3574,9 @@ function createCalendarDay(year, month, day) {
   }
   if (focuses > 0) {
     cell.appendChild(createCalendarMark("🍅" + focuses, "is-focus"));
+  }
+  if (plans > 0) {
+    cell.appendChild(createCalendarMark("🗓️" + plans, "is-plan")); // その日にやる予定の数
   }
 
   // 押したら、その日を選んで、くわしい中身を出す
@@ -3705,6 +3741,16 @@ function renderCalendarDetail() {
 
   // 🍅 この日に集中タイム（ポモドーロ）を終えた回数
   addDetailLine("🍅 集中した回数：" + (focusHistory[selectedDate] || 0) + "回");
+
+  // 🗓️ この日にやる予定（撃破済みには ✅ を付ける）
+  const planQuests = getPlanQuests(selectedDate);
+  if (planQuests.length === 0) {
+    addDetailLine("🗓️ この日の予定：なし");
+  } else {
+    addDetailLine("🗓️ この日の予定：" + planQuests.map(function (quest) {
+      return (quest.done ? "✅ " : "") + quest.name;
+    }).join("、"));
+  }
 }
 
 // くわしい中身に、1行を足す
@@ -3842,6 +3888,76 @@ function openDeadlinePicker(picker, index) {
       changeDeadline(index, input.trim());
     }
   }
+}
+
+// ===== やる日（この日にやる予定） =====
+
+// やる日の文字を返す（まだ先：「🗓️ 10/5（日）にやる」、今日：「🗓️ 今日やる予定」、すぎた：「🗓️ 10/5（日）の予定（すぎています）」）
+function getPlanText(quest) {
+  const today = getTodayString();
+  if (quest.planDate === today) {
+    return "🗓️ 今日やる予定";
+  }
+  if (quest.planDate > today) {
+    return "🗓️ " + formatDeadline(quest.planDate) + "にやる";
+  }
+  return "🗓️ " + formatDeadline(quest.planDate) + "の予定" + (quest.done ? "" : "（すぎています）");
+}
+
+// クエストのやる日の表示を作って返す（やる日がないときは null）
+// まだ撃破していないクエストは、押すとカレンダーが出て、やる日を変えられる（消すと、すぐやるクエストにもどる）
+function createPlanLabel(quest, index) {
+  if (!quest.planDate) {
+    return null;
+  }
+  if (quest.done) {
+    const text = document.createElement("span");
+    text.className = "deadline-label plan-label";
+    text.textContent = getPlanText(quest);
+    return text;
+  }
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "deadline-label deadline-button plan-label";
+  button.textContent = getPlanText(quest) + " ✏️";
+  if (quest.planDate < getTodayString()) {
+    button.classList.add("is-overdue"); // やる日をすぎていたら、赤くする（締切の期限切れと同じ色）
+  }
+
+  // カレンダーを出すための、見えない日付の欄（締切と同じしくみ）
+  const picker = document.createElement("input");
+  picker.type = "date";
+  picker.className = "deadline-picker";
+  picker.value = quest.planDate;
+  picker.tabIndex = -1;
+  picker.addEventListener("change", function () {
+    changePlanDate(index, picker.value); // 日付を消したら、やる日なし
+  });
+  button.appendChild(picker);
+  button.addEventListener("click", function () {
+    openPlanPicker(picker, index);
+  });
+  return button;
+}
+
+// 見えない日付の欄の、カレンダーを出す（出せない古いブラウザでは、文字で入力してもらう）
+function openPlanPicker(picker, index) {
+  try {
+    picker.showPicker();
+  } catch (error) {
+    const input = prompt("やる日を「2026-10-05」の形で入力してください（空にすると、やる日なし）", picker.value);
+    if (input !== null) {
+      changePlanDate(index, input.trim());
+    }
+  }
+}
+
+// index 番目のクエストのやる日を変えて保存する（空ならやる日なし。並び順と本日のタスクも変わる）
+function changePlanDate(index, dateText) {
+  quests[index].planDate = dateText;
+  saveQuests();
+  renderQuests();
+  console.log("やる日を変えました", quests[index]);
 }
 
 // index 番目のクエストの締切を変えて保存する（空なら締切なし）
@@ -3995,6 +4111,11 @@ function createQuestItem(quest, index) {
     item.classList.add("is-done");
   }
 
+  // やる日がまだ先のクエストは、少し薄くする目印を付ける
+  if (!quest.done && isFuturePlan(quest)) {
+    item.classList.add("is-future-plan");
+  }
+
   // ピン止め中なら、行を少し黄色くする目印を付ける
   if (isPinned(quest) && !quest.done) {
     item.classList.add("is-pinned");
@@ -4006,6 +4127,10 @@ function createQuestItem(quest, index) {
   item.appendChild(createQuestItemTop(quest, index));
   if (!quest.done || quest.deadline) {
     item.appendChild(createDeadlineLabel(quest, index));
+  }
+  const planLabel = createPlanLabel(quest, index); // やる日（あるときだけ）
+  if (planLabel) {
+    item.appendChild(planLabel);
   }
   item.appendChild(createQuestItemBottom(quest, index));
   return item;
@@ -4067,7 +4192,7 @@ function createQuestItemBottom(quest, index) {
 // （まだ撃破していない一番上のクエスト。1つも無いときは -1 を返す）
 function findTodayIndex() {
   for (let i = 0; i < quests.length; i++) {
-    if (!quests[i].done) {
+    if (!quests[i].done && !isFuturePlan(quests[i])) { // やる日がまだ先のクエストは、本日のタスクにしない
       return i;
     }
   }
@@ -4079,7 +4204,7 @@ function findTodayIndex() {
 function findTodayIndexes() {
   const indexes = [];
   for (let i = 0; i < quests.length; i++) {
-    if (!quests[i].done && indexes.length < TODAY_MAX) {
+    if (!quests[i].done && !isFuturePlan(quests[i]) && indexes.length < TODAY_MAX) { // やる日がまだ先のクエストは、本日のタスクにしない
       indexes.push(i);
     }
   }
@@ -4140,6 +4265,10 @@ function createTodayItem(quest, index) {
 
   // クエスト名の下に、締切（押すと変えられる）
   item.appendChild(createDeadlineLabel(quest, index));
+  const planLabel = createPlanLabel(quest, index); // 締切の下に、やる日（あるときだけ）
+  if (planLabel) {
+    item.appendChild(planLabel);
+  }
 
   // 「（〇 EXP get）」と、ボタンを横に並べる行
   const row = document.createElement("div");
@@ -4183,37 +4312,24 @@ function renderQuests() {
     return quests.includes(quest) && !quest.done;
   });
 
-  // 他のタスクの一覧を、いったん空にする
-  questList.innerHTML = "";
-
-  // 他のタスクの一覧に入るクエストの番号（本日のタスクの分は除く）。しぼりこみのボタンの数にも使う
+  // 他のタスクの一覧に入るクエストの番号（本日のタスクの分と、やる日がまだ先のクエストは除く）
+  // やる日がまだ先のクエストは、明日以降の一覧に入れる
   const otherIndexes = [];
+  const futureIndexes = [];
   for (let i = 0; i < quests.length; i++) {
-    if (!todayIndexes.includes(i) || quests[i].done) {
+    if (!quests[i].done && isFuturePlan(quests[i])) {
+      futureIndexes.push(i);
+    } else if (!todayIndexes.includes(i) || quests[i].done) {
       otherIndexes.push(i);
     }
   }
-  renderCategoryFilter(otherIndexes);
 
-  // 1回目：まだ撃破していないクエストを先に並べる。2回目：撃破済みのクエストをあとに並べる
-  // （どちらも、カテゴリでしぼりこんでいるときは、そのカテゴリのクエストだけ）
-  let shownCount = 0;
-  [false, true].forEach(function (isDone) {
-    otherIndexes.forEach(function (i) {
-      if (quests[i].done === isDone && matchesCategoryFilter(quests[i])) {
-        questList.appendChild(createQuestItem(quests[i], i));
-        shownCount = shownCount + 1;
-      }
-    });
-  });
+  // 切りかえボタンの数と、今出している一覧のしぼりこみのボタン
+  renderOtherSwitch(otherIndexes.length, futureIndexes.length);
+  renderCategoryFilter(otherListView === "future" ? futureIndexes : otherIndexes);
 
-  // しぼりこんでいて1つもないときは、そう出す
-  if (categoryFilter !== "all" && shownCount === 0) {
-    const empty = document.createElement("li");
-    empty.className = "category-filter-empty";
-    empty.textContent = "このカテゴリのクエストはありません";
-    questList.appendChild(empty);
-  }
+  renderOtherList(otherIndexes);
+  renderFutureList(futureIndexes);
 
   // 撃破済みが0件なら、まとめて削除のボタンを押せなくする
   clearDoneButton.disabled = countDoneQuests() === 0;
@@ -4226,6 +4342,78 @@ function renderQuests() {
 
   // カレンダーも表示し直す（締切や撃破の数が変わったときのため）
   renderCalendar();
+}
+
+// ===== 他のタスク・明日以降の一覧 =====
+
+// 「他のタスク」の一覧を作る（まだ撃破していないクエストが先、撃破済みはあと。しぼりこみに合うものだけ）
+function renderOtherList(otherIndexes) {
+  questList.innerHTML = "";
+  let shownCount = 0;
+  [false, true].forEach(function (isDone) {
+    otherIndexes.forEach(function (i) {
+      if (quests[i].done === isDone && matchesCategoryFilter(quests[i])) {
+        questList.appendChild(createQuestItem(quests[i], i));
+        shownCount = shownCount + 1;
+      }
+    });
+  });
+  if (categoryFilter !== "all" && shownCount === 0) {
+    questList.appendChild(createListMessage("このカテゴリのクエストはありません"));
+  }
+}
+
+// 「🗓️ 明日以降」の一覧を作る（やる日ごとに「🗓️ 10/5（月）」の見出しを付けて、その下にならべる）
+// futureIndexes は、やる日が近い順にならんでいる（並べかえのときに、そうしている）
+function renderFutureList(futureIndexes) {
+  futureList.innerHTML = "";
+  const shown = futureIndexes.filter(function (i) {
+    return matchesCategoryFilter(quests[i]);
+  });
+  let lastDate = "";
+  shown.forEach(function (i) {
+    if (quests[i].planDate !== lastDate) {
+      lastDate = quests[i].planDate;
+      const heading = document.createElement("li");
+      heading.className = "future-date-heading";
+      heading.textContent = "🗓️ " + formatDeadline(lastDate);
+      futureList.appendChild(heading);
+    }
+    futureList.appendChild(createQuestItem(quests[i], i));
+  });
+  if (futureIndexes.length === 0) {
+    futureList.appendChild(createListMessage("明日以降の予定はありません（「🗓️ やる日」をえらんで追加できます）"));
+  } else if (shown.length === 0) {
+    futureList.appendChild(createListMessage("このカテゴリのクエストはありません"));
+  }
+}
+
+// 一覧の中の、説明の1行を作って返す（「〇〇はありません」など）
+function createListMessage(text) {
+  const message = document.createElement("li");
+  message.className = "category-filter-empty";
+  message.textContent = text;
+  return message;
+}
+
+// 切りかえボタンの数（「他のタスク 4」「🗓️ 明日以降 3」）と、えらんでいるボタンを表示し直す
+function renderOtherSwitch(otherCount, futureCount) {
+  otherSwitchButtons.forEach(function (button) {
+    const isFuture = button.dataset.list === "future";
+    button.textContent = isFuture ? "🗓️ 明日以降 " + futureCount : "他のタスク " + otherCount;
+    button.classList.toggle("is-active", button.dataset.list === otherListView);
+  });
+  applyOtherVisibility();
+}
+
+// 「他のタスク」の一覧が開いているか、どちらの一覧をえらんでいるかに合わせて、出したり隠したりする
+function applyOtherVisibility() {
+  questList.hidden = !isOtherOpen || otherListView !== "other";
+  futureList.hidden = !isOtherOpen || otherListView !== "future";
+  clearDoneButton.hidden = !isOtherOpen; // まとめて削除のボタンも、一覧と一緒に出したり消したりする
+  categoryFilterBox.hidden = !isOtherOpen; // しぼりこみのボタンも
+  otherSwitch.hidden = !isOtherOpen; // 切りかえボタンも
+  otherToggle.textContent = isOtherOpen ? "他のタスク △" : "他のタスク ▽"; // 開いているときは △、閉じているときは ▽
 }
 
 // 撃破済みのクエストが何件あるか数えて返す
@@ -5096,6 +5284,32 @@ function growActivePets() {
   });
 }
 
+// メイン画面のペットの場所（style.css の .pet-canvas と .pet-canvas.is-second の数と合わせる）
+const PET_BOTTOM = 6; // 景色の下から何 px 上か
+const PET_SECOND_LEFT = 44; // 2匹目は、左から何 px か（1匹目は 0）
+
+// ペットの絵の設計図から、頭のてっぺんの場所を返す
+// top は、何かが描いてある、いちばん上の行。center は、その行で描いてあるマスのまん中（左から何マス目か）
+function getPetHeadTop(pixels) {
+  for (let row = 0; row < pixels.length; row++) {
+    const first = pixels[row].search(/[^.]/); // 「.」ではない、いちばん左のマス
+    if (first >= 0) {
+      const last = pixels[row].length - 1 - pixels[row].split("").reverse().join("").search(/[^.]/);
+      return { top: row, center: (first + last + 1) / 2 };
+    }
+  }
+  return { top: 0, center: pixels[0].length / 2 };
+}
+
+// 王冠を、ペットの頭のてっぺんの上に置く（王冠のまん中を頭のまん中に合わせ、下の1マスを頭に重ねる）
+// dot は1マスの大きさ（px）、petLeft・petBottom はペットの絵の左下の場所（px）
+function placeCrown(crown, pet, dot, petLeft, petBottom) {
+  const head = getPetHeadTop(pet.pixels);
+  const crownWidth = PIXELS_PET_CROWN[0].length;
+  crown.style.left = petLeft + (head.center - crownWidth / 2) * dot + "px";
+  crown.style.bottom = petBottom + (pet.pixels.length - head.top - 1) * dot + "px";
+}
+
 // Lv5 のペットの王冠を、つける・はずす（ペットの種類ごとに保存する）
 function togglePetCrown(petId) {
   petCrownOff[petId] = !petCrownOff[petId];
@@ -5143,6 +5357,11 @@ function drawPets() {
     // タイマーの歩くペットにも、同じ決まりで王冠を出す
     timerPetCrowns[i].hidden = petCrowns[i].hidden;
     drawPixels(timerPetCrowns[i], PIXELS_PET_CROWN);
+    // 王冠の場所を、ペットごとの頭のてっぺんに合わせる（メイン画面は1マス 5px、2匹のときは 3px。タイマーは 2px）
+    if (pet) {
+      placeCrown(petCrowns[i], pet, activePets.length >= 2 ? 3 : 5, i === 0 ? 0 : PET_SECOND_LEFT, PET_BOTTOM);
+      placeCrown(timerPetCrowns[i], pet, 2, 0, 0);
+    }
     petCrowns[i].classList.toggle("is-small", activePets.length >= 2);
   }
 }
@@ -5754,23 +5973,19 @@ function resetLevel() {
 
 // 「他のタスク」の一覧を、開いていれば閉じ、閉じていれば開く
 function toggleOtherQuests() {
-  questList.hidden = !questList.hidden;
+  isOtherOpen = !isOtherOpen;
+  applyOtherVisibility(); // 一覧・まとめて削除・しぼりこみ・切りかえボタンを、まとめて出したり隠したりする
+}
 
-  // まとめて削除のボタンも、一覧と一緒に出したり消したりする
-  clearDoneButton.hidden = questList.hidden;
-  categoryFilterBox.hidden = questList.hidden; // しぼりこみのボタンも、一覧と一緒に出したり消したりする
-
-  // 開いているときは △、閉じているときは ▽ にする
-  if (questList.hidden) {
-    otherToggle.textContent = "他のタスク ▽";
-  } else {
-    otherToggle.textContent = "他のタスク △";
-  }
+// 切りかえボタン（他のタスク・明日以降）を押したとき：その一覧を出す（しぼりこみは、その一覧の数になる）
+function switchOtherList(view) {
+  otherListView = view;
+  renderQuests();
 }
 
 // 新しいクエストを追加する
 // deadline は締切の日付（「2026-10-05」のような文字。締切なしなら ""）
-function addQuest(questName, deadline, category) {
+function addQuest(questName, deadline, category, planDate) {
   // 50回に1回くらいの確率で、レアなクエストにする
   // （Math.random() は 0 以上 1 未満のランダムな数。それが RARE_CHANCE より小さければレア）
   const isRare = Math.random() < RARE_CHANCE;
@@ -5783,6 +5998,7 @@ function addQuest(questName, deadline, category) {
     deadline: deadline || "", // 締切の日付（締切なしなら ""）
     createdDate: getTodayString(), // 追加した日（カレンダーで、締切までの毎日に出すときの始まりの日）
     category: category || "", // カテゴリの id（なしなら ""）
+    planDate: planDate || "", // やる日（この日にやる予定。なしなら ""）。やる日になるまで、本日のタスクに出さない
   };
 
   // レアなクエストなら、EXP を 100 にして、「あらわれた！」の演出を出す
@@ -6234,12 +6450,13 @@ questForm.addEventListener("submit", function (event) {
     newHabitDays = ALL_WEEKDAYS.slice(); // 次に追加するときのために、毎日にもどしておく
     renderHabitDayButtons(habitDaysBox, newHabitDays, toggleNewHabitDay);
   } else {
-    addQuest(questName, deadlineInput.value, categoryInput.value); // 締切の欄が空なら締切なし、カテゴリが「なし」なら札なし
+    addQuest(questName, deadlineInput.value, categoryInput.value, planInput.value); // 締切・やる日が空ならなし、カテゴリが「なし」なら札なし
   }
   renderQuests(); // この中で、習慣のカードも表示し直す
 
-  // 締切の欄も空に戻す
+  // 締切とやる日の欄も空に戻す
   deadlineInput.value = "";
+  planInput.value = "";
 
   // 入力欄を空にして、続けて入力できるようにする
   questInput.value = "";
@@ -6250,12 +6467,20 @@ questForm.addEventListener("submit", function (event) {
 // （習慣は毎日なので締切はない。チェックが付いている間は、締切の欄を押せなくする）
 habitCheckbox.addEventListener("change", function () {
   deadlineInput.disabled = habitCheckbox.checked;
+  planInput.disabled = habitCheckbox.checked; // 日課には、やる日も付けない
   categoryInput.disabled = habitCheckbox.checked; // 日課にはカテゴリを付けないので、えらべなくする
   habitDaysBox.hidden = !habitCheckbox.checked; // 曜日をえらぶボタンは、日課のときだけ出す
 });
 
 // 「他のタスク ▽」のボタンが押されたとき
 otherToggle.addEventListener("click", toggleOtherQuests);
+
+// 「他のタスク」「🗓️ 明日以降」の切りかえボタンが押されたとき
+otherSwitchButtons.forEach(function (button) {
+  button.addEventListener("click", function () {
+    switchOtherList(button.dataset.list);
+  });
+});
 
 // 「レベルをリセット」のボタンが押されたとき
 resetLevelButton.addEventListener("click", resetLevel);
@@ -6362,6 +6587,7 @@ sortQuests(); // 今までのデータも、締切が近い順に並べる
 loadHabits(); // 毎日の習慣も取り出す（表示は、renderQuests の中で行う）
 renderHabitDayButtons(habitDaysBox, newHabitDays, toggleNewHabitDay); // 日課を追加するときの曜日ボタンを作っておく
 fillCategoryOptions(categoryInput, ""); // クエストを追加するときの、カテゴリをえらぶ箱の中身を作っておく
+planInput.min = addDaysToDateText(getTodayString(), 1); // やる日のカレンダーは、明日からえらべるようにする
 renderQuests();
 
 // 保存しておいた累計EXPを取り出して、ステータスを表示する
