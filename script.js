@@ -117,6 +117,8 @@ const calendarThisMonthButton = document.getElementById("calendar-this-month");
 // 1匹目・2匹目の順に並べて、配列にまとめています
 const petCanvases = [document.getElementById("pet-canvas"), document.getElementById("pet-canvas-2")];
 const timerPets = [document.getElementById("timer-pet"), document.getElementById("timer-pet-2")];
+const petCrowns = [document.getElementById("pet-crown"), document.getElementById("pet-crown-2")]; // Lv5 のペットの王冠（メイン画面）
+const timerPetCrowns = [document.getElementById("timer-pet-crown"), document.getElementById("timer-pet-crown-2")]; // Lv5 のペットの王冠（タイマー）
 const petSettingText = document.getElementById("pet-setting");
 const eggList = document.getElementById("egg-list");
 const petList = document.getElementById("pet-list");
@@ -746,6 +748,24 @@ const MAX_ACTIVE_PETS = 2;
 
 // 最初から仲間にいるペット（初めての人は、この2匹を連れていく状態で始まる）
 const STARTER_PETS = ["slime", "cat"];
+
+// ペットのレベル：Lv1〜Lv5 になるのに必要な「なかよし」（連れているあいだに撃破した数）
+const PET_LEVEL_STEPS = [0, 5, 15, 30, 50];
+
+// ペットが Lv5（いちばん上）になったときに、もらえるコイン
+const PET_MAX_LEVEL_COINS = 100;
+
+// Lv5 のペットの頭の上に出す、金の王冠のドット絵（7×5マス。まん中に赤い宝石）
+const PIXELS_PET_CROWN = ["o..o..o", "jo.j.oj", "AjoAojA", "AAARAAA", "YmmmmmY"];
+
+// 王冠を「はずしている」ペットの種類（{ cat: true } のような形。はじめは、どのペットもつけている）
+let petCrownOff = {};
+
+// ペットの種類ごとの「なかよし」の数（{ cat: 12, slime: 3 } のような形）
+let petFriendship = {};
+
+// レベルが上がったペットの演出を、撃破の演出のあとに出すために、ためておく（[{ petId, level }] の形）
+let pendingPetLevelUps = [];
 
 // 連れていくペットの id の配列（["hamster", "cat"] のような形。連れていかないときは []）
 // 同じ id が2つ入っていたら、同じ種類を2匹連れている
@@ -2189,6 +2209,8 @@ function savePlayer() {
     monsterDefeats: monsterDefeats,
     achievements: achievements,
     rewardedAchievements: rewardedAchievements,
+    petFriendship: petFriendship,
+    petCrownOff: petCrownOff,
   };
   localStorage.setItem(PLAYER_KEY, JSON.stringify(player));
 }
@@ -2234,6 +2256,8 @@ function loadPlayer() {
     monsterDefeats = player.monsterDefeats || {}; // 前の形の保存データには無いので、そのときは空（だれもたおしていない）
     achievements = player.achievements || {}; // 前の形の保存データには無いので、そのときは空（まだ1つもとっていない）
     rewardedAchievements = player.rewardedAchievements || {}; // 前の形の保存データには無いので、そのときは空（まだ1つもコインをわたしていない）
+    petFriendship = player.petFriendship || {}; // 前の形の保存データには無いので、そのときは空（どのペットも Lv1）
+    petCrownOff = player.petCrownOff || {}; // 前の形の保存データには無いので、そのときは空（どのペットも王冠をつけている）
     console.log("プレイヤーの状態を読み込みました", player);
   } catch (error) {
     console.log("プレイヤーの保存データが壊れていたので、0 から始めます");
@@ -2264,6 +2288,8 @@ function loadPlayer() {
     monsterDefeats = {};
     achievements = {};
     rewardedAchievements = {};
+    petFriendship = {};
+    petCrownOff = {};
     giveStarterPets(true); // データが壊れていたときも、初めての人と同じように、最初からいるペットを入れる
   }
 }
@@ -3129,6 +3155,7 @@ function createDefeatButton(quest, index, text, className) {
 
     // 撃破・レベルアップ・お祝いの演出を、順番待ちの列に並べる
     addDefeatEffects(1, quest.exp, levelBefore, getLevel(), countBefore, todayCount);
+    addPendingPetLevelUpEffects(); // ペットのレベルが上がっていたら、撃破の演出のあとに出す
     checkAchievements(true); // 新しくとれた実績があれば、演出を出す（撃破の演出のあとに並ぶ）
   });
   return button;
@@ -3183,6 +3210,7 @@ function defeatSelectedQuests() {
 
   // 撃破（まとめて1つ）→ 上がったレベルの数だけレベルアップ → お祝い の順に並べる
   addDefeatEffects(targets.length, totalGain, levelBefore, getLevel(), countBefore, todayCount);
+  addPendingPetLevelUpEffects(); // ペットのレベルが上がっていたら、撃破の演出のあとに出す
   checkAchievements(true); // 新しくとれた実績があれば、演出を出す（撃破の演出のあとに並ぶ）
 }
 
@@ -5035,6 +5063,67 @@ function loadActivePets(player) {
   return result;
 }
 
+// ===== ペットのレベル =====
+
+// ペットの種類の、今のレベル（1〜5）を返す
+function getPetLevel(petId) {
+  const friendship = petFriendship[petId] || 0;
+  let level = 0;
+  PET_LEVEL_STEPS.forEach(function (need) {
+    if (friendship >= need) {
+      level = level + 1;
+    }
+  });
+  return level;
+}
+
+// 連れているペットの「なかよし」を1ずつふやす（同じ種類を2匹連れていても、その種類に1）
+// レベルが上がったら、演出のためにためておく。Lv5 になったら、コインをわたす
+function growActivePets() {
+  const kinds = activePets.filter(function (petId, index) {
+    return activePets.indexOf(petId) === index; // 同じ種類は1回だけ
+  });
+  kinds.forEach(function (petId) {
+    const before = getPetLevel(petId);
+    petFriendship[petId] = (petFriendship[petId] || 0) + 1;
+    const after = getPetLevel(petId);
+    if (after > before) {
+      pendingPetLevelUps.push({ petId: petId, level: after });
+      if (after === PET_LEVEL_STEPS.length) {
+        coins = coins + PET_MAX_LEVEL_COINS;
+      }
+    }
+  });
+}
+
+// Lv5 のペットの王冠を、つける・はずす（ペットの種類ごとに保存する）
+function togglePetCrown(petId) {
+  petCrownOff[petId] = !petCrownOff[petId];
+  savePlayer();
+  drawPets(); // メイン画面の王冠を出す・消す
+  renderPets(); // ボタンの文字を「つける」「はずす」に切りかえる
+}
+
+// ためておいた「🐾 〇〇 が Lv3 になった！」の演出を、順番待ちの列に並べる（撃破の演出のあとに呼ぶ）
+function addPendingPetLevelUpEffects() {
+  pendingPetLevelUps.forEach(function (levelUp) {
+    const pet = getPet(levelUp.petId);
+    const isMax = levelUp.level === PET_LEVEL_STEPS.length;
+    addEffect(function () {
+      clearEffectClasses();
+      effectText.textContent = "🐾 " + pet.icon + " " + pet.name + "\nが Lv" + levelUp.level + " になった！" + (isMax ? "\n👑 🪙 +" + PET_MAX_LEVEL_COINS : "");
+      restartAnimation(effectOverlay, "is-celebrate");
+      playSparkleSound();
+    }, CELEBRATE_EFFECT_TIME);
+  });
+  if (pendingPetLevelUps.length > 0) {
+    pendingPetLevelUps = [];
+    renderPets(); // なかまの一覧と図鑑のレベルを描き直す
+    drawPets(); // Lv5 の 👑 を出す
+    renderGacha(); // コインの数を新しくする
+  }
+}
+
 // 連れていくペットを、メイン画面とタイマーのバーに描く（連れていかないぶんは隠す）
 function drawPets() {
   for (let i = 0; i < MAX_ACTIVE_PETS; i++) {
@@ -5047,6 +5136,14 @@ function drawPets() {
       drawPixels(petCanvases[i], pet.pixels);
       drawPixels(timerPets[i], pet.pixels);
     }
+    // Lv5（いちばん上）のペットだけ、メイン画面で頭の上にドット絵の王冠を出す（2匹のときは、小さいペットに合わせた場所）
+    // 「👑 はずす」にしているペットには出さない
+    petCrowns[i].hidden = !pet || getPetLevel(pet.id) < PET_LEVEL_STEPS.length || petCrownOff[pet.id] === true;
+    drawPixels(petCrowns[i], PIXELS_PET_CROWN);
+    // タイマーの歩くペットにも、同じ決まりで王冠を出す
+    timerPetCrowns[i].hidden = petCrowns[i].hidden;
+    drawPixels(timerPetCrowns[i], PIXELS_PET_CROWN);
+    petCrowns[i].classList.toggle("is-small", activePets.length >= 2);
   }
 }
 
@@ -5105,7 +5202,7 @@ function renderCreaturePetList() {
     if (count > 0) {
       foundCount = foundCount + 1;
     }
-    const name = count > 0 ? pet.name + (count >= 2 ? " ×" + count : "") : "？？？";
+    const name = count > 0 ? pet.name + (count >= 2 ? " ×" + count : "") + " Lv" + getPetLevel(pet.id) : "？？？"; // 名前のうしろに、ペットのレベル
     creaturePetList.appendChild(createCreatureItem(pet.pixels, name, getPetFromText(pet.id), count > 0, "rank-" + pet.rank));
   });
   creaturePetCount.textContent = "ペット " + foundCount + " / " + PETS.length;
@@ -5460,7 +5557,16 @@ function renderPetList() {
     hasPet = true;
     const row = document.createElement("li");
     row.className = "pet-row rank-" + pet.rank;
-    row.appendChild(document.createTextNode(pet.icon + " " + pet.name + (count >= 2 ? " ×" + count : "")));
+    row.appendChild(document.createTextNode(pet.icon + " " + pet.name + (count >= 2 ? " ×" + count : "") + " Lv" + getPetLevel(pet.id))); // 名前のうしろに、ペットのレベル
+
+    // Lv5 のペットだけ、王冠をつける・はずすボタンを出す
+    if (getPetLevel(pet.id) === PET_LEVEL_STEPS.length) {
+      const crownButton = createPetButton(petCrownOff[pet.id] ? "👑 つける" : "👑 はずす", function () {
+        togglePetCrown(pet.id);
+      }, false);
+      crownButton.classList.add("pet-crown-button");
+      row.appendChild(crownButton);
+    }
 
     const takingCount = countActivePet(pet.id);
     const button = createPetButton(getPetButtonText(takingCount), function () {
@@ -5529,6 +5635,9 @@ function renderTimer() {
   timerWalker.classList.toggle("is-walking", isTimerRunning());
   timerPets.forEach(function (timerPet) {
     timerPet.classList.toggle("is-walking", isTimerRunning());
+  });
+  timerPetCrowns.forEach(function (crown) {
+    crown.classList.toggle("is-walking", isTimerRunning()); // 王冠も、ペットと一緒にはねる
   });
 
   // 動いているときはスタートを、止まっているときは一時停止を押せなくする
@@ -5747,6 +5856,9 @@ function giveDefeatRewards(exp, isRare, isQuest) {
   const today = getTodayString();
   defeatHistory[today] = (defeatHistory[today] || 0) + 1;
 
+  // 連れているペットの「なかよし」をふやす（レベルが上がったら、あとで演出を出す）
+  growActivePets();
+
   // コインを足す（レアなクエストは多めにもらえる。ボス戦の日のクエストは3倍）
   if (isRare) {
     coins = coins + COIN_PER_RARE_DEFEAT;
@@ -5925,6 +6037,7 @@ function defeatHabit(index) {
 
   // 撃破・レベルアップ・お祝いの演出を、順番待ちの列に並べる
   addDefeatEffects(1, habit.exp, levelBefore, getLevel(), countBefore, todayCount);
+  addPendingPetLevelUpEffects(); // ペットのレベルが上がっていたら、撃破の演出のあとに出す
   checkAchievements(true); // 新しくとれた実績があれば、演出を出す
 }
 

@@ -91,6 +91,10 @@
       <canvas id="pet-canvas-2" class="pet-canvas is-second" width="32" height="32" aria-label="2匹目のペットのドット絵" hidden></canvas>
       <canvas id="pet-canvas" class="pet-canvas" width="32" height="32" aria-label="ペットのドット絵" hidden></canvas>
 
+      <!-- Lv5（いちばん上）になったペットの頭の上に出す、ドット絵の王冠（1匹目・2匹目）。絵は JavaScript で描きます -->
+      <canvas id="pet-crown" class="pet-crown" width="7" height="5" aria-label="ペットの王冠" hidden></canvas>
+      <canvas id="pet-crown-2" class="pet-crown is-second" width="7" height="5" aria-label="2匹目のペットの王冠" hidden></canvas>
+
       <canvas id="hero-canvas" class="hero-canvas" width="32" height="32" aria-label="勇者のドット絵"></canvas>
 
       <!-- 本日のタスクのモンスター（本日のタスクがないときは隠す）。絵は JavaScript で描きます -->
@@ -258,8 +262,15 @@
         <div class="timer-track">
           <div id="timer-walker-box" class="timer-walker-box">
             <!-- キャラのうしろを一緒に歩くペット（2匹まで。左から 2匹目 → 1匹目 → キャラ の順。連れていかないときは隠す） -->
-            <canvas id="timer-pet-2" class="timer-pet is-second" width="32" height="32" aria-label="一緒に歩く2匹目のペット" hidden></canvas>
-            <canvas id="timer-pet" class="timer-pet" width="32" height="32" aria-label="一緒に歩くペット" hidden></canvas>
+            <!-- ペットと、その頭の上に出す王冠（Lv5 のとき）を、1つの箱にまとめる -->
+            <span class="timer-pet-wrap">
+              <canvas id="timer-pet-2" class="timer-pet is-second" width="32" height="32" aria-label="一緒に歩く2匹目のペット" hidden></canvas>
+              <canvas id="timer-pet-crown-2" class="timer-pet-crown is-second" width="7" height="5" aria-label="2匹目のペットの王冠" hidden></canvas>
+            </span>
+            <span class="timer-pet-wrap">
+              <canvas id="timer-pet" class="timer-pet" width="32" height="32" aria-label="一緒に歩くペット" hidden></canvas>
+              <canvas id="timer-pet-crown" class="timer-pet-crown" width="7" height="5" aria-label="ペットの王冠" hidden></canvas>
+            </span>
             <canvas id="timer-walker" class="timer-walker" width="32" height="32" aria-label="歩くキャラ"></canvas>
           </div>
           <span class="timer-goal">🏁</span>

@@ -1856,6 +1856,33 @@ h1 {
   left: 44px;
 }
 
+/* Lv5 のペットの頭の上の、ドット絵の王冠（7×5マス）。1匹のときは、ペットと同じ1マス 5px（35×25px） */
+.pet-crown {
+  position: absolute;
+  left: 50px;
+  bottom: 76px;
+  width: auto;
+  height: 25px;
+  image-rendering: pixelated;
+  z-index: 2; /* ペットより手前に出す */
+}
+
+/* 2匹のとき（ペットが小さいとき）は、1マス 3px（21×15px） */
+.pet-crown.is-small {
+  left: 30px;
+  bottom: 46px;
+  height: 15px;
+}
+
+.pet-crown.is-second.is-small {
+  left: 74px;
+}
+
+/* 見えないようにする設定（hidden）を、確実に効かせる */
+.pet-crown[hidden] {
+  display: none;
+}
+
 /* 見えないようにする設定（hidden）を、確実に効かせる */
 .pet-canvas[hidden],
 .timer-pet[hidden] {
@@ -1883,6 +1910,36 @@ h1 {
 
 /* 2匹目のペットは、1匹目とさらに少しずらしてはねる */
 .timer-pet.is-second.is-walking {
+  animation-delay: 0.1s;
+}
+
+/* タイマーのペットと王冠をまとめる箱（王冠を、ペットの上に重ねるため） */
+.timer-pet-wrap {
+  position: relative;
+  display: block;
+}
+
+/* タイマーのペットの頭の上の王冠（ペットと同じ1マス 2px。7×5マスなので 14×10px） */
+.timer-pet-crown {
+  position: absolute;
+  left: 20px;
+  bottom: 28px;
+  width: auto;
+  height: 10px;
+  image-rendering: pixelated;
+}
+
+/* 見えないようにする設定（hidden）を、確実に効かせる */
+.timer-pet-crown[hidden] {
+  display: none;
+}
+
+/* 王冠も、ペットと同じタイミングではねる（頭からはなれないように） */
+.timer-pet-crown.is-walking {
+  animation: walk-bounce 0.5s infinite 0.25s;
+}
+
+.timer-pet-crown.is-second.is-walking {
   animation-delay: 0.1s;
 }
 
@@ -1957,6 +2014,14 @@ h1 {
   border: none;
   border-radius: 6px;
   cursor: pointer;
+}
+
+/* 王冠をつける・はずすボタン（「連れていく」のすぐ左に、白に金色のふちで出す） */
+.pet-button.pet-crown-button {
+  margin-left: auto;
+  background-color: #ffffff;
+  color: #b8860b;
+  border: 2px solid #d4a017;
 }
 
 /* 連れていく中のペットのボタン（紺色） */
