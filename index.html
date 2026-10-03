@@ -28,6 +28,9 @@
 
         <!-- 右上のボタンを横にならべる箱 -->
         <div class="header-buttons">
+          <!-- 押すと、フレンド画面（プロフィールとフレンドの一覧）を開きます -->
+          <button id="friends-button" class="sound-button" type="button" aria-label="フレンドを開く">👥</button>
+
           <!-- 押すと、設定画面（音の大きさなど）を開きます -->
           <button id="settings-button" class="sound-button" type="button" aria-label="設定を開く">⚙️</button>
 
@@ -398,6 +401,52 @@
       </section>
     </div>
 
+    <!-- ===== フレンド画面（最初は隠す。右上の 👥 ボタンで開く） ===== -->
+    <div id="page-friends" class="page" hidden>
+      <section class="gacha-card">
+        <h2 class="gacha-title">👥 フレンド</h2>
+        <!-- つながっているか（「🟢 オンライン」など）。中身は JavaScript で書き換えます -->
+        <p id="online-status" class="online-status">⏳ つないでいます…</p>
+
+        <!-- 自分のプロフィール（フレンドに見える名前・アイコン・ひとこと） -->
+        <h3 class="settings-heading">🙂 自分のプロフィール</h3>
+        <div class="profile-preview">
+          <span id="profile-preview-icon" class="friend-icon">🧑‍🌾</span>
+          <div>
+            <p class="friend-code-label">あなたのフレンドコード</p>
+            <p id="my-friend-code" class="friend-code">------</p>
+          </div>
+          <button id="copy-code-button" class="shop-buy-button" type="button">コピー</button>
+        </div>
+        <div class="profile-row">
+          <label for="profile-icon-select">アイコン</label>
+          <select id="profile-icon-select" class="category-select"></select>
+        </div>
+        <div class="profile-row">
+          <label for="profile-name-input">ニックネーム</label>
+          <input id="profile-name-input" class="profile-input" type="text" maxlength="12" placeholder="12文字まで（本名はやめよう）">
+        </div>
+        <div class="profile-row">
+          <label for="profile-message-input">ひとこと</label>
+          <input id="profile-message-input" class="profile-input" type="text" maxlength="30" placeholder="30文字まで">
+        </div>
+        <button id="profile-save-button" class="profile-save-button" type="button">プロフィールを保存</button>
+        <p id="profile-save-text" class="settings-help"></p>
+
+        <!-- フレンドを追加する（友だちのフレンドコードを入れる） -->
+        <h3 class="settings-heading">➕ フレンドを追加</h3>
+        <form id="friend-add-form" class="quest-form">
+          <input id="friend-code-input" type="text" maxlength="6" placeholder="フレンドコード（6文字）" autocomplete="off">
+          <button type="submit">追加</button>
+        </form>
+        <p id="friend-add-text" class="settings-help"></p>
+
+        <!-- フレンドの一覧（レベル・今日のポモドーロなど。自動で新しくなる）。中身は JavaScript で作ります -->
+        <h3 id="friend-list-heading" class="settings-heading">📋 フレンド一覧</h3>
+        <ul id="friend-list" class="friend-list"></ul>
+      </section>
+    </div>
+
     <!-- ===== 設定画面（最初は隠す。右上の ⚙️ ボタンで開く） ===== -->
     <div id="page-settings" class="page" hidden>
       <section class="gacha-card">
@@ -475,6 +524,8 @@
   </div>
 
   <!-- JavaScript のファイルを読み込みます（ページの最後に書きます） -->
+  <!-- オンラインの保存場所（Supabase）とやりとりするための道具。読みこめなくても、ほかの機能はそのまま使える -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="script.js"></script>
 </body>
 

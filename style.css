@@ -2735,3 +2735,167 @@ span.category-label {
   font-size: 11px;
   color: #666666;
 }
+
+/* ===== フレンド ===== */
+
+/* つながっているかの表示（つながっていないときは灰色、つながったら緑） */
+.online-status {
+  margin: 0 0 8px;
+  padding: 6px 8px;
+  font-size: 12px;
+  color: #666666;
+  background-color: #eeeeee;
+  border-radius: 6px;
+}
+
+.online-status.is-on {
+  color: #1f6b35;
+  background-color: #e3f5e8;
+}
+
+/* 自分のアイコンと、フレンドコードと、コピーのボタンを横にならべる */
+.profile-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.profile-preview > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.friend-code-label {
+  margin: 0;
+  font-size: 11px;
+  color: #666666;
+}
+
+/* フレンドコード（大きく、1文字ずつ間をあけて読みやすく） */
+.friend-code {
+  margin: 0;
+  font-size: 22px;
+  font-weight: bold;
+  letter-spacing: 3px;
+  color: #1e2040;
+}
+
+/* プロフィールの1行（名前と入力欄を横にならべる） */
+.profile-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: bold;
+  color: #1e2040;
+}
+
+.profile-row label {
+  width: 6.5em;
+  flex-shrink: 0;
+}
+
+.profile-input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  font-size: 14px;
+  border: 2px solid #1e2040;
+  border-radius: 6px;
+}
+
+/* 「プロフィールを保存」のボタン */
+.profile-save-button {
+  width: 100%;
+  padding: 8px;
+  font-size: 14px;
+  font-weight: bold;
+  color: #ffffff;
+  background-color: #1e2040;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.friend-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* フレンド1人分（左にアイコン、まん中に情報、右に外すボタン） */
+.friend-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 6px;
+  padding: 8px;
+  background-color: #ffffff;
+  border: 2px solid #e5e0d0;
+  border-radius: 8px;
+}
+
+/* アイコン（丸の中に大きな絵文字） */
+.friend-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  font-size: 26px;
+  background-color: #f5f1e6;
+  border: 2px solid #1e2040;
+  border-radius: 50%;
+}
+
+.friend-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.friend-info p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.friend-name {
+  font-size: 15px;
+  font-weight: bold;
+  color: #1e2040;
+}
+
+.friend-title {
+  font-size: 12px;
+  color: #b8860b;
+}
+
+.friend-today {
+  font-size: 13px;
+  font-weight: bold;
+  color: #2e6bd6;
+}
+
+.friend-message {
+  font-size: 12px;
+  color: #444444;
+}
+
+.friend-updated {
+  font-size: 11px;
+  color: #999999;
+}
+
+/* 「外す」のボタン（目立たない灰色） */
+.friend-remove-button {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  font-size: 11px;
+  color: #888888;
+  background: none;
+  border: 1px solid #cccccc;
+  border-radius: 6px;
+  cursor: pointer;
+}

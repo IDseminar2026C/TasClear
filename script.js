@@ -72,6 +72,23 @@ const shopCoins = document.getElementById("shop-coins");
 const shopList = document.getElementById("shop-list");
 const shopSale = document.getElementById("shop-sale"); // 日替わりセールの箱
 
+// フレンド画面の部品
+const friendsButton = document.getElementById("friends-button"); // 右上の 👥 ボタン
+const onlineStatus = document.getElementById("online-status"); // つながっているか
+const profilePreviewIcon = document.getElementById("profile-preview-icon");
+const myFriendCodeText = document.getElementById("my-friend-code");
+const copyCodeButton = document.getElementById("copy-code-button");
+const profileIconSelect = document.getElementById("profile-icon-select");
+const profileNameInput = document.getElementById("profile-name-input");
+const profileMessageInput = document.getElementById("profile-message-input");
+const profileSaveButton = document.getElementById("profile-save-button");
+const profileSaveText = document.getElementById("profile-save-text");
+const friendAddForm = document.getElementById("friend-add-form");
+const friendCodeInput = document.getElementById("friend-code-input");
+const friendAddText = document.getElementById("friend-add-text");
+const friendListHeading = document.getElementById("friend-list-heading");
+const friendList = document.getElementById("friend-list");
+
 const collectionSwitchButtons = document.querySelectorAll(".collection-switch-button");
 const collectionSections = {
   items: document.getElementById("collection-items"),
@@ -486,6 +503,34 @@ const SALE_RATE = 0.7;
 
 // 今日のセール（date：どの日のセールか、kind と id：セールの商品、bought：今日セールの値段で買ったか）
 let dailySale = { date: "", kind: "", id: "", bought: false };
+
+// ===== フレンド（オンライン）の設定 =====
+
+// Supabase のプロジェクトの URL と、公開してよいキー（Publishable key / anon key）
+// 空のままなら、フレンド機能はお休み（ほかの機能はそのまま使える）。作り方は supabase-setup.sql のいちばん上に書いてあります
+const SUPABASE_URL = "https://rmjuswlwspqkxurlaiis.supabase.co";
+const SUPABASE_KEY = "sb_publishable_3RUfY2Vu2uKEXzEoqExG2g_NsS5bAJ7";
+
+// プロフィールでえらべるアイコン
+const PROFILE_ICONS = ["🧑‍🌾", "⚔️", "🛡️", "🧙", "🏹", "👑", "🐱", "🐶", "🐼", "🐉", "🌟", "🍅", "📚", "🔥"];
+// フレンドコードに使う文字（まぎらわしい O・0・I・1 は使わない）と、文字数
+const FRIEND_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const FRIEND_CODE_LENGTH = 6;
+// フレンドの一覧を、念のため読みこみ直す間かく（1分）と、自分の情報を送るまで待つ時間（2秒。続けて変わったときにまとめて送る）
+const FRIEND_REFRESH_MS = 60000;
+const PROFILE_SYNC_DELAY_MS = 2000;
+
+// 自分のプロフィール（ニックネーム・アイコン・ひとこと）と、フレンドの id の一覧（どちらも tasclear-player に保存する）
+let profile = { nickname: "", icon: PROFILE_ICONS[0], message: "" };
+let friendIds = [];
+
+// Supabase とやりとりする道具（つながっていなければ null）、自分の id、自分のフレンドコード
+let onlineClient = null;
+let myUserId = "";
+let myFriendCode = "";
+// 読みこんだフレンドの情報（{ id: 行 } の形）と、自分の情報を送るまでのタイマー
+let friendProfiles = {};
+let profileSyncTimer = null;
 
 // ===== 卵とペット =====
 
@@ -2422,10 +2467,13 @@ function savePlayer() {
     petCrownOff: petCrownOff,
     dailyMission: dailyMission,
     dailySale: dailySale,
+    profile: profile,
+    friendIds: friendIds,
     missionClearCount: missionClearCount,
     missionPerfectCount: missionPerfectCount,
   };
   localStorage.setItem(PLAYER_KEY, JSON.stringify(player));
+  scheduleProfileSync(); // レベルや今日のポモドーロが変わったかもしれないので、少し待ってからフレンドに見える情報を送る
 }
 
 // localStorage から、保存しておいたプレイヤーの状態を取り出す
@@ -2473,6 +2521,8 @@ function loadPlayer() {
     petCrownOff = player.petCrownOff || {}; // 前の形の保存データには無いので、そのときは空（どのペットも王冠をつけている）
     dailyMission = loadDailyMission(player.dailyMission); // 前の形の保存データには無いので、そのときは「まだえらんでいない」
     dailySale = loadDailySale(player.dailySale); // 前の形の保存データには無いので、そのときは「まだえらんでいない」
+    profile = loadProfile(player.profile); // 前の形の保存データには無いので、そのときは、はじめのプロフィール
+    friendIds = Array.isArray(player.friendIds) ? player.friendIds.filter(function (id) { return typeof id === "string"; }) : [];
     missionClearCount = player.missionClearCount || 0; // 前の形の保存データには無いので、そのときは 0
     missionPerfectCount = player.missionPerfectCount || 0;
     console.log("プレイヤーの状態を読み込みました", player);
@@ -2509,6 +2559,8 @@ function loadPlayer() {
     petCrownOff = {};
     dailyMission = loadDailyMission(null);
     dailySale = loadDailySale(null);
+    profile = loadProfile(null);
+    friendIds = [];
     missionClearCount = 0;
     missionPerfectCount = 0;
     giveStarterPets(true); // データが壊れていたときも、初めての人と同じように、最初からいるペットを入れる
@@ -5108,6 +5160,354 @@ function getShopGroups() {
   return groups;
 }
 
+// ===== フレンド（オンライン） =====
+
+// 保存しておいたプロフィールを、使える形にして返す（無い・おかしいときは、はじめのプロフィール）
+function loadProfile(saved) {
+  if (!saved || typeof saved !== "object") {
+    return { nickname: "", icon: PROFILE_ICONS[0], message: "" };
+  }
+  return {
+    nickname: typeof saved.nickname === "string" ? saved.nickname : "",
+    icon: PROFILE_ICONS.includes(saved.icon) ? saved.icon : PROFILE_ICONS[0],
+    message: typeof saved.message === "string" ? saved.message : "",
+  };
+}
+
+// 「🟢 オンライン」などの、つながっているかの表示を変える
+function setOnlineStatus(text, isOn) {
+  onlineStatus.textContent = text;
+  onlineStatus.classList.toggle("is-on", isOn);
+}
+
+// Supabase につないで、自分のプロフィールを用意し、フレンドの一覧を読みこむ（ページを開いたときに1回）
+async function initOnline() {
+  renderProfile();
+  renderFriends();
+  if (SUPABASE_URL === "" || SUPABASE_KEY === "") {
+    setOnlineStatus("⚙️ オンラインの設定がまだです（supabase-setup.sql の手順を見てください）", false);
+    return;
+  }
+  if (!window.supabase) {
+    setOnlineStatus("📴 オフラインです（インターネットにつながると使えます）", false);
+    return;
+  }
+  try {
+    onlineClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    myUserId = await signInOnline();
+    await loadMyFriendCode();
+    await syncProfile();
+    await refreshFriends();
+    watchFriends();
+    setOnlineStatus("🟢 オンライン（フレンドの情報は自動で新しくなります）", true);
+  } catch (error) {
+    console.log("オンラインにつなげませんでした", error);
+    onlineClient = null; // つながらないときは、送ったり読みこんだりしない
+    setOnlineStatus("⚠️ つなげませんでした（" + error.message + "）", false);
+  }
+  renderProfile();
+}
+
+// ログインなしの「自分」を用意して、自分の id を返す（前に作っていれば、それを使う）
+async function signInOnline() {
+  const sessionResult = await onlineClient.auth.getSession();
+  if (sessionResult.data.session) {
+    return sessionResult.data.session.user.id;
+  }
+  const result = await onlineClient.auth.signInAnonymously();
+  if (result.error) {
+    throw result.error;
+  }
+  return result.data.user.id;
+}
+
+// 自分のフレンドコードを読みこむ（まだ無ければ、プロフィールの行を作る）
+async function loadMyFriendCode() {
+  const result = await onlineClient.from("profiles").select("friend_code").eq("id", myUserId).maybeSingle();
+  if (result.error) {
+    throw result.error;
+  }
+  if (result.data) {
+    myFriendCode = result.data.friend_code;
+    return;
+  }
+  await createMyProfile();
+}
+
+// 自分のプロフィールの行を作る（フレンドコードがほかの人と同じになったら、作り直す）
+async function createMyProfile() {
+  for (let i = 0; i < 5; i++) {
+    const code = makeFriendCode();
+    const row = Object.assign({ id: myUserId, friend_code: code }, makeProfileRow());
+    const result = await onlineClient.from("profiles").insert(row);
+    if (!result.error) {
+      myFriendCode = code;
+      return;
+    }
+    if (result.error.code !== "23505") {
+      throw result.error; // 23505 は「同じコードがもうある」。それ以外は、つなげなかった
+    }
+  }
+  throw new Error("フレンドコードを作れませんでした");
+}
+
+// ランダムなフレンドコード（「4F7K2Q」のような6文字）を作って返す
+function makeFriendCode() {
+  let code = "";
+  for (let i = 0; i < FRIEND_CODE_LENGTH; i++) {
+    code = code + FRIEND_CODE_CHARS[Math.floor(Math.random() * FRIEND_CODE_CHARS.length)];
+  }
+  return code;
+}
+
+// フレンドに見せる自分の情報（プロフィール・レベル・称号・今日のポモドーロと撃破の数）を返す
+function makeProfileRow() {
+  const today = getTodayString();
+  const level = getLevel();
+  return {
+    nickname: profile.nickname || "ぼうけんしゃ",
+    icon: profile.icon,
+    message: profile.message,
+    level: level,
+    title: getTitle(level).name,
+    today_focus: focusHistory[today] || 0,
+    today_defeats: defeatHistory[today] || 0,
+    stats_date: today,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+// 自分の情報を Supabase に送る（つながっていなければ何もしない）
+async function syncProfile() {
+  if (!onlineClient || myFriendCode === "") {
+    return;
+  }
+  const result = await onlineClient.from("profiles").update(makeProfileRow()).eq("id", myUserId);
+  if (result.error) {
+    console.log("自分の情報を送れませんでした", result.error);
+  }
+}
+
+// 少し待ってから自分の情報を送る（続けて変わったときは、最後の1回だけ送る）
+function scheduleProfileSync() {
+  if (!onlineClient) {
+    return;
+  }
+  clearTimeout(profileSyncTimer);
+  profileSyncTimer = setTimeout(syncProfile, PROFILE_SYNC_DELAY_MS);
+}
+
+// フレンドの情報を、まとめて読みこみ直す
+async function refreshFriends() {
+  if (!onlineClient) {
+    return;
+  }
+  if (friendIds.length > 0) {
+    const result = await onlineClient.from("profiles").select("*").in("id", friendIds);
+    if (result.error) {
+      console.log("フレンドの情報を読みこめませんでした", result.error);
+      return;
+    }
+    friendProfiles = {};
+    result.data.forEach(function (row) {
+      friendProfiles[row.id] = row;
+    });
+  }
+  renderFriends();
+}
+
+// フレンドの情報が変わったら、すぐ一覧に出す（Supabase のリアルタイム）
+// 念のため、1分ごとにも読みこみ直す（「〇分前」の表示も新しくなる）
+function watchFriends() {
+  onlineClient
+    .channel("friend-profiles")
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, function (payload) {
+      if (friendIds.includes(payload.new.id)) {
+        friendProfiles[payload.new.id] = payload.new;
+        renderFriends();
+      }
+    })
+    .subscribe();
+  setInterval(function () {
+    if (document.visibilityState === "visible") {
+      refreshFriends();
+    }
+  }, FRIEND_REFRESH_MS);
+}
+
+// 「➕ フレンドを追加」：フレンドコードの人をさがして、フレンドの一覧に入れる
+async function addFriend(event) {
+  event.preventDefault();
+  const code = friendCodeInput.value.trim().toUpperCase();
+  const error = checkFriendCode(code);
+  if (error !== "") {
+    friendAddText.textContent = error;
+    return;
+  }
+  const result = await onlineClient.from("profiles").select("*").eq("friend_code", code).maybeSingle();
+  if (result.error || !result.data) {
+    friendAddText.textContent = "そのコードの人は見つかりませんでした";
+    return;
+  }
+  if (friendIds.includes(result.data.id)) {
+    friendAddText.textContent = result.data.nickname + " さんは、もうフレンドです";
+    return;
+  }
+  friendIds.push(result.data.id);
+  friendProfiles[result.data.id] = result.data;
+  savePlayer();
+  renderFriends();
+  friendCodeInput.value = "";
+  friendAddText.textContent = "🎉 " + result.data.nickname + " さんをフレンドに追加しました";
+}
+
+// 追加する前に、フレンドコードを確かめる（だめなら理由、よければ "" を返す）
+function checkFriendCode(code) {
+  if (!onlineClient) {
+    return "オンラインにつながっていないので、追加できません";
+  }
+  if (code.length !== FRIEND_CODE_LENGTH) {
+    return FRIEND_CODE_LENGTH + "文字のフレンドコードを入れてください";
+  }
+  if (code === myFriendCode) {
+    return "それは、あなたのフレンドコードです";
+  }
+  return "";
+}
+
+// フレンドを一覧から外す（確認してから。相手の一覧からは消えない）
+function removeFriend(id) {
+  const row = friendProfiles[id];
+  const name = row ? row.nickname : "このフレンド";
+  if (!confirm(name + " さんを、フレンドの一覧から外しますか？")) {
+    return;
+  }
+  friendIds = friendIds.filter(function (friendId) {
+    return friendId !== id;
+  });
+  delete friendProfiles[id];
+  savePlayer();
+  renderFriends();
+}
+
+// フレンドの一覧を表示し直す
+function renderFriends() {
+  friendListHeading.textContent = "📋 フレンド一覧（" + friendIds.length + "人）";
+  friendList.innerHTML = "";
+  if (friendIds.length === 0) {
+    const empty = document.createElement("li");
+    empty.className = "category-filter-empty";
+    empty.textContent = "まだフレンドがいません。友だちのフレンドコードを入れて追加しよう";
+    friendList.appendChild(empty);
+    return;
+  }
+  friendIds.forEach(function (id) {
+    if (friendProfiles[id]) {
+      friendList.appendChild(createFriendItem(friendProfiles[id]));
+    }
+  });
+}
+
+// フレンド1人分の行（アイコン・名前とレベル・称号・今日のポモドーロと撃破・ひとこと・更新した時間・外すボタン）を作って返す
+function createFriendItem(row) {
+  const item = document.createElement("li");
+  item.className = "friend-item";
+  const icon = document.createElement("span");
+  icon.className = "friend-icon";
+  icon.textContent = row.icon;
+  const info = document.createElement("div");
+  info.className = "friend-info";
+  info.append(
+    makeFriendLine("friend-name", row.nickname + "  Lv" + row.level),
+    makeFriendLine("friend-title", row.title),
+    makeFriendLine("friend-today", makeFriendTodayText(row))
+  );
+  if (row.message) {
+    info.appendChild(makeFriendLine("friend-message", "💬 " + row.message));
+  }
+  info.appendChild(makeFriendLine("friend-updated", "🕒 " + formatAgo(row.updated_at) + "の情報"));
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "friend-remove-button";
+  button.textContent = "外す";
+  button.addEventListener("click", function () {
+    removeFriend(row.id);
+  });
+  item.append(icon, info, button);
+  return item;
+}
+
+// フレンドの行の、1行分の文字を作って返す
+function makeFriendLine(className, text) {
+  const line = document.createElement("p");
+  line.className = className;
+  line.textContent = text;
+  return line;
+}
+
+// 「今日 🍅 3回 ・ ⚔️ 5体」の文字を返す（フレンドが今日まだ何もしていなければ 0）
+function makeFriendTodayText(row) {
+  const isToday = row.stats_date === getTodayString();
+  const focus = isToday ? row.today_focus : 0;
+  const defeats = isToday ? row.today_defeats : 0;
+  return "今日 🍅 " + focus + "回 ・ ⚔️ " + defeats + "体";
+}
+
+// 「たった今」「5分前」「3時間前」「2日前」のような文字を返す
+function formatAgo(isoText) {
+  const minutes = Math.floor((Date.now() - new Date(isoText).getTime()) / 60000);
+  if (minutes < 1) {
+    return "たった今";
+  }
+  if (minutes < 60) {
+    return minutes + "分前";
+  }
+  if (minutes < 60 * 24) {
+    return Math.floor(minutes / 60) + "時間前";
+  }
+  return Math.floor(minutes / (60 * 24)) + "日前";
+}
+
+// 自分のプロフィールの欄（アイコン・ニックネーム・ひとこと・フレンドコード）を表示し直す
+function renderProfile() {
+  if (profileIconSelect.options.length === 0) {
+    PROFILE_ICONS.forEach(function (icon) {
+      const option = document.createElement("option");
+      option.value = icon;
+      option.textContent = icon;
+      profileIconSelect.appendChild(option);
+    });
+  }
+  profileIconSelect.value = profile.icon;
+  profileNameInput.value = profile.nickname;
+  profileMessageInput.value = profile.message;
+  profilePreviewIcon.textContent = profile.icon;
+  myFriendCodeText.textContent = myFriendCode || "------";
+  copyCodeButton.disabled = myFriendCode === "";
+}
+
+// 「プロフィールを保存」：入れた内容を保存して、すぐフレンドに見えるように送る
+function saveProfile() {
+  profile = {
+    nickname: profileNameInput.value.trim().slice(0, 12),
+    icon: profileIconSelect.value,
+    message: profileMessageInput.value.trim().slice(0, 30),
+  };
+  savePlayer();
+  syncProfile();
+  renderProfile();
+  profileSaveText.textContent = onlineClient ? "✅ 保存しました（フレンドにも見えます）" : "✅ 保存しました（オンラインにつながったら、フレンドに見えます）";
+}
+
+// 「コピー」：自分のフレンドコードをコピーする（LINE などで友だちに送れる）
+function copyFriendCode() {
+  navigator.clipboard.writeText(myFriendCode).then(function () {
+    copyCodeButton.textContent = "コピーした";
+  }).catch(function () {
+    prompt("このコードを友だちに送ってください", myFriendCode); // コピーできないブラウザでは、選んでコピーしてもらう
+  });
+}
+
 // ===== 日替わりセール =====
 
 // 保存しておいた今日のセールを、使える形にして返す（無い・おかしいときは「まだえらんでいない」）
@@ -6284,6 +6684,7 @@ function showPage(pageId) {
 
   // 設定画面を開いているときは、⚙️ ボタンを目立たせる（タブはどれも選んでいない色になる）
   settingsButton.classList.toggle("is-active", pageId === "page-settings");
+  friendsButton.classList.toggle("is-active", pageId === "page-friends"); // フレンド画面のときは 👥 ボタンを目立たせる
 }
 
 // レベルを Lv1 に戻す（確認してから）
@@ -6874,6 +7275,20 @@ timerSoundSelect.addEventListener("change", changeFocusSound);
 timerFocusSelect.addEventListener("change", changeTimerLength);
 timerBreakSelect.addEventListener("change", changeTimerLength);
 
+// 右上の 👥 ボタンが押されたとき：フレンド画面を開いて、フレンドの情報を読みこみ直す
+friendsButton.addEventListener("click", function () {
+  showPage("page-friends");
+  refreshFriends();
+});
+
+// フレンド画面のボタン（プロフィールの保存・フレンドコードのコピー・フレンドの追加）
+profileSaveButton.addEventListener("click", saveProfile);
+copyCodeButton.addEventListener("click", copyFriendCode);
+friendAddForm.addEventListener("submit", addFriend);
+profileIconSelect.addEventListener("change", function () {
+  profilePreviewIcon.textContent = profileIconSelect.value; // えらんだアイコンを、すぐ見せる（保存はボタンで）
+});
+
 // 右上の ⚙️ ボタンが押されたとき：設定画面を開く
 settingsButton.addEventListener("click", function () {
   showPage("page-settings");
@@ -6964,10 +7379,14 @@ if (prepareDailySale()) {
 }
 renderShop();
 
+// フレンド機能：オンラインの保存場所につないで、自分の情報を送り、フレンドの情報を読みこむ
+initOnline();
+
 // 別のタブやアプリからもどってきたとき：開いたまま日付が変わっていたら、ログインボーナスをわたす
 document.addEventListener("visibilitychange", function () {
   if (document.visibilityState === "visible") {
     checkLoginBonus();
     checkDailyMissions(true); // 日付が変わっていたら、新しいミッションにする
+    refreshFriends(); // もどってきたら、フレンドの情報も読みこみ直す
   }
 });
