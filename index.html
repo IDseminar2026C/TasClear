@@ -81,6 +81,15 @@
     <!-- ===== メイン画面 ===== -->
     <div id="page-main" class="page">
 
+    <!-- 今日のミッション（毎日3つ。クリアすると 🪙。見出しを押すと閉じる・開く）。中身は JavaScript で作ります -->
+    <section class="mission-card">
+      <button id="mission-toggle" class="mission-toggle" type="button">📋 今日のミッション（0/3） △</button>
+      <div id="mission-body">
+        <ul id="mission-list" class="mission-list"></ul>
+        <p id="mission-bonus" class="mission-bonus"></p>
+      </div>
+    </section>
+
     <!-- 主人公（勇者）のドット絵。絵は JavaScript で描きます -->
     <div class="hero-area">
       <!-- ランクの星（★ が今のランク、☆ が残り）。中身は JavaScript で書き換えます -->
@@ -217,6 +226,8 @@
         <h2 class="gacha-title">🛒 ショップ</h2>
         <p id="shop-coins" class="collection-count">🪙 0 コイン</p>
         <p class="equip-help">ほしいものの「買う」を押すと、コインで買えます。🛒 限定のものは、ショップでしか買えません</p>
+        <!-- 日替わりセール（毎日1つ、30%引き。セールの値段で買えるのは1日1回）。中身は JavaScript で作ります -->
+        <div id="shop-sale" class="shop-sale"></div>
         <div id="shop-list"></div>
       </section>
     </div>

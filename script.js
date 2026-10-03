@@ -31,6 +31,11 @@ const categoryInput = document.getElementById("category-input"); // クエスト
 // 「他のタスク ▽」のボタン
 const otherToggle = document.getElementById("other-toggle");
 const categoryFilterBox = document.getElementById("category-filter"); // 他のタスクを、カテゴリでしぼりこむボタンの箱
+// 今日のミッションのカード（開く・閉じるボタン、中身の箱、ミッションの一覧、ボーナスの説明）
+const missionToggle = document.getElementById("mission-toggle");
+const missionBody = document.getElementById("mission-body");
+const missionList = document.getElementById("mission-list");
+const missionBonus = document.getElementById("mission-bonus");
 const otherSwitch = document.getElementById("other-switch"); // 「他のタスク」「🗓️ 明日以降」の切りかえボタンの箱
 const otherSwitchButtons = document.querySelectorAll(".other-switch-button"); // その切りかえボタン（2つ）
 const futureList = document.getElementById("future-list"); // 明日以降の予定のクエストの一覧
@@ -65,6 +70,7 @@ const gachaSections = {
 };
 const shopCoins = document.getElementById("shop-coins");
 const shopList = document.getElementById("shop-list");
+const shopSale = document.getElementById("shop-sale"); // 日替わりセールの箱
 
 const collectionSwitchButtons = document.querySelectorAll(".collection-switch-button");
 const collectionSections = {
@@ -278,6 +284,32 @@ const LOGIN_BONUS_COINS = [20, 30, 40, 50, 60, 70, 200];
 let lastLoginDate = "";
 let loginStreak = 0;
 
+// デイリーミッションの種類。group ごとに1つずつえらんで、毎日3つ出す
+// target は「何回やればクリアか」、getProgress は「今日ここまで何回やったか」を返す
+const DAILY_MISSION_TYPES = [
+  { id: "defeat3", group: "defeat", text: "3体 撃破する（日課もOK）", target: 3, getProgress: countTodayDefeats },
+  { id: "defeat5", group: "defeat", text: "5体 撃破する（日課もOK）", target: 5, getProgress: countTodayDefeats },
+  { id: "focus1", group: "focus", text: "ポモドーロで1回 集中する", target: 1, getProgress: countTodayFocuses },
+  { id: "focus2", group: "focus", text: "ポモドーロで2回 集中する", target: 2, getProgress: countTodayFocuses },
+  { id: "habitAll", group: "extra", text: "今日の日課を全部やる", target: 1, getProgress: countHabitAllDone },
+  { id: "add2", group: "extra", text: "クエストを2つ追加する", target: 2, getProgress: countTodayAddedQuests },
+];
+const DAILY_MISSION_GROUPS = ["defeat", "focus", "extra"];
+
+// ミッションを1つクリアしたときのコインと、3つ全部クリアしたときのボーナスのコイン
+const DAILY_MISSION_COINS = 30;
+const DAILY_MISSION_BONUS_COINS = 50;
+
+// 今日のミッション（date：どの日のミッションか、ids：ミッションの id 3つ、cleared：クリアした id、bonus：ボーナスをもらったか）
+let dailyMission = { date: "", ids: [], cleared: {}, bonus: false };
+
+// ミッションをクリアした回数の合計と、3つ全部クリアした日の数（実績のために数える）
+let missionClearCount = 0;
+let missionPerfectCount = 0;
+
+// 今日のミッションのカードが開いているか（保存しない。再読み込みすると開いている）
+let isMissionOpen = true;
+
 // ガチャ1回に使うコイン
 const GACHA_COST = 50;
 
@@ -448,6 +480,12 @@ const SHOP_ITEM_PRICES = { 1: 100, 2: 300, 3: 1000 };
 
 // ショップで売る卵の値段（卵の種類ごと）
 const SHOP_EGG_PRICES = { white: 250, blue: 500, gold: 1000 };
+
+// 日替わりセールの値段は、元の値段の何倍か（0.7 ＝ 30%引き）
+const SALE_RATE = 0.7;
+
+// 今日のセール（date：どの日のセールか、kind と id：セールの商品、bought：今日セールの値段で買ったか）
+let dailySale = { date: "", kind: "", id: "", bought: false };
 
 // ===== 卵とペット =====
 
@@ -1798,6 +1836,7 @@ function checkLoginBonus() {
   savePlayer();
   renderGacha(); // コインの数の表示を新しくする
   addLoginBonusEffect(loginStreak, bonus);
+  checkAchievements(true); // 「皆勤賞」（7日目）がとれたら、ログインボーナスの演出のあとに出す
   console.log("ログインボーナス", loginStreak + "日目", bonus);
 }
 
@@ -1810,6 +1849,167 @@ function addLoginBonusEffect(day, bonus) {
     restartAnimation(effectOverlay, "is-celebrate");
     playSparkleSound();
   }, CELEBRATE_EFFECT_TIME);
+}
+
+// ===== デイリーミッション =====
+
+// 保存しておいた今日のミッションを、使える形にして返す（無い・おかしいときは「まだえらんでいない」）
+function loadDailyMission(saved) {
+  if (!saved || typeof saved.date !== "string" || !Array.isArray(saved.ids)) {
+    return { date: "", ids: [], cleared: {}, bonus: false };
+  }
+  return {
+    date: saved.date,
+    ids: saved.ids.filter(getMissionType), // 表にないミッションは外す
+    cleared: saved.cleared || {},
+    bonus: saved.bonus === true,
+  };
+}
+
+// id のミッションの種類を返す（見つからなければ undefined）
+function getMissionType(id) {
+  return DAILY_MISSION_TYPES.find(function (type) {
+    return type.id === id;
+  });
+}
+
+// 今日撃破した数（日課もふくむ）を返す
+function countTodayDefeats() {
+  return defeatHistory[getTodayString()] || 0;
+}
+
+// 今日ポモドーロで集中した回数を返す
+function countTodayFocuses() {
+  return focusHistory[getTodayString()] || 0;
+}
+
+// 今日やる日課を全部やったら 1、まだなら 0 を返す（今日やる日課が無いときも 0）
+function countHabitAllDone() {
+  return habits.some(isHabitScheduledToday) && countRemainingHabits() === 0 ? 1 : 0;
+}
+
+// 今日追加したクエストの数を返す
+function countTodayAddedQuests() {
+  const today = getTodayString();
+  return quests.filter(function (quest) {
+    return quest.createdDate === today;
+  }).length;
+}
+
+// 日付が変わっていたら、今日のミッションを3つえらびなおす（group ごとにランダムで1つずつ）
+// 今日やる日課が無い日は、「今日の日課を全部やる」はえらばない
+function prepareDailyMissions() {
+  const today = getTodayString();
+  if (dailyMission.date === today && dailyMission.ids.length > 0) {
+    return;
+  }
+  const ids = DAILY_MISSION_GROUPS.map(function (group) {
+    const choices = DAILY_MISSION_TYPES.filter(function (type) {
+      return type.group === group && (type.id !== "habitAll" || habits.some(isHabitScheduledToday));
+    });
+    return choices[Math.floor(Math.random() * choices.length)].id;
+  });
+  dailyMission = { date: today, ids: ids, cleared: {}, bonus: false };
+}
+
+// ミッションの、今日の進み具合を返す（目標の数より大きくはしない）
+function getMissionProgress(type) {
+  return Math.min(type.getProgress(), type.target);
+}
+
+// 新しくクリアしたミッションがあれば、コインをわたして保存する（showEffect が true なら演出も出す）
+// 3つ全部クリアしたら、ボーナスのコインもわたす
+function checkDailyMissions(showEffect) {
+  prepareDailyMissions();
+  const newOnes = dailyMission.ids.filter(function (id) {
+    const type = getMissionType(id);
+    return !dailyMission.cleared[id] && getMissionProgress(type) >= type.target;
+  });
+  newOnes.forEach(function (id) {
+    dailyMission.cleared[id] = true;
+    coins = coins + DAILY_MISSION_COINS;
+    missionClearCount = missionClearCount + 1;
+  });
+  const isAllNow = !dailyMission.bonus && countClearedMissions() === dailyMission.ids.length;
+  if (isAllNow) {
+    dailyMission.bonus = true;
+    missionPerfectCount = missionPerfectCount + 1;
+    coins = coins + DAILY_MISSION_BONUS_COINS;
+  }
+  if (newOnes.length > 0) {
+    savePlayer();
+    renderGacha(); // コインの数の表示を新しくする
+  }
+  renderDailyMissions();
+  if (showEffect && newOnes.length > 0) {
+    addMissionEffect(newOnes, isAllNow);
+  }
+  if (newOnes.length > 0) {
+    checkAchievements(showEffect); // ミッションの実績がとれたら、ミッションの演出のあとに出す
+  }
+}
+
+// 今日のミッションのうち、クリアした数を返す
+function countClearedMissions() {
+  return dailyMission.ids.filter(function (id) {
+    return dailyMission.cleared[id];
+  }).length;
+}
+
+// 「📋 ミッションクリア！」の演出を、順番待ちの列に並べる（全部クリアなら、ボーナスも書く）
+function addMissionEffect(ids, isAll) {
+  const names = ids.map(function (id) {
+    return getMissionType(id).text;
+  });
+  let text = "📋 ミッションクリア！\n" + names.join("\n") + "\n🪙 +" + DAILY_MISSION_COINS * ids.length;
+  if (isAll) {
+    text = text + "\n🎉 全部クリア！ 🪙 +" + DAILY_MISSION_BONUS_COINS;
+  }
+  addEffect(function () {
+    clearEffectClasses();
+    effectText.textContent = text;
+    restartAnimation(effectOverlay, "is-celebrate");
+    playSparkleSound();
+  }, CELEBRATE_EFFECT_TIME);
+}
+
+// 今日のミッションのカードを表示し直す（見出しに「1/3」、ミッション1つずつに ✅・進み具合・コイン）
+function renderDailyMissions() {
+  prepareDailyMissions();
+  const arrow = isMissionOpen ? "△" : "▽";
+  missionToggle.textContent = "📋 今日のミッション（" + countClearedMissions() + "/" + dailyMission.ids.length + "） " + arrow;
+  missionBody.hidden = !isMissionOpen;
+  missionList.innerHTML = "";
+  dailyMission.ids.forEach(function (id) {
+    missionList.appendChild(createMissionItem(getMissionType(id)));
+  });
+  missionBonus.textContent = dailyMission.bonus
+    ? "🎉 全部クリア！ ボーナス 🪙 " + DAILY_MISSION_BONUS_COINS + " もらいました"
+    : "3つ全部クリアで、ボーナス 🪙 +" + DAILY_MISSION_BONUS_COINS;
+}
+
+// ミッション1つ分の行を作って返す（「⬜ 3体 撃破する　1/3　🪙30」。クリアしたら ✅ にして、うすくする）
+function createMissionItem(type) {
+  const isCleared = dailyMission.cleared[type.id] === true;
+  const item = document.createElement("li");
+  item.className = "mission-item" + (isCleared ? " is-cleared" : "");
+  const name = document.createElement("span");
+  name.className = "mission-name";
+  name.textContent = (isCleared ? "✅ " : "⬜ ") + type.text;
+  const progress = document.createElement("span");
+  progress.className = "mission-progress";
+  progress.textContent = (isCleared ? type.target : getMissionProgress(type)) + "/" + type.target;
+  const reward = document.createElement("span");
+  reward.className = "mission-reward";
+  reward.textContent = "🪙" + DAILY_MISSION_COINS;
+  item.append(name, progress, reward);
+  return item;
+}
+
+// 今日のミッションのカードを、開いていれば閉じ、閉じていれば開く
+function toggleDailyMissions() {
+  isMissionOpen = !isMissionOpen;
+  renderDailyMissions();
 }
 
 // 今日がボス戦の日（設定画面でえらんだ曜日。はじめは日曜日）かどうかを返す（「なし」なら、いつも false）
@@ -2220,6 +2420,10 @@ function savePlayer() {
     rewardedAchievements: rewardedAchievements,
     petFriendship: petFriendship,
     petCrownOff: petCrownOff,
+    dailyMission: dailyMission,
+    dailySale: dailySale,
+    missionClearCount: missionClearCount,
+    missionPerfectCount: missionPerfectCount,
   };
   localStorage.setItem(PLAYER_KEY, JSON.stringify(player));
 }
@@ -2267,6 +2471,10 @@ function loadPlayer() {
     rewardedAchievements = player.rewardedAchievements || {}; // 前の形の保存データには無いので、そのときは空（まだ1つもコインをわたしていない）
     petFriendship = player.petFriendship || {}; // 前の形の保存データには無いので、そのときは空（どのペットも Lv1）
     petCrownOff = player.petCrownOff || {}; // 前の形の保存データには無いので、そのときは空（どのペットも王冠をつけている）
+    dailyMission = loadDailyMission(player.dailyMission); // 前の形の保存データには無いので、そのときは「まだえらんでいない」
+    dailySale = loadDailySale(player.dailySale); // 前の形の保存データには無いので、そのときは「まだえらんでいない」
+    missionClearCount = player.missionClearCount || 0; // 前の形の保存データには無いので、そのときは 0
+    missionPerfectCount = player.missionPerfectCount || 0;
     console.log("プレイヤーの状態を読み込みました", player);
   } catch (error) {
     console.log("プレイヤーの保存データが壊れていたので、0 から始めます");
@@ -2299,6 +2507,10 @@ function loadPlayer() {
     rewardedAchievements = {};
     petFriendship = {};
     petCrownOff = {};
+    dailyMission = loadDailyMission(null);
+    dailySale = loadDailySale(null);
+    missionClearCount = 0;
+    missionPerfectCount = 0;
     giveStarterPets(true); // データが壊れていたときも、初めての人と同じように、最初からいるペットを入れる
   }
 }
@@ -3182,6 +3394,7 @@ function createDefeatButton(quest, index, text, className) {
     addDefeatEffects(1, quest.exp, levelBefore, getLevel(), countBefore, todayCount);
     addPendingPetLevelUpEffects(); // ペットのレベルが上がっていたら、撃破の演出のあとに出す
     checkAchievements(true); // 新しくとれた実績があれば、演出を出す（撃破の演出のあとに並ぶ）
+    checkDailyMissions(true); // 今日のミッションをクリアしていれば、コインをわたして演出を出す
   });
   return button;
 }
@@ -3237,6 +3450,7 @@ function defeatSelectedQuests() {
   addDefeatEffects(targets.length, totalGain, levelBefore, getLevel(), countBefore, todayCount);
   addPendingPetLevelUpEffects(); // ペットのレベルが上がっていたら、撃破の演出のあとに出す
   checkAchievements(true); // 新しくとれた実績があれば、演出を出す（撃破の演出のあとに並ぶ）
+  checkDailyMissions(true); // 今日のミッションをクリアしていれば、コインをわたして演出を出す
 }
 
 // クエスト1つ分の「選ぶ」チェックボックスを作って返す（まとめて撃破するクエストを選ぶため）
@@ -4339,6 +4553,7 @@ function renderQuests() {
 
   // 毎日の習慣のカードも表示し直す（レベルアップ中に撃破ボタンを隠すのも、ここで反映する）
   renderHabits();
+  renderDailyMissions(); // 日課やクエストがふえたり減ったりしたら、ミッションの進み具合も表示し直す
 
   // カレンダーも表示し直す（締切や撃破の数が変わったときのため）
   renderCalendar();
@@ -4893,9 +5108,91 @@ function getShopGroups() {
   return groups;
 }
 
+// ===== 日替わりセール =====
+
+// 保存しておいた今日のセールを、使える形にして返す（無い・おかしいときは「まだえらんでいない」）
+function loadDailySale(saved) {
+  if (!saved || typeof saved.date !== "string" || typeof saved.id !== "string") {
+    return { date: "", kind: "", id: "", bought: false };
+  }
+  return { date: saved.date, kind: saved.kind, id: saved.id, bought: saved.bought === true };
+}
+
+// ショップの売りものを全部、{ thing, rank } の形で1つの配列にして返す
+function getAllShopThings() {
+  const all = [];
+  getShopGroups().forEach(function (group) {
+    group.things.forEach(function (thing) {
+      all.push({ thing: thing, rank: group.rank });
+    });
+  });
+  return all;
+}
+
+// 日付が変わっていたら、今日のセールの商品をランダムに1つえらぶ（もう持っているショップ限定の装備はえらばない）
+// 新しくえらんだら true を返す（保存は、よぶ側でする）
+function prepareDailySale() {
+  const today = getTodayString();
+  if (dailySale.date === today && findSaleEntry()) {
+    return false;
+  }
+  const choices = getAllShopThings().filter(function (entry) {
+    return !(entry.thing.limited && entry.thing.owned > 0);
+  });
+  const picked = choices[Math.floor(Math.random() * choices.length)].thing;
+  dailySale = { date: today, kind: picked.kind, id: picked.id, bought: false };
+  return true;
+}
+
+// 今日のセールの商品を { thing, rank } で返す（見つからなければ undefined）
+function findSaleEntry() {
+  return getAllShopThings().find(function (entry) {
+    return entry.thing.kind === dailySale.kind && entry.thing.id === dailySale.id;
+  });
+}
+
+// セールの値段を返す（元の値段の 70%。10の位でそろえる）
+function getSalePrice(price) {
+  return Math.round((price * SALE_RATE) / 10) * 10;
+}
+
+// ショップのいちばん上の「🔥 本日のセール」の箱を表示し直す
+function renderShopSale() {
+  prepareDailySale();
+  const entry = findSaleEntry();
+  const saleThing = Object.assign({}, entry.thing, { price: getSalePrice(entry.thing.price), isSale: true });
+  shopSale.innerHTML = "";
+  const heading = document.createElement("h3");
+  heading.className = "shop-heading shop-sale-heading";
+  heading.textContent = "🔥 本日のセール（" + Math.round((1 - SALE_RATE) * 100) + "%引き）";
+  const row = createShopRow(saleThing, entry.rank);
+  row.classList.add("is-sale");
+  showSalePrice(row, entry.thing.price, saleThing.price);
+  if (dailySale.bought) {
+    const button = row.querySelector(".shop-buy-button");
+    button.textContent = "売り切れ";
+    button.disabled = true;
+  }
+  const help = document.createElement("p");
+  help.className = "shop-sale-help";
+  help.textContent = dailySale.bought ? "本日は売り切れ（下の一覧では、いつもの値段で買えます）" : "セールの値段で買えるのは1日1回。明日は別の商品になります";
+  shopSale.append(heading, row, help);
+}
+
+// セールの行の値段を「~~🪙1,000~~ 🪙700」（元の値段に線）にする
+function showSalePrice(row, oldPrice, newPrice) {
+  const price = row.querySelector(".shop-price");
+  price.textContent = "";
+  const old = document.createElement("s");
+  old.className = "shop-old-price";
+  old.textContent = "🪙" + oldPrice.toLocaleString();
+  price.append(old, " 🪙" + newPrice.toLocaleString());
+}
+
 // ショップのページを表示し直す（コインの数と、見出しごとの売りもの）
 function renderShop() {
   shopCoins.textContent = "🪙 " + coins.toLocaleString() + " コイン";
+  renderShopSale();
   shopList.innerHTML = "";
   getShopGroups().forEach(function (group) {
     const heading = document.createElement("h3");
@@ -4957,6 +5254,9 @@ function buyShopThing(thing) {
     return;
   }
   coins = coins - thing.price;
+  if (thing.isSale) {
+    dailySale.bought = true; // セールの値段で買えるのは1日1回
+  }
   if (thing.kind === "egg") {
     eggs[thing.id] = (eggs[thing.id] || 0) + 1;
   } else if (thing.kind === "pet") {
@@ -5091,6 +5391,7 @@ function finishTimer() {
     // セットしている卵を育てる（決まった回数になったら、かえる）
     growEgg();
     checkAchievements(true); // 新しくとれた実績があれば、演出を出す（卵がかえったときも、ここで確かめる）
+    checkDailyMissions(true); // 今日のミッションをクリアしていれば、コインをわたして演出を出す
   } else {
     addTimerEffect("☕ 休けいおわり！\n次の集中をはじめよう", false);
     timerMode = "focus";
@@ -5492,20 +5793,25 @@ const ACHIEVEMENTS = [
   { id: "defeat-10", coins: 100, name: "見習いハンター", condition: "合計 10体 撃破する", check: function () { return countAllDefeats() >= 10; } },
   { id: "defeat-50", coins: 200, name: "一人前ハンター", condition: "合計 50体 撃破する", check: function () { return countAllDefeats() >= 50; } },
   { id: "defeat-100", coins: 500, name: "伝説のハンター", condition: "合計 100体 撃破する", check: function () { return countAllDefeats() >= 100; } },
+  { id: "defeat-300", coins: 500, name: "歴戦の勇者", condition: "合計 300体 撃破する", check: function () { return countAllDefeats() >= 300; } },
   // 🔥 連続
   { id: "streak-3", coins: 100, name: "三日坊主じゃない", condition: "3日連続で 1体以上 撃破する", check: function () { return countLongestStreak() >= 3; } },
   { id: "streak-7", coins: 200, name: "一週間の勇者", condition: "7日連続で 1体以上 撃破する", check: function () { return countLongestStreak() >= 7; } },
+  { id: "streak-30", coins: 500, name: "一か月の勇者", condition: "30日連続で 1体以上 撃破する", check: function () { return countLongestStreak() >= 30; } },
   // ⭐ レベル
   { id: "level-3", coins: 50, name: "戦士になった", condition: "Lv3 になる", check: function () { return getLevel() >= 3; } },
   { id: "level-5", coins: 100, name: "勇者になった", condition: "Lv5 になる", check: function () { return getLevel() >= 5; } },
   { id: "level-10", coins: 200, name: "竜殺し", condition: "Lv10 になる", check: function () { return getLevel() >= 10; } },
   { id: "level-20", coins: 500, name: "神話の勇者", condition: "Lv20 になる", check: function () { return getLevel() >= 20; } },
+  { id: "level-30", coins: 1000, name: "勇者王", condition: "Lv30 になる", check: function () { return getLevel() >= 30; } },
   // 🍅 集中
   { id: "focus-1", coins: 50, name: "はじめての集中", condition: "集中タイムを 合計 1回 終える", check: function () { return sumValues(focusHistory) >= 1; } },
   { id: "focus-20", coins: 200, name: "集中マスター", condition: "集中タイムを 合計 20回 終える", check: function () { return sumValues(focusHistory) >= 20; } },
+  { id: "focus-100", coins: 500, name: "集中の達人", condition: "集中タイムを 合計 100回 終える", check: function () { return sumValues(focusHistory) >= 100; } },
   // 🔁 習慣
   { id: "habit-1", coins: 50, name: "日課の第一歩", condition: "日課を 合計 1回 クリアする", check: function () { return countHabitClears() >= 1; } },
   { id: "habit-30", coins: 200, name: "日課の達人", condition: "日課を 合計 30回 クリアする", check: function () { return countHabitClears() >= 30; } },
+  { id: "habit-100", coins: 500, name: "日課の鬼", condition: "日課を 合計 100回 クリアする", check: function () { return countHabitClears() >= 100; } },
   // 🎰 ガチャ
   { id: "gacha-10", coins: 50, name: "コレクター", condition: "図鑑のアイテムを 10種類 集める", check: function () { return countOwnedItems(GACHA_ITEMS) >= 10; } },
   { id: "gacha-super", coins: 100, name: "スーパーレア", condition: "★★★ のアイテムを 1つ 手に入れる", check: function () { return hasSuperRareItem(); } },
@@ -5514,11 +5820,34 @@ const ACHIEVEMENTS = [
   { id: "pet-hatch", coins: 50, name: "はじめての孵化", condition: "卵を 1回 かえす", check: function () { return hasHatchedEgg(); } },
   { id: "pet-5", coins: 100, name: "ペットなかま", condition: "ペットを 5種類 なかまにする", check: function () { return countPetKinds() >= 5; } },
   { id: "pet-all", coins: 500, name: "ペットマスター", condition: "ペットを 11種類 全部 なかまにする", check: function () { return countPetKinds() >= countNormalPets(); } },
+  { id: "pet-lv5", coins: 200, name: "なかよしマスター", condition: "ペットを1匹 Lv5 にする", check: function () { return hasMaxLevelPet(); } },
   // 👾 モンスター
   { id: "monster-golden", coins: 100, name: "黄金の出会い", condition: "ゴールデンスライムを たおす", check: function () { return (monsterDefeats[RARE_MONSTER.id] || 0) > 0; } },
   { id: "monster-5", coins: 100, name: "モンスター博士", condition: "モンスターを 5種類 たおす", check: function () { return countMonsterKinds() >= 5; } },
   { id: "monster-all", coins: 500, name: "モンスター図鑑コンプリート", condition: "モンスターを 11種類 全部 たおす", check: function () { return countMonsterKinds() >= MONSTERS.length + 1; } },
+  { id: "monster-dragon", coins: 200, name: "ドラゴンハンター", condition: "ドラゴンを 合計 10体 たおす", check: function () { return (monsterDefeats[MONSTERS[0].id] || 0) >= 10; } },
+  // 🎁 ログイン・🗓️ 予定
+  { id: "login-7", coins: 200, name: "皆勤賞", condition: "ログインボーナスの 7日目 をもらう", check: function () { return loginStreak >= LOGIN_BONUS_COINS.length; } },
+  { id: "plan-1", coins: 50, name: "計画の勇者", condition: "やる日を付けたクエストを 1体 撃破する", check: function () { return hasDefeatedPlanQuest(); } },
+  // 📋 ミッション
+  { id: "mission-1", coins: 50, name: "はじめてのミッション", condition: "ミッションを 1つ クリアする", check: function () { return missionClearCount >= 1; } },
+  { id: "mission-perfect", coins: 100, name: "パーフェクトデイ", condition: "1日のミッションを 3つ全部 クリアする", check: function () { return missionPerfectCount >= 1; } },
+  { id: "mission-30", coins: 300, name: "ミッションの達人", condition: "ミッションを 合計 30回 クリアする", check: function () { return missionClearCount >= 30; } },
 ];
+
+// Lv5（いちばん上）のペットが1匹でもいるかを返す
+function hasMaxLevelPet() {
+  return Object.keys(petFriendship).some(function (petId) {
+    return getPetLevel(petId) >= PET_LEVEL_STEPS.length;
+  });
+}
+
+// やる日を付けたクエストを撃破したことがあるかを返す（撃破済みの一覧に残っているクエストで確かめる）
+function hasDefeatedPlanQuest() {
+  return quests.some(function (quest) {
+    return quest.done && Boolean(quest.planDate);
+  });
+}
 
 // { a: 2, b: 3 } のような記録の、数を全部たして返す
 function sumValues(record) {
@@ -6255,6 +6584,7 @@ function defeatHabit(index) {
   addDefeatEffects(1, habit.exp, levelBefore, getLevel(), countBefore, todayCount);
   addPendingPetLevelUpEffects(); // ペットのレベルが上がっていたら、撃破の演出のあとに出す
   checkAchievements(true); // 新しくとれた実績があれば、演出を出す
+  checkDailyMissions(true); // 今日のミッションをクリアしていれば、コインをわたして演出を出す
 }
 
 // index 番目の習慣を削除する（もらったEXPは減らさない）
@@ -6453,6 +6783,7 @@ questForm.addEventListener("submit", function (event) {
     addQuest(questName, deadlineInput.value, categoryInput.value, planInput.value); // 締切・やる日が空ならなし、カテゴリが「なし」なら札なし
   }
   renderQuests(); // この中で、習慣のカードも表示し直す
+  checkDailyMissions(true); // 「クエストを2つ追加する」のミッションをクリアしていれば、コインをわたす
 
   // 締切とやる日の欄も空に戻す
   deadlineInput.value = "";
@@ -6474,6 +6805,9 @@ habitCheckbox.addEventListener("change", function () {
 
 // 「他のタスク ▽」のボタンが押されたとき
 otherToggle.addEventListener("click", toggleOtherQuests);
+
+// 「📋 今日のミッション」の見出しが押されたとき：カードを閉じる・開く
+missionToggle.addEventListener("click", toggleDailyMissions);
 
 // 「他のタスク」「🗓️ 明日以降」の切りかえボタンが押されたとき
 otherSwitchButtons.forEach(function (button) {
@@ -6621,9 +6955,19 @@ renderAchievements();
 // その日はじめて開いたときは、ログインボーナスをわたす
 checkLoginBonus();
 
+// 今日のミッションを用意して表示する（もうクリアしているミッションがあれば、コインをわたす）
+checkDailyMissions(true);
+
+// 今日のセールの商品を用意して保存し、ショップを表示し直す
+if (prepareDailySale()) {
+  savePlayer();
+}
+renderShop();
+
 // 別のタブやアプリからもどってきたとき：開いたまま日付が変わっていたら、ログインボーナスをわたす
 document.addEventListener("visibilitychange", function () {
   if (document.visibilityState === "visible") {
     checkLoginBonus();
+    checkDailyMissions(true); // 日付が変わっていたら、新しいミッションにする
   }
 });
