@@ -408,6 +408,13 @@
         <!-- つながっているか（「🟢 オンライン」など）。中身は JavaScript で書き換えます -->
         <p id="online-status" class="online-status">⏳ つないでいます…</p>
 
+        <!-- 「👥 フレンド」と「🏰 ギルド」の切りかえボタン（押したほうだけを出す） -->
+        <div class="today-switch">
+          <button class="today-switch-button social-switch-button is-active" type="button" data-social="friend">👥 フレンド</button>
+          <button class="today-switch-button social-switch-button" type="button" data-social="guild">🏰 ギルド</button>
+        </div>
+
+        <div id="friend-view">
         <!-- 自分のプロフィール（フレンドに見える名前・アイコン・ひとこと） -->
         <h3 class="settings-heading">🙂 自分のプロフィール</h3>
         <div class="profile-preview">
@@ -444,6 +451,54 @@
         <!-- フレンドの一覧（レベル・今日のポモドーロなど。自動で新しくなる）。中身は JavaScript で作ります -->
         <h3 id="friend-list-heading" class="settings-heading">📋 フレンド一覧</h3>
         <ul id="friend-list" class="friend-list"></ul>
+        </div>
+
+        <!-- ===== ギルド（フレンドと協力してボスをたおす） ===== -->
+        <div id="guild-view" hidden>
+          <!-- まだギルドに入っていないとき：作る・入る -->
+          <div id="guild-join-box">
+            <p class="settings-help guild-help">クエストや日課を撃破すると、ギルドのボスにダメージ！ みんなで協力してたおすと 🪙 がもらえます。締切・やる日をすぎたクエストがあると、仲間がダメージを受けます</p>
+            <h3 class="settings-heading">🏰 ギルドを作る</h3>
+            <form id="guild-create-form" class="quest-form">
+              <input id="guild-name-input" type="text" maxlength="16" placeholder="ギルドの名前（16文字まで）" autocomplete="off">
+              <button type="submit">作る</button>
+            </form>
+            <h3 class="settings-heading">🚪 ギルドに入る</h3>
+            <form id="guild-join-form" class="quest-form">
+              <input id="guild-code-input" type="text" maxlength="6" placeholder="ギルドコード（6文字）" autocomplete="off">
+              <button type="submit">入る</button>
+            </form>
+            <p id="guild-join-text" class="settings-help"></p>
+          </div>
+
+          <!-- ギルドに入っているとき：ボス・メンバー・お知らせ -->
+          <div id="guild-box" hidden>
+            <div class="profile-preview">
+              <div>
+                <p id="guild-name" class="guild-name">ギルド</p>
+                <p class="friend-code-label">ギルドコード <strong id="guild-code" class="guild-code">------</strong></p>
+              </div>
+              <button id="guild-copy-button" class="shop-buy-button" type="button">コピー</button>
+            </div>
+
+            <!-- ギルドのボス（ドット絵・名前・HP のバー）。中身は JavaScript で書き換えます -->
+            <div class="guild-boss">
+              <canvas id="guild-boss-canvas" class="guild-boss-canvas" width="32" height="32" aria-label="ギルドのボスのドット絵"></canvas>
+              <p id="guild-boss-name" class="guild-boss-name">Lv1 ボス</p>
+              <div class="guild-hp-bar is-boss"><div id="guild-boss-hp-fill" class="guild-hp-fill"></div></div>
+              <p id="guild-boss-hp-text" class="guild-boss-hp-text">HP 0 / 0</p>
+            </div>
+            <p class="settings-help guild-help">⚔️ 撃破すると EXP と同じだけダメージ（自分の HP も 5 回復）。たおすと全員に 🪙100<br>⚠️ 締切・やる日をすぎたクエストがあると、1日1回、仲間が 1こにつき 5 ダメージ（20 まで）。HP 0 の人は「気絶」して、ダメージが半分</p>
+
+            <h3 id="guild-member-heading" class="settings-heading">🛡️ メンバー</h3>
+            <ul id="guild-member-list" class="friend-list"></ul>
+
+            <h3 class="settings-heading">📜 ギルドのお知らせ</h3>
+            <ul id="guild-log-list" class="guild-log-list"></ul>
+
+            <button id="guild-leave-button" class="friend-remove-button guild-leave-button" type="button">ギルドを抜ける</button>
+          </div>
+        </div>
       </section>
     </div>
 

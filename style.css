@@ -2899,3 +2899,120 @@ span.category-label {
   border-radius: 6px;
   cursor: pointer;
 }
+
+/* ===== ギルド ===== */
+
+/* ギルドの説明 */
+.guild-help {
+  margin: 0 0 8px;
+  line-height: 1.6;
+}
+
+/* ギルドの名前（大きく）とギルドコード */
+.guild-name {
+  margin: 0;
+  font-size: 17px;
+  font-weight: bold;
+  color: #1e2040;
+  overflow-wrap: anywhere;
+}
+
+.guild-code {
+  letter-spacing: 2px;
+  font-size: 14px;
+  color: #1e2040;
+}
+
+/* ボスの箱（こい紺の背景に、ドット絵・名前・HP のバー） */
+.guild-boss {
+  margin-bottom: 8px;
+  padding: 12px;
+  text-align: center;
+  background-color: #1e2040;
+  border-radius: 10px;
+}
+
+.guild-boss-canvas {
+  width: auto;
+  height: 110px;
+  image-rendering: pixelated;
+}
+
+.guild-boss-name {
+  margin: 4px 0 6px;
+  font-size: 16px;
+  font-weight: bold;
+  color: #ffd76a;
+}
+
+.guild-boss-hp-text {
+  margin: 4px 0 0;
+  font-size: 13px;
+  font-weight: bold;
+  color: #ffffff;
+}
+
+/* HP のバー（外がわの枠と、のびる中身。メンバーは緑、ボスは赤） */
+.guild-hp-bar {
+  height: 10px;
+  margin: 3px 0;
+  overflow: hidden;
+  background-color: #e5e0d0;
+  border-radius: 5px;
+}
+
+.guild-hp-bar.is-boss {
+  height: 14px;
+  background-color: #44476b;
+  border-radius: 7px;
+}
+
+.guild-hp-fill {
+  height: 100%;
+  background-color: #2e9e4f;
+  transition: width 0.4s;
+}
+
+.guild-hp-bar.is-boss .guild-hp-fill {
+  background-color: #d64545;
+}
+
+.guild-hp-fill.is-warning {
+  background-color: #d4a017;
+}
+
+.guild-hp-fill.is-danger {
+  background-color: #d64545;
+}
+
+/* 自分の行は、金色の枠 */
+.friend-item.is-me {
+  border-color: #d4a017;
+}
+
+/* お知らせの一覧 */
+.guild-log-list {
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+}
+
+.guild-log-item {
+  padding: 5px 0;
+  font-size: 12px;
+  color: #333333;
+  border-top: 1px dashed #c9c2ad;
+}
+
+/* お知らせの時間（「5分前」） */
+.guild-log-time {
+  margin-right: 6px;
+  font-size: 11px;
+  color: #999999;
+}
+
+/* 「ギルドを抜ける」のボタン（右はしに、目立たないように） */
+.guild-leave-button {
+  display: block;
+  margin-left: auto;
+}

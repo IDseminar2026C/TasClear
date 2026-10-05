@@ -89,6 +89,29 @@ const friendAddText = document.getElementById("friend-add-text");
 const friendListHeading = document.getElementById("friend-list-heading");
 const friendList = document.getElementById("friend-list");
 
+// フレンド画面の「👥 フレンド」「🏰 ギルド」の切りかえと、ギルドの部品
+const socialSwitchButtons = document.querySelectorAll(".social-switch-button");
+const friendView = document.getElementById("friend-view");
+const guildView = document.getElementById("guild-view");
+const guildJoinBox = document.getElementById("guild-join-box");
+const guildCreateForm = document.getElementById("guild-create-form");
+const guildNameInput = document.getElementById("guild-name-input");
+const guildJoinForm = document.getElementById("guild-join-form");
+const guildCodeInput = document.getElementById("guild-code-input");
+const guildJoinText = document.getElementById("guild-join-text");
+const guildBox = document.getElementById("guild-box");
+const guildNameText = document.getElementById("guild-name");
+const guildCodeText = document.getElementById("guild-code");
+const guildCopyButton = document.getElementById("guild-copy-button");
+const guildBossCanvas = document.getElementById("guild-boss-canvas");
+const guildBossName = document.getElementById("guild-boss-name");
+const guildBossHpFill = document.getElementById("guild-boss-hp-fill");
+const guildBossHpText = document.getElementById("guild-boss-hp-text");
+const guildMemberHeading = document.getElementById("guild-member-heading");
+const guildMemberList = document.getElementById("guild-member-list");
+const guildLogList = document.getElementById("guild-log-list");
+const guildLeaveButton = document.getElementById("guild-leave-button");
+
 const collectionSwitchButtons = document.querySelectorAll(".collection-switch-button");
 const collectionSections = {
   items: document.getElementById("collection-items"),
@@ -531,6 +554,35 @@ let myFriendCode = "";
 // 読みこんだフレンドの情報（{ id: 行 } の形）と、自分の情報を送るまでのタイマー
 let friendProfiles = {};
 let profileSyncTimer = null;
+
+// ===== ギルドの設定 =====
+
+// ギルドのボスの表（ボスのレベルごとに上から順に出る。最後まで行ったら、また最初から）。絵はモンスターのドット絵を使う
+const GUILD_BOSSES = [
+  { monsterId: "slime", name: "キングスライム" },
+  { monsterId: "goblin", name: "ゴブリンキング" },
+  { monsterId: "skeleton", name: "ガイコツ王" },
+  { monsterId: "golem", name: "古代ゴーレム" },
+  { monsterId: "ogre", name: "オーガ大将" },
+  { monsterId: "dragon", name: "魔竜" },
+];
+const GUILD_BOSS_COINS = 100; // ボスを1体たおすたびに、メンバー全員がもらえるコイン
+const GUILD_MAX_MEMBERS = 10;
+const GUILD_ATTACK_DELAY_MS = 1500; // 撃破してから、ダメージを送るまで待つ時間（まとめて撃破したときに1回で送る）
+const GUILD_LOG_COUNT = 8; // お知らせを、新しい順に何こ出すか
+
+// フレンド画面で、どちらを出しているか（"friend"＝フレンド、"guild"＝ギルド）
+let socialView = "friend";
+// 入っているギルド（入っていなければ null）、そのメンバー、メンバーのプロフィール（{ id: 行 }）、お知らせ
+let myGuild = null;
+let guildMembers = [];
+let guildProfiles = {};
+let guildLogs = [];
+// まだ送っていないダメージと、送るまでのタイマー。ギルドを読みこみ直すまでのタイマー
+let pendingGuildDamage = 0;
+let guildAttackTimer = null;
+let guildReloadTimer = null;
+let guildReloadCount = 0; // 何回目の読みこみか（古い結果で上書きしないため）
 
 // ===== 卵とペット =====
 
@@ -5184,6 +5236,7 @@ function setOnlineStatus(text, isOn) {
 async function initOnline() {
   renderProfile();
   renderFriends();
+  renderGuild();
   if (SUPABASE_URL === "" || SUPABASE_KEY === "") {
     setOnlineStatus("⚙️ オンラインの設定がまだです（supabase-setup.sql の手順を見てください）", false);
     return;
@@ -5199,6 +5252,9 @@ async function initOnline() {
     await syncProfile();
     await refreshFriends();
     watchFriends();
+    await reloadGuild();
+    watchGuild();
+    checkProcrastination(); // 先延ばし（すぎたクエスト）があれば、1日1回、仲間がダメージを受ける
     setOnlineStatus("🟢 オンライン（フレンドの情報は自動で新しくなります）", true);
   } catch (error) {
     console.log("オンラインにつなげませんでした", error);
@@ -5209,10 +5265,16 @@ async function initOnline() {
 }
 
 // ログインなしの「自分」を用意して、自分の id を返す（前に作っていれば、それを使う）
+// 前の「自分」が Supabase で消されていたら（ブラウザに古いログイン情報だけ残っていたら）、作り直す
 async function signInOnline() {
   const sessionResult = await onlineClient.auth.getSession();
   if (sessionResult.data.session) {
-    return sessionResult.data.session.user.id;
+    const userResult = await onlineClient.auth.getUser(); // Supabase に、この「自分」がまだいるか確かめる
+    if (!userResult.error && userResult.data.user) {
+      return userResult.data.user.id;
+    }
+    console.log("前の「自分」が見つからないので、作り直します", userResult.error);
+    await onlineClient.auth.signOut({ scope: "local" }); // ブラウザに残った古いログイン情報だけを消す
   }
   const result = await onlineClient.auth.signInAnonymously();
   if (result.error) {
@@ -5312,6 +5374,7 @@ async function refreshFriends() {
     result.data.forEach(function (row) {
       friendProfiles[row.id] = row;
     });
+    removeMissingFriends();
   }
   renderFriends();
 }
@@ -5333,6 +5396,17 @@ function watchFriends() {
       refreshFriends();
     }
   }, FRIEND_REFRESH_MS);
+}
+
+// Supabase で見つからなかった（消された）フレンドを、一覧から外して保存する
+function removeMissingFriends() {
+  const found = friendIds.filter(function (id) {
+    return friendProfiles[id] !== undefined;
+  });
+  if (found.length !== friendIds.length) {
+    friendIds = found;
+    savePlayer();
+  }
 }
 
 // 「➕ フレンドを追加」：フレンドコードの人をさがして、フレンドの一覧に入れる
@@ -5505,6 +5579,331 @@ function copyFriendCode() {
     copyCodeButton.textContent = "コピーした";
   }).catch(function () {
     prompt("このコードを友だちに送ってください", myFriendCode); // コピーできないブラウザでは、選んでコピーしてもらう
+  });
+}
+
+// ===== ギルド（オンライン） =====
+
+// 「👥 フレンド」「🏰 ギルド」を切りかえる（ギルドを出すときは、読みこみ直す）
+function switchSocialView(view) {
+  socialView = view;
+  friendView.hidden = view !== "friend";
+  guildView.hidden = view !== "guild";
+  socialSwitchButtons.forEach(function (button) {
+    button.classList.toggle("is-active", button.dataset.social === view);
+  });
+  if (view === "guild") {
+    reloadGuild();
+  }
+}
+
+// 自分が入っているギルドを読みこみ直して、表示し直す（ボスをたおしていたら、ごほうびも受け取る）
+// 読みこみが重なったときは、いちばん新しい読みこみの結果だけを使う（古い結果で上書きしないため）
+async function reloadGuild() {
+  if (!onlineClient) {
+    renderGuild();
+    return;
+  }
+  guildReloadCount = guildReloadCount + 1;
+  const thisReload = guildReloadCount;
+  const result = await onlineClient.from("guild_members").select("guild_id").eq("user_id", myUserId).maybeSingle();
+  if (result.error) {
+    console.log("ギルドを読みこめませんでした", result.error);
+    return;
+  }
+  const detail = result.data ? await loadGuildDetail(result.data.guild_id) : { guild: null, members: [], logs: [], profiles: {} };
+  if (thisReload !== guildReloadCount) {
+    return; // あとから始めた読みこみがあるので、この結果は使わない
+  }
+  myGuild = detail.guild;
+  guildMembers = detail.members;
+  guildLogs = detail.logs;
+  guildProfiles = detail.profiles;
+  renderGuild();
+  claimGuildRewards();
+}
+
+// ギルド・メンバー・お知らせ・メンバーのプロフィールを、まとめて読みこんで返す
+async function loadGuildDetail(guildId) {
+  const results = await Promise.all([
+    onlineClient.from("guilds").select("*").eq("id", guildId).maybeSingle(),
+    onlineClient.from("guild_members").select("*").eq("guild_id", guildId).order("joined_at"),
+    onlineClient.from("guild_logs").select("*").eq("guild_id", guildId).order("id", { ascending: false }).limit(GUILD_LOG_COUNT),
+  ]);
+  const members = results[1].data || [];
+  const ids = members.map(function (member) {
+    return member.user_id;
+  });
+  const profileResult = await onlineClient.from("profiles").select("id, nickname, icon").in("id", ids);
+  const profiles = {};
+  (profileResult.data || []).forEach(function (row) {
+    profiles[row.id] = row;
+  });
+  return { guild: results[0].data, members: members, logs: results[2].data || [], profiles: profiles };
+}
+
+// 少し待ってから、ギルドを読みこみ直す（続けて変わったときは、最後の1回だけ）
+function scheduleGuildReload() {
+  clearTimeout(guildReloadTimer);
+  guildReloadTimer = setTimeout(reloadGuild, 500);
+}
+
+// ギルドの変化（ボスの HP・メンバー・お知らせ）を、リアルタイムで受け取る
+function watchGuild() {
+  const channel = onlineClient.channel("guild");
+  ["guilds", "guild_members", "guild_logs"].forEach(function (table) {
+    channel.on("postgres_changes", { event: "*", schema: "public", table: table }, function (payload) {
+      if (isMyGuildChange(payload)) {
+        scheduleGuildReload();
+      }
+    });
+  });
+  channel.subscribe();
+}
+
+// 変わったのが、自分のギルドのことかを返す
+function isMyGuildChange(payload) {
+  const row = Object.assign({}, payload.old, payload.new);
+  if (!myGuild) {
+    return row.user_id === myUserId; // まだ入っていないときは、自分が入ったときだけ
+  }
+  return row.id === myGuild.id || row.guild_id === myGuild.id || guildMembers.some(function (member) {
+    return member.user_id === row.user_id;
+  });
+}
+
+// 「🏰 ギルドを作る」
+async function createGuild(event) {
+  event.preventDefault();
+  const name = guildNameInput.value.trim();
+  if (name === "") {
+    guildJoinText.textContent = "ギルドの名前を入れてください";
+    return;
+  }
+  const result = await callGuildFunction("create_guild", { guild_name: name });
+  if (result) {
+    guildNameInput.value = "";
+    guildJoinText.textContent = "🎉 ギルド「" + name + "」を作りました。ギルドコードを友だちに送ろう";
+    await reloadGuild();
+  }
+}
+
+// 「🚪 ギルドに入る」
+async function joinGuild(event) {
+  event.preventDefault();
+  const code = guildCodeInput.value.trim().toUpperCase();
+  if (code.length !== FRIEND_CODE_LENGTH) {
+    guildJoinText.textContent = FRIEND_CODE_LENGTH + "文字のギルドコードを入れてください";
+    return;
+  }
+  const result = await callGuildFunction("join_guild", { guild_code: code });
+  if (result) {
+    guildCodeInput.value = "";
+    guildJoinText.textContent = "🎉 ギルド「" + result.data + "」に入りました";
+    await reloadGuild();
+  }
+}
+
+// ギルドの関数を Supabase で動かす（だめなときは、理由を出して null を返す）
+async function callGuildFunction(name, args) {
+  if (!onlineClient) {
+    guildJoinText.textContent = "オンラインにつながっていないので、使えません";
+    return null;
+  }
+  const result = await onlineClient.rpc(name, args);
+  if (result.error) {
+    guildJoinText.textContent = "⚠️ " + result.error.message;
+    return null;
+  }
+  return result;
+}
+
+// 「ギルドを抜ける」（確認してから。最後の1人なら、ギルドは消える）
+async function leaveGuild() {
+  if (!confirm("ギルド「" + myGuild.name + "」を抜けますか？")) {
+    return;
+  }
+  const result = await callGuildFunction("leave_guild", {});
+  if (result) {
+    guildJoinText.textContent = "ギルドを抜けました";
+    await reloadGuild();
+  }
+}
+
+// 「コピー」：ギルドコードをコピーする
+function copyGuildCode() {
+  navigator.clipboard.writeText(myGuild.code).then(function () {
+    guildCopyButton.textContent = "コピーした";
+  }).catch(function () {
+    prompt("このコードを友だちに送ってください", myGuild.code);
+  });
+}
+
+// 撃破したときに、ボスへのダメージ（EXP と同じ）をためておき、少し待ってから、まとめて送る
+function queueGuildDamage(exp) {
+  if (!onlineClient || !myGuild) {
+    return;
+  }
+  pendingGuildDamage = pendingGuildDamage + exp;
+  clearTimeout(guildAttackTimer);
+  guildAttackTimer = setTimeout(sendGuildDamage, GUILD_ATTACK_DELAY_MS);
+}
+
+// ためておいたダメージを、ボスに送る
+async function sendGuildDamage() {
+  const damage = pendingGuildDamage;
+  pendingGuildDamage = 0;
+  const result = await onlineClient.rpc("attack_guild_boss", { damage: damage });
+  if (result.error) {
+    console.log("ボスにダメージを送れませんでした", result.error);
+    return;
+  }
+  if (myGuild && result.data < myGuild.boss_hp) {
+    myGuild.boss_hp = myGuild.boss_hp - result.data; // 読みこみ直す前に、まず自分の画面のボスの HP をすぐへらす
+    renderGuild();
+  }
+  await reloadGuild();
+}
+
+// 締切・やる日をすぎて、まだ撃破していないクエストの数を返す
+function countOverdueQuests() {
+  const today = getTodayString();
+  return quests.filter(function (quest) {
+    const isLate = (quest.deadline && quest.deadline < today) || (quest.planDate && quest.planDate < today);
+    return !quest.done && Boolean(isLate);
+  }).length;
+}
+
+// 1日1回、先延ばし（すぎたクエスト）があれば、仲間がダメージを受ける（Supabase の関数で、1日1回だけになる）
+async function checkProcrastination() {
+  if (!onlineClient || !myGuild) {
+    return;
+  }
+  const count = countOverdueQuests();
+  const result = await onlineClient.rpc("punish_procrastination", { overdue_count: count });
+  if (result.error) {
+    console.log("先延ばしを確かめられませんでした", result.error);
+    return;
+  }
+  if (result.data > 0) {
+    addGuildEffect("⚠️ 先延ばしのクエストが " + count + "こ…\nギルドの仲間が " + result.data + " ダメージ！");
+    await reloadGuild();
+  }
+}
+
+// ギルドのボスをたおしていたら、ごほうびのコインを受け取る（入ってからたおした分だけ）
+async function claimGuildRewards() {
+  const me = findMyGuildMember();
+  if (!myGuild || !me || myGuild.boss_level <= me.claimed_level) {
+    return;
+  }
+  const result = await onlineClient.rpc("claim_guild_rewards");
+  if (result.error || !(result.data > 0)) {
+    return;
+  }
+  const bonus = result.data * GUILD_BOSS_COINS;
+  coins = coins + bonus;
+  savePlayer();
+  renderGacha(); // コインの数の表示を新しくする
+  addGuildEffect("🏰 ギルドボス撃破！\n" + (result.data > 1 ? result.data + "体分 " : "") + "🪙 +" + bonus);
+}
+
+// メンバーの中の、自分の行を返す
+function findMyGuildMember() {
+  return guildMembers.find(function (member) {
+    return member.user_id === myUserId;
+  });
+}
+
+// ギルドの演出（ボス撃破・先延ばし）を、順番待ちの列に並べる
+function addGuildEffect(text) {
+  addEffect(function () {
+    clearEffectClasses();
+    effectText.textContent = text;
+    restartAnimation(effectOverlay, "is-celebrate");
+    playSparkleSound();
+  }, CELEBRATE_EFFECT_TIME);
+}
+
+// ギルドの欄を表示し直す（入っていなければ「作る・入る」、入っていればボス・メンバー・お知らせ）
+function renderGuild() {
+  guildJoinBox.hidden = myGuild !== null;
+  guildBox.hidden = myGuild === null;
+  if (!myGuild) {
+    return;
+  }
+  guildNameText.textContent = "🏰 " + myGuild.name;
+  guildCodeText.textContent = myGuild.code;
+  renderGuildBoss();
+  renderGuildMembers();
+  renderGuildLogs();
+}
+
+// ボスのドット絵・名前・HP のバー
+function renderGuildBoss() {
+  const boss = GUILD_BOSSES[(myGuild.boss_level - 1) % GUILD_BOSSES.length];
+  const monster = MONSTERS.find(function (item) {
+    return item.id === boss.monsterId;
+  });
+  drawPixels(guildBossCanvas, monster.pixels);
+  guildBossName.textContent = "Lv" + myGuild.boss_level + " " + boss.name;
+  guildBossHpFill.style.width = (myGuild.boss_hp / myGuild.boss_max_hp) * 100 + "%";
+  guildBossHpText.textContent = "HP " + myGuild.boss_hp.toLocaleString() + " / " + myGuild.boss_max_hp.toLocaleString();
+}
+
+// メンバーの一覧
+function renderGuildMembers() {
+  guildMemberHeading.textContent = "🛡️ メンバー（" + guildMembers.length + " / " + GUILD_MAX_MEMBERS + "人）";
+  guildMemberList.innerHTML = "";
+  guildMembers.forEach(function (member) {
+    guildMemberList.appendChild(createGuildMemberItem(member));
+  });
+}
+
+// メンバー1人分の行（アイコン・名前・HP のバー・あたえたダメージの合計）を作って返す
+function createGuildMemberItem(member) {
+  const profileRow = guildProfiles[member.user_id] || { nickname: "だれか", icon: "❔" };
+  const isMe = member.user_id === myUserId;
+  const item = document.createElement("li");
+  item.className = "friend-item" + (isMe ? " is-me" : "");
+  const icon = document.createElement("span");
+  icon.className = "friend-icon";
+  icon.textContent = profileRow.icon;
+  const info = document.createElement("div");
+  info.className = "friend-info";
+  const name = profileRow.nickname + (isMe ? "（あなた）" : "") + (member.hp === 0 ? " 😵 気絶中" : "");
+  info.append(makeFriendLine("friend-name", name), createMemberHpBar(member.hp));
+  info.appendChild(makeFriendLine("friend-today", "❤️ " + member.hp + "/100 ・ ⚔️ 合計 " + member.total_damage.toLocaleString()));
+  item.append(icon, info);
+  return item;
+}
+
+// メンバーの HP のバー（少ないと黄色・赤になる）を作って返す
+function createMemberHpBar(hp) {
+  const bar = document.createElement("div");
+  bar.className = "guild-hp-bar";
+  const fill = document.createElement("div");
+  fill.className = "guild-hp-fill" + (hp <= 20 ? " is-danger" : hp <= 50 ? " is-warning" : "");
+  fill.style.width = hp + "%";
+  bar.appendChild(fill);
+  return bar;
+}
+
+// お知らせの一覧（新しい順）
+function renderGuildLogs() {
+  guildLogList.innerHTML = "";
+  if (guildLogs.length === 0) {
+    guildLogList.appendChild(createListMessage("まだお知らせはありません"));
+    return;
+  }
+  guildLogs.forEach(function (log) {
+    const item = document.createElement("li");
+    item.className = "guild-log-item";
+    const time = document.createElement("span");
+    time.className = "guild-log-time";
+    time.textContent = formatAgo(log.created_at);
+    item.append(time, log.message);
+    guildLogList.appendChild(item);
   });
 }
 
@@ -6802,6 +7201,8 @@ function giveDefeatRewards(exp, isRare, isQuest) {
   const today = getTodayString();
   defeatHistory[today] = (defeatHistory[today] || 0) + 1;
 
+  queueGuildDamage(exp); // ギルドに入っていれば、ボスに EXP と同じだけダメージ
+
   // 連れているペットの「なかよし」をふやす（レベルが上がったら、あとで演出を出す）
   growActivePets();
 
@@ -7285,6 +7686,17 @@ friendsButton.addEventListener("click", function () {
 profileSaveButton.addEventListener("click", saveProfile);
 copyCodeButton.addEventListener("click", copyFriendCode);
 friendAddForm.addEventListener("submit", addFriend);
+
+// 「👥 フレンド」「🏰 ギルド」の切りかえと、ギルドのボタン
+socialSwitchButtons.forEach(function (button) {
+  button.addEventListener("click", function () {
+    switchSocialView(button.dataset.social);
+  });
+});
+guildCreateForm.addEventListener("submit", createGuild);
+guildJoinForm.addEventListener("submit", joinGuild);
+guildCopyButton.addEventListener("click", copyGuildCode);
+guildLeaveButton.addEventListener("click", leaveGuild);
 profileIconSelect.addEventListener("change", function () {
   profilePreviewIcon.textContent = profileIconSelect.value; // えらんだアイコンを、すぐ見せる（保存はボタンで）
 });
@@ -7388,5 +7800,6 @@ document.addEventListener("visibilitychange", function () {
     checkLoginBonus();
     checkDailyMissions(true); // 日付が変わっていたら、新しいミッションにする
     refreshFriends(); // もどってきたら、フレンドの情報も読みこみ直す
+    reloadGuild().then(checkProcrastination); // ギルドも読みこみ直して、日付が変わっていたら先延ばしを確かめる
   }
 });
