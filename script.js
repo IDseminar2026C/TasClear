@@ -88,6 +88,7 @@ const friendCodeInput = document.getElementById("friend-code-input");
 const friendAddText = document.getElementById("friend-add-text");
 const friendListHeading = document.getElementById("friend-list-heading");
 const friendList = document.getElementById("friend-list");
+const stampList = document.getElementById("stamp-list"); // とどいた応援の一覧
 
 // フレンド画面の「👥 フレンド」「🏰 ギルド」の切りかえと、ギルドの部品
 const socialSwitchButtons = document.querySelectorAll(".social-switch-button");
@@ -554,6 +555,28 @@ let myFriendCode = "";
 // 読みこんだフレンドの情報（{ id: 行 } の形）と、自分の情報を送るまでのタイマー
 let friendProfiles = {};
 let profileSyncTimer = null;
+
+// ===== 応援スタンプの設定 =====
+
+// 送れるスタンプ（絵文字と、いっしょに出すことば）。Supabase の send_stamp でも、同じ絵文字だけを受けつける
+const STAMPS = [
+  { icon: "👍", text: "いいね！" },
+  { icon: "🔥", text: "がんばれ！" },
+  { icon: "💪", text: "ファイト！" },
+  { icon: "🎉", text: "おめでとう！" },
+  { icon: "🍅", text: "いっしょに集中しよう！" },
+  { icon: "👏", text: "すごい！" },
+];
+const STAMP_LIST_COUNT = 10; // とどいた応援を、新しい順に何こ出すか
+
+// とどいた応援（新しい順）と、送った人のプロフィール（{ id: 行 }）
+let receivedStamps = [];
+let stampSenders = {};
+// 最後に「とどいた応援」を見た時刻（これより新しいものが「まだ見ていない」。tasclear-player に保存する）
+let lastStampSeenAt = "";
+// スタンプをえらぶボタンを開いている相手の id（開いていなければ ""）と、送った結果の文字（{ id: 文字 }）
+let stampPickerFor = "";
+let stampSendTexts = {};
 
 // ===== ギルドの設定 =====
 
@@ -2521,6 +2544,7 @@ function savePlayer() {
     dailySale: dailySale,
     profile: profile,
     friendIds: friendIds,
+    lastStampSeenAt: lastStampSeenAt,
     missionClearCount: missionClearCount,
     missionPerfectCount: missionPerfectCount,
   };
@@ -2575,6 +2599,7 @@ function loadPlayer() {
     dailySale = loadDailySale(player.dailySale); // 前の形の保存データには無いので、そのときは「まだえらんでいない」
     profile = loadProfile(player.profile); // 前の形の保存データには無いので、そのときは、はじめのプロフィール
     friendIds = Array.isArray(player.friendIds) ? player.friendIds.filter(function (id) { return typeof id === "string"; }) : [];
+    lastStampSeenAt = typeof player.lastStampSeenAt === "string" ? player.lastStampSeenAt : ""; // 前の形の保存データには無いので、そのときは「まだ見ていない」
     missionClearCount = player.missionClearCount || 0; // 前の形の保存データには無いので、そのときは 0
     missionPerfectCount = player.missionPerfectCount || 0;
     console.log("プレイヤーの状態を読み込みました", player);
@@ -2613,6 +2638,7 @@ function loadPlayer() {
     dailySale = loadDailySale(null);
     profile = loadProfile(null);
     friendIds = [];
+    lastStampSeenAt = "";
     missionClearCount = 0;
     missionPerfectCount = 0;
     giveStarterPets(true); // データが壊れていたときも、初めての人と同じように、最初からいるペットを入れる
@@ -5237,6 +5263,7 @@ async function initOnline() {
   renderProfile();
   renderFriends();
   renderGuild();
+  renderStamps();
   if (SUPABASE_URL === "" || SUPABASE_KEY === "") {
     setOnlineStatus("⚙️ オンラインの設定がまだです（supabase-setup.sql の手順を見てください）", false);
     return;
@@ -5254,6 +5281,8 @@ async function initOnline() {
     watchFriends();
     await reloadGuild();
     watchGuild();
+    await loadReceivedStamps(true); // まだ見ていない応援スタンプがあれば、お知らせする
+    watchStamps();
     checkProcrastination(); // 先延ばし（すぎたクエスト）があれば、1日1回、仲間がダメージを受ける
     setOnlineStatus("🟢 オンライン（フレンドの情報は自動で新しくなります）", true);
   } catch (error) {
@@ -5394,6 +5423,7 @@ function watchFriends() {
   setInterval(function () {
     if (document.visibilityState === "visible") {
       refreshFriends();
+      loadReceivedStamps(false); // 開いた直後（リアルタイムが動きだす前）にとどいた応援も、ここで拾う
     }
   }, FRIEND_REFRESH_MS);
 }
@@ -5500,6 +5530,7 @@ function createFriendItem(row) {
     info.appendChild(makeFriendLine("friend-message", "💬 " + row.message));
   }
   info.appendChild(makeFriendLine("friend-updated", "🕒 " + formatAgo(row.updated_at) + "の情報"));
+  info.appendChild(createStampSender(row.id)); // 「📣 応援」のボタン
   const button = document.createElement("button");
   button.type = "button";
   button.className = "friend-remove-button";
@@ -5582,6 +5613,184 @@ function copyFriendCode() {
   });
 }
 
+// ===== 応援スタンプ（オンライン） =====
+
+// スタンプの絵文字から、表の行（絵文字とことば）を返す
+function getStamp(icon) {
+  return STAMPS.find(function (stamp) {
+    return stamp.icon === icon;
+  }) || { icon: icon, text: "" };
+}
+
+// とどいた応援を読みこみ直す（showNotice が true で、まだ見ていない応援があれば、「〇こ とどいています」の演出を出す）
+async function loadReceivedStamps(showNotice) {
+  if (!onlineClient) {
+    return;
+  }
+  const result = await onlineClient.from("stamps").select("*").eq("to_user", myUserId)
+    .order("created_at", { ascending: false }).limit(STAMP_LIST_COUNT);
+  if (result.error) {
+    console.log("応援を読みこめませんでした", result.error);
+    return;
+  }
+  receivedStamps = result.data;
+  await loadStampSenders();
+  renderStamps();
+  const unread = countUnreadStamps();
+  if (showNotice && unread > 0) {
+    addGuildEffect("📣 応援スタンプが " + unread + "こ\nとどいています！\n（👥 で見られます）");
+  }
+}
+
+// 応援を送ってくれた人のプロフィールを読みこむ
+async function loadStampSenders() {
+  const ids = receivedStamps.map(function (stamp) {
+    return stamp.from_user;
+  });
+  if (ids.length === 0) {
+    return;
+  }
+  const result = await onlineClient.from("profiles").select("id, nickname, icon").in("id", ids);
+  (result.data || []).forEach(function (row) {
+    stampSenders[row.id] = row;
+  });
+}
+
+// まだ見ていない応援の数を返す（最後に見た時刻より新しいもの）
+function countUnreadStamps() {
+  return receivedStamps.filter(function (stamp) {
+    return lastStampSeenAt === "" || stamp.created_at > lastStampSeenAt;
+  }).length;
+}
+
+// 自分あての応援がとどいたら、すぐ演出を出して、一覧に入れる（Supabase のリアルタイム）
+function watchStamps() {
+  onlineClient
+    .channel("stamps")
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "stamps", filter: "to_user=eq." + myUserId }, receiveStamp)
+    .subscribe(function (status) {
+      if (status === "SUBSCRIBED") {
+        loadReceivedStamps(false); // つながるまでのあいだにとどいた応援も、取りこぼさないように読みこみ直す
+      }
+    });
+}
+
+// 応援が1つとどいたとき
+async function receiveStamp(payload) {
+  const stamp = payload.new;
+  receivedStamps = [stamp].concat(receivedStamps).slice(0, STAMP_LIST_COUNT);
+  await loadStampSenders();
+  const sender = stampSenders[stamp.from_user];
+  const stampInfo = getStamp(stamp.stamp);
+  addGuildEffect("📣 " + (sender ? sender.nickname : "だれか") + " さんから\n" + stampInfo.icon + " " + stampInfo.text);
+  const isLooking = !document.getElementById("page-friends").hidden && !friendView.hidden;
+  if (isLooking) {
+    markStampsSeen(); // とどいた応援の一覧を見ているときは、そのまま見たことにする
+  } else {
+    renderStamps(); // 見ていないときは、まだ見ていないことにする（👥 に数を出す）
+  }
+}
+
+// とどいた応援を見たことにする（フレンド画面を開いたとき）
+function markStampsSeen() {
+  if (receivedStamps.length > 0) {
+    lastStampSeenAt = receivedStamps[0].created_at;
+    savePlayer();
+  }
+  renderStamps();
+}
+
+// とどいた応援の一覧と、👥 ボタンの「まだ見ていない数」を表示し直す
+function renderStamps() {
+  const unread = countUnreadStamps();
+  if (unread > 0) {
+    friendsButton.dataset.badge = unread > 9 ? "9+" : String(unread);
+  } else {
+    delete friendsButton.dataset.badge;
+  }
+  stampList.innerHTML = "";
+  if (receivedStamps.length === 0) {
+    stampList.appendChild(createListMessage("まだ応援はとどいていません"));
+    return;
+  }
+  receivedStamps.forEach(function (stamp) {
+    stampList.appendChild(createStampItem(stamp));
+  });
+}
+
+// とどいた応援1つ分の行（「5分前 🧙 ミナ さんから 🔥 がんばれ！」）を作って返す
+function createStampItem(stamp) {
+  const sender = stampSenders[stamp.from_user] || { nickname: "だれか", icon: "❔" };
+  const stampInfo = getStamp(stamp.stamp);
+  const item = document.createElement("li");
+  item.className = "guild-log-item stamp-item";
+  const time = document.createElement("span");
+  time.className = "guild-log-time";
+  time.textContent = formatAgo(stamp.created_at);
+  const big = document.createElement("span");
+  big.className = "stamp-icon";
+  big.textContent = stampInfo.icon;
+  item.append(time, sender.icon + " " + sender.nickname + " さんから ", big, " " + stampInfo.text);
+  return item;
+}
+
+// フレンドやギルドの仲間の行に付ける「📣 応援」のボタンと、スタンプをえらぶボタンの列を作って返す
+function createStampSender(userId) {
+  const box = document.createElement("div");
+  box.className = "stamp-sender";
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "stamp-toggle-button";
+  toggle.textContent = stampPickerFor === userId ? "📣 とじる" : "📣 応援";
+  toggle.addEventListener("click", function () {
+    stampPickerFor = stampPickerFor === userId ? "" : userId;
+    renderFriends();
+    renderGuild();
+  });
+  box.appendChild(toggle);
+  if (stampPickerFor === userId) {
+    box.appendChild(createStampPicker(userId));
+  }
+  if (stampSendTexts[userId]) {
+    box.appendChild(makeFriendLine("stamp-send-text", stampSendTexts[userId]));
+  }
+  return box;
+}
+
+// スタンプをえらぶボタンの列（👍 🔥 💪 🎉 🍅 👏）を作って返す
+function createStampPicker(userId) {
+  const picker = document.createElement("div");
+  picker.className = "stamp-picker";
+  STAMPS.forEach(function (stamp) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "stamp-button";
+    button.textContent = stamp.icon;
+    button.title = stamp.text;
+    button.addEventListener("click", function () {
+      sendStamp(userId, stamp);
+    });
+    picker.appendChild(button);
+  });
+  return picker;
+}
+
+// スタンプを送る（同じ人には1日5回まで。Supabase の関数で確かめる）
+async function sendStamp(userId, stamp) {
+  if (!onlineClient) {
+    return;
+  }
+  const result = await onlineClient.rpc("send_stamp", { target: userId, stamp_text: stamp.icon });
+  if (result.error) {
+    stampSendTexts[userId] = "⚠️ " + result.error.message;
+  } else {
+    stampSendTexts[userId] = stamp.icon + " " + stamp.text + " を送りました（今日あと " + result.data + "回）";
+    stampPickerFor = "";
+  }
+  renderFriends();
+  renderGuild();
+}
+
 // ===== ギルド（オンライン） =====
 
 // 「👥 フレンド」「🏰 ギルド」を切りかえる（ギルドを出すときは、読みこみ直す）
@@ -5594,6 +5803,9 @@ function switchSocialView(view) {
   });
   if (view === "guild") {
     reloadGuild();
+  }
+  if (view === "friend") {
+    markStampsSeen();
   }
 }
 
@@ -5874,6 +6086,9 @@ function createGuildMemberItem(member) {
   const name = profileRow.nickname + (isMe ? "（あなた）" : "") + (member.hp === 0 ? " 😵 気絶中" : "");
   info.append(makeFriendLine("friend-name", name), createMemberHpBar(member.hp));
   info.appendChild(makeFriendLine("friend-today", "❤️ " + member.hp + "/100 ・ ⚔️ 合計 " + member.total_damage.toLocaleString()));
+  if (!isMe) {
+    info.appendChild(createStampSender(member.user_id)); // 仲間には「📣 応援」のボタン
+  }
   item.append(icon, info);
   return item;
 }
@@ -7680,6 +7895,9 @@ timerBreakSelect.addEventListener("change", changeTimerLength);
 friendsButton.addEventListener("click", function () {
   showPage("page-friends");
   refreshFriends();
+  if (socialView === "friend") {
+    markStampsSeen(); // とどいた応援を見たことにして、👥 の数を消す
+  }
 });
 
 // フレンド画面のボタン（プロフィールの保存・フレンドコードのコピー・フレンドの追加）
@@ -7801,5 +8019,6 @@ document.addEventListener("visibilitychange", function () {
     checkDailyMissions(true); // 日付が変わっていたら、新しいミッションにする
     refreshFriends(); // もどってきたら、フレンドの情報も読みこみ直す
     reloadGuild().then(checkProcrastination); // ギルドも読みこみ直して、日付が変わっていたら先延ばしを確かめる
+    loadReceivedStamps(false); // とどいた応援も読みこみ直す
   }
 });

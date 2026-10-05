@@ -3016,3 +3016,79 @@ span.category-label {
   display: block;
   margin-left: auto;
 }
+
+/* ===== 応援スタンプ ===== */
+
+/* まだ見ていない応援があるときの 👥 ボタン（右上に赤い丸で数を出す） */
+.sound-button {
+  position: relative;
+}
+
+.sound-button[data-badge]::after {
+  content: attr(data-badge);
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  font-size: 11px;
+  font-weight: bold;
+  line-height: 18px;
+  color: #ffffff;
+  background-color: #d64545;
+  border: 2px solid #ffffff;
+  border-radius: 9px;
+  box-sizing: border-box;
+}
+
+/* とどいた応援の、大きめのスタンプ */
+.stamp-icon {
+  font-size: 18px;
+  vertical-align: middle;
+}
+
+/* 「📣 応援」のボタンと、えらぶボタンの列 */
+.stamp-sender {
+  margin-top: 4px;
+}
+
+.stamp-toggle-button {
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: bold;
+  color: #b8860b;
+  background-color: #fff8e1;
+  border: 1px solid #d4a017;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.stamp-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+/* スタンプ1つ分（指で押しやすい大きさ） */
+.stamp-button {
+  width: 40px;
+  height: 40px;
+  font-size: 22px;
+  background-color: #ffffff;
+  border: 2px solid #e5e0d0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.stamp-button:active {
+  transform: scale(0.9);
+}
+
+/* 「🔥 がんばれ！ を送りました」 */
+.friend-info .stamp-send-text {
+  margin-top: 2px;
+  font-size: 11px;
+  color: #2e9e4f;
+}

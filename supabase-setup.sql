@@ -254,3 +254,48 @@ begin
   alter publication supabase_realtime add table public.guild_logs;
 exception when duplicate_object then null;
 end $$;
+
+-- ===== 応援スタンプ =====
+
+-- 送ったスタンプ（だれから・だれへ・どのスタンプ・いつ）
+create table if not exists public.stamps (
+  id bigint generated always as identity primary key,
+  from_user uuid not null references auth.users on delete cascade,
+  to_user uuid not null references auth.users on delete cascade,
+  stamp text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists stamps_to_user_idx on public.stamps (to_user, created_at desc);
+
+-- 決まり（RLS）：見られるのは、自分が送ったスタンプと、自分にとどいたスタンプだけ。送るのは、下の関数からだけ
+alter table public.stamps enable row level security;
+drop policy if exists "stamps_select_own" on public.stamps;
+create policy "stamps_select_own" on public.stamps for select to authenticated
+  using (auth.uid() = from_user or auth.uid() = to_user);
+
+-- スタンプを送る（決まったスタンプだけ。同じ人には1日5回まで）。今日あと何回送れるかを返す
+create or replace function public.send_stamp(target uuid, stamp_text text)
+returns int language plpgsql security definer set search_path = public as $$
+declare
+  today_start timestamptz := date_trunc('day', now() at time zone 'Asia/Tokyo') at time zone 'Asia/Tokyo';
+  sent_today int;
+begin
+  if auth.uid() is null then raise exception 'ログインしていません'; end if;
+  if target = auth.uid() then raise exception '自分には送れません'; end if;
+  if stamp_text not in ('👍', '🔥', '💪', '🎉', '🍅', '👏') then raise exception 'そのスタンプは送れません'; end if;
+  if not exists (select 1 from profiles where id = target) then raise exception '相手が見つかりませんでした'; end if;
+  select count(*) into sent_today from stamps
+    where from_user = auth.uid() and to_user = target and created_at >= today_start;
+  if sent_today >= 5 then raise exception 'この人には、今日はもう 5回 送りました'; end if;
+  insert into stamps (from_user, to_user, stamp) values (auth.uid(), target, stamp_text);
+  return 4 - sent_today;
+end $$;
+
+revoke execute on function public.send_stamp(uuid, text) from public, anon;
+grant execute on function public.send_stamp(uuid, text) to authenticated;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.stamps;
+exception when duplicate_object then null;
+end $$;
