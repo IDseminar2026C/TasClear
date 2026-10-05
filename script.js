@@ -108,6 +108,7 @@ const guildBossCanvas = document.getElementById("guild-boss-canvas");
 const guildBossName = document.getElementById("guild-boss-name");
 const guildBossHpFill = document.getElementById("guild-boss-hp-fill");
 const guildBossHpText = document.getElementById("guild-boss-hp-text");
+const guildRewardText = document.getElementById("guild-reward-text"); // 次のギルド限定の装備まで、あと何体か
 const guildMemberHeading = document.getElementById("guild-member-heading");
 const guildMemberList = document.getElementById("guild-member-list");
 const guildLogList = document.getElementById("guild-log-list");
@@ -515,6 +516,20 @@ const SHOP_ITEMS = [
 
 // 図鑑とショップで、ショップ限定のまとまりを、ガチャのランクと同じ形であつかうための行（rank 4 にする）
 const SHOP_RANK = { rank: 4, stars: "🛒", name: "ショップ限定" };
+
+// ギルド限定の装備（ギルドのボスを、入ってから合計 needKills 体たおすと、もらえる。売っていない）
+const GUILD_ITEMS = [
+  { id: "guild-cape", icon: "🧣", name: "ギルドのマント", rank: 5, slot: "accessory", needKills: 1 },
+  { id: "guild-shield", icon: "🏰", name: "紋章の盾", rank: 5, slot: "shield", needKills: 3 },
+  { id: "guild-halberd", icon: "🔱", name: "団長の槍斧", rank: 5, slot: "weapon", needKills: 5 },
+  { id: "guild-helm", icon: "⛑️", name: "英雄のかぶと", rank: 5, slot: "head", needKills: 10 },
+];
+
+// 図鑑で、ギルド限定のまとまりを、ガチャのランクと同じ形であつかうための行（rank 5 にする）
+const GUILD_RANK = { rank: 5, stars: "🏰", name: "ギルド限定" };
+
+// 入ってからたおしたギルドのボスの数（ギルド限定の装備をもらうために数える。tasclear-player に保存する）
+let guildBossKills = 0;
 
 // ショップで売る、ガチャのアイテムの値段（ランクごと）
 const SHOP_ITEM_PRICES = { 1: 100, 2: 300, 3: 1000 };
@@ -1141,6 +1156,53 @@ const EQUIP_SPRITES = {
       ".oTo................oTo.",
       "..oo................oo..",
     ], // 背中の左右の、白い羽
+  },
+
+  // ここから下は、ギルド限定の装備
+  "guild-cape": {
+    x: 0,
+    y: 12,
+    behind: true, // キャラのうしろ（何も描いていないマスだけ）に描く。体のまわりから、すそが見える
+    rows: [
+      "....oooooooooooooooo....",
+      "...oYYYYYYYYYYYYYYYYo...",
+      "..oRRRRRRRRRRRRRRRRRRo..",
+      "..oRaRRRRRRRRRRRRRRaRo..",
+      ".oRRaRRRRRRRRRRRRRRaRRo.",
+      ".oRRRRRRRRRRRRRRRRRRRRo.",
+      ".oQRRRRRRRRRRRRRRRRRRQo.",
+      "oQRRRRRRRRRRRRRRRRRRRRQo",
+      "oQRRRRRRRRRRRRRRRRRRRRQo",
+      "oQQRRRRRRRRRRRRRRRRRRQQo",
+      "oQQRRRRRRRRRRRRRRRRRRQQo",
+      "oQRQRRQRRQRRQRRQRRQRQRQo",
+      "oYYYYYYYYYYYYYYYYYYYYYYo",
+      ".oooooooooooooooooooooo.",
+    ], // 金のふちの、すそが広がった赤いマント
+  },
+  "guild-shield": {
+    x: 0,
+    y: 17,
+    rows: ["ooooooo", "oYYYYYo", "oBYBYBo", "oBYYYBo", "oBYYYBo", "oBBBBBo", "oxBBBxo", ".oxYxo.", "..ooo.."], // 青地に金の城の紋章の盾
+  },
+  "guild-halberd": {
+    x: 21,
+    y: 1,
+    rows: [".o.", "oVo", "oWo", "sWs", "sWs", "sWs", "oYo", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".Y.", ".G.", ".o."], // 銀の刃と金の飾りの、長い槍斧
+  },
+  "guild-helm": {
+    x: 2,
+    y: 0,
+    rows: [
+      "........oaRo........",
+      ".......oaRRQo.......",
+      "....ooooYYYYoooo....",
+      "...oxBBBBYYBBBBxo...",
+      "..oxBzBBBYYBBBBBxo..",
+      ".oxBzBBBBYYBBBBBBxo.",
+      "oYYYYYYYYYYYYYYYYYYo",
+      "oxYxYxxYxxxxYxxYxYxo",
+    ], // 赤い羽かざりの付いた、青と金のかぶと
   },
 };
 
@@ -2545,6 +2607,7 @@ function savePlayer() {
     profile: profile,
     friendIds: friendIds,
     lastStampSeenAt: lastStampSeenAt,
+    guildBossKills: guildBossKills,
     missionClearCount: missionClearCount,
     missionPerfectCount: missionPerfectCount,
   };
@@ -2600,6 +2663,7 @@ function loadPlayer() {
     profile = loadProfile(player.profile); // 前の形の保存データには無いので、そのときは、はじめのプロフィール
     friendIds = Array.isArray(player.friendIds) ? player.friendIds.filter(function (id) { return typeof id === "string"; }) : [];
     lastStampSeenAt = typeof player.lastStampSeenAt === "string" ? player.lastStampSeenAt : ""; // 前の形の保存データには無いので、そのときは「まだ見ていない」
+    guildBossKills = Number.isInteger(player.guildBossKills) ? player.guildBossKills : 0; // 前の形の保存データには無いので、そのときは 0
     missionClearCount = player.missionClearCount || 0; // 前の形の保存データには無いので、そのときは 0
     missionPerfectCount = player.missionPerfectCount || 0;
     console.log("プレイヤーの状態を読み込みました", player);
@@ -2639,6 +2703,7 @@ function loadPlayer() {
     profile = loadProfile(null);
     friendIds = [];
     lastStampSeenAt = "";
+    guildBossKills = 0;
     missionClearCount = 0;
     missionPerfectCount = 0;
     giveStarterPets(true); // データが壊れていたときも、初めての人と同じように、最初からいるペットを入れる
@@ -4822,6 +4887,9 @@ function getRankStars(rank) {
   if (rank === SHOP_RANK.rank) {
     return SHOP_RANK.stars + " " + SHOP_RANK.name; // ショップ限定は「🛒 ショップ限定」
   }
+  if (rank === GUILD_RANK.rank) {
+    return GUILD_RANK.stars + " " + GUILD_RANK.name; // ギルド限定は「🏰 ギルド限定」
+  }
   return GACHA_RANKS[rank - 1].stars;
 }
 
@@ -5028,6 +5096,9 @@ function createCollectionItem(item) {
     cell.classList.add("is-unknown");
     cell.textContent = "❓";
     cell.title = "まだ持っていません（" + getRankStars(item.rank) + "）";
+    if (item.needKills) {
+      cell.title = cell.title + " ギルドのボスを " + item.needKills + "体 たおすと もらえます";
+    }
     return cell;
   }
 
@@ -5081,7 +5152,7 @@ function toggleEquip(item) {
 
 // アイテムの id から、ガチャのアイテムとショップ限定の装備の表の行を返す
 function findItem(itemId) {
-  return GACHA_ITEMS.concat(SHOP_ITEMS).find(function (item) {
+  return GACHA_ITEMS.concat(SHOP_ITEMS, GUILD_ITEMS).find(function (item) {
     return item.id === itemId;
   });
 }
@@ -5176,6 +5247,7 @@ function renderGacha() {
     collectionList.appendChild(createCollectionGroup(GACHA_RANKS[i], GACHA_ITEMS));
   }
   collectionList.appendChild(createCollectionGroup(SHOP_RANK, SHOP_ITEMS)); // いちばん下に「🛒 ショップ限定」
+  collectionList.appendChild(createCollectionGroup(GUILD_RANK, GUILD_ITEMS)); // そのあとに「🏰 ギルド限定」
 
   // 全部で何種類集めたか
   collectionCount.textContent = "図鑑 " + countOwnedItems(GACHA_ITEMS) + " / " + GACHA_ITEMS.length;
@@ -6015,9 +6087,44 @@ async function claimGuildRewards() {
   }
   const bonus = result.data * GUILD_BOSS_COINS;
   coins = coins + bonus;
+  guildBossKills = guildBossKills + result.data;
+  const newItems = giveGuildItems();
   savePlayer();
-  renderGacha(); // コインの数の表示を新しくする
+  renderGacha(); // コインの数と、図鑑の表示を新しくする
+  renderGuild(); // 「次の装備まで あと〇体」も新しくする
   addGuildEffect("🏰 ギルドボス撃破！\n" + (result.data > 1 ? result.data + "体分 " : "") + "🪙 +" + bonus);
+  newItems.forEach(function (item) {
+    addGuildEffect("🎁 ギルド限定の装備！\n" + item.icon + " " + item.name + "\nを手に入れた！（図鑑で装備できます）");
+  });
+  checkAchievements(true); // 図鑑の数などの実績がとれたら、演出を出す
+}
+
+// たおした数が足りたのに、まだ持っていないギルド限定の装備をわたして、わたした装備の一覧を返す
+function giveGuildItems() {
+  const newItems = GUILD_ITEMS.filter(function (item) {
+    return guildBossKills >= item.needKills && !items[item.id];
+  });
+  newItems.forEach(function (item) {
+    items[item.id] = 1;
+  });
+  return newItems;
+}
+
+// 次にもらえるギルド限定の装備を返す（全部もらっていれば undefined）
+function getNextGuildItem() {
+  return GUILD_ITEMS.find(function (item) {
+    return !items[item.id];
+  });
+}
+
+// 「🎁 次のギルド限定の装備：🏰 紋章の盾（あと 2体）」の文字を返す
+function makeGuildRewardText() {
+  const next = getNextGuildItem();
+  if (!next) {
+    return "🎁 ギルド限定の装備を全部集めました！（たおしたボス " + guildBossKills + "体）";
+  }
+  const left = Math.max(next.needKills - guildBossKills, 0);
+  return "🎁 次のギルド限定の装備：" + next.icon + " " + next.name + "（あと " + left + "体）";
 }
 
 // メンバーの中の、自分の行を返す
@@ -6048,6 +6155,7 @@ function renderGuild() {
   guildCodeText.textContent = myGuild.code;
   renderGuildBoss();
   renderGuildMembers();
+  guildRewardText.textContent = makeGuildRewardText();
   renderGuildLogs();
 }
 
