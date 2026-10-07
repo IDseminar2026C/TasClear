@@ -3115,3 +3115,235 @@ span.category-label {
   border-color: #1e5a8a;
   background-color: #e6f1fb;
 }
+
+/* ===== 週間ランキング ===== */
+
+/* 「🏆 今週 10/4（日）〜 10/10（土）」 */
+.ranking-period {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: bold;
+  text-align: center;
+  color: #1e2040;
+}
+
+.ranking-list {
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+/* 1人分（順位・アイコン・名前・数を横にならべる） */
+.ranking-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  padding: 6px 10px;
+  background-color: #ffffff;
+  border: 2px solid #e5e0d0;
+  border-radius: 8px;
+}
+
+/* 1位〜3位は、金・銀・銅の色の枠 */
+.ranking-item.rank-top1 {
+  border-color: #d4a017;
+  background-color: #fff8dc;
+}
+
+.ranking-item.rank-top2 {
+  border-color: #a0a8b0;
+  background-color: #f4f6f8;
+}
+
+.ranking-item.rank-top3 {
+  border-color: #b87333;
+  background-color: #fbf0e6;
+}
+
+/* 自分の行は、太い紺の枠 */
+.ranking-item.is-me {
+  border-color: #1e2040;
+  border-width: 3px;
+}
+
+.ranking-rank {
+  flex-shrink: 0;
+  width: 2.2em;
+  font-size: 18px;
+  font-weight: bold;
+  text-align: center;
+  color: #1e2040;
+}
+
+/* アイコンは、フレンドより少し小さく */
+.ranking-icon {
+  width: 36px;
+  height: 36px;
+  font-size: 20px;
+}
+
+.ranking-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: bold;
+  overflow-wrap: anywhere;
+}
+
+.ranking-value {
+  flex-shrink: 0;
+  font-size: 15px;
+  font-weight: bold;
+  color: #2e6bd6;
+}
+
+/* ===== フレンドのキャラ（ドット絵） ===== */
+
+/* 丸の中に、キャラのドット絵を入れる（足もとを下に合わせ、はみ出した所は切る） */
+.friend-icon.hero-avatar {
+  align-items: flex-end;
+  overflow: hidden;
+  background-color: #cfe3f5;
+}
+
+.hero-avatar img {
+  width: 90%;
+  image-rendering: pixelated;
+}
+
+/* フレンド一覧とギルドのメンバーは、少し大きく */
+.friend-item .hero-avatar {
+  width: 52px;
+  height: 52px;
+}
+
+/* ===== お知らせ・ホーム画面に追加 ===== */
+
+/* 見えないようにする設定（hidden）を、確実に効かせる（使えないときの「ホーム画面に追加する」ボタン） */
+.data-button[hidden] {
+  display: none;
+}
+
+/* 押せないボタン（お知らせがオフのときの「ためしに出す」など）は薄くする */
+.data-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ===== 月の記録グラフ ===== */
+
+/* 棒をならべる箱（下に線を引く） */
+.month-graph {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 130px;
+  padding: 4px 2px 0;
+  background-color: #ffffff;
+  border: 2px solid #e5e0d0;
+  border-radius: 8px;
+}
+
+/* 1日分（押せる。棒と、下の日付） */
+.month-graph-column {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+/* 棒（撃破は金色、集中はトマトの赤）。0 の日も、うすい線を出す */
+.month-graph-bar {
+  width: 100%;
+  min-height: 2px;
+  background-color: #d4a017;
+  border-radius: 3px 3px 0 0;
+}
+
+.month-graph-bar.is-focus {
+  background-color: #e05a4f;
+}
+
+/* 下の日付（5日ごと） */
+.month-graph-label {
+  height: 14px;
+  font-size: 9px;
+  line-height: 14px;
+  color: #888888;
+}
+
+/* 今日は紺色の棒、えらんでいる日はうすい青の背景 */
+.month-graph-column.is-today .month-graph-bar {
+  background-color: #1e2040;
+}
+
+.month-graph-column.is-selected {
+  background-color: #e6f1fb;
+}
+
+/* 合計・最高などの説明 */
+.month-graph-summary {
+  margin: 6px 0 10px;
+  font-size: 12px;
+  font-weight: bold;
+  color: #1e2040;
+}
+
+/* ===== 期間限定イベント ===== */
+
+/* メイン画面のイベントのお知らせ（オレンジの帯） */
+.event-banner {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  text-align: center;
+  background: linear-gradient(135deg, #f7d9a8, #f4b183);
+  border: 2px solid #c0602a;
+  border-radius: 8px;
+}
+
+/* 見えないようにする設定（hidden）を、確実に効かせる */
+.event-banner[hidden] {
+  display: none;
+}
+
+.event-banner-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: bold;
+  color: #6b2a0a;
+}
+
+.event-banner-text {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #4a2a10;
+}
+
+/* 図鑑の「🎉 イベント限定」の見出しと、アイテム（オレンジの枠） */
+.collection-heading.rank-6 {
+  border-left-color: #c0602a;
+}
+
+.collection-item.rank-6 {
+  border-color: #c0602a;
+  background-color: #fdf0e3;
+}
+
+/* ===== クラウド保存・引っ越し ===== */
+
+/* 「🔑 パスワードを決める」「📦 ほかの端末から引っ越す」の小見出し */
+.cloud-subtitle {
+  margin: 10px 0 6px;
+  font-size: 13px;
+  font-weight: bold;
+  color: #1e2040;
+}

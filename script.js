@@ -72,6 +72,34 @@ const shopCoins = document.getElementById("shop-coins");
 const shopList = document.getElementById("shop-list");
 const shopSale = document.getElementById("shop-sale"); // 日替わりセールの箱
 
+// メイン画面の、イベントのお知らせの帯
+const eventBanner = document.getElementById("event-banner");
+const eventBannerTitle = document.getElementById("event-banner-title");
+const eventBannerText = document.getElementById("event-banner-text");
+
+// カレンダー画面の「📊 月の記録」
+const graphSwitchButtons = document.querySelectorAll(".graph-switch-button");
+const monthGraph = document.getElementById("month-graph");
+const monthGraphSummary = document.getElementById("month-graph-summary");
+
+// 設定画面の「🔔 お知らせ」と「📲 ホーム画面に追加」
+// 設定画面の「☁️ クラウド保存・引っ越し」
+const cloudStatus = document.getElementById("cloud-status");
+const cloudPasswordTitle = document.getElementById("cloud-password-title");
+const cloudPasswordInput = document.getElementById("cloud-password-input");
+const cloudPasswordAgain = document.getElementById("cloud-password-again");
+const cloudPasswordButton = document.getElementById("cloud-password-button");
+const cloudPasswordText = document.getElementById("cloud-password-text");
+const moveCodeInput = document.getElementById("move-code-input");
+const movePasswordInput = document.getElementById("move-password-input");
+const moveButton = document.getElementById("move-button");
+const moveText = document.getElementById("move-text");
+const notifyButton = document.getElementById("notify-button");
+const notifyTestButton = document.getElementById("notify-test-button");
+const notifyHelp = document.getElementById("notify-help");
+const installButton = document.getElementById("install-button");
+const installHelp = document.getElementById("install-help");
+
 // フレンド画面の部品
 const friendsButton = document.getElementById("friends-button"); // 右上の 👥 ボタン
 const onlineStatus = document.getElementById("online-status"); // つながっているか
@@ -94,6 +122,10 @@ const stampList = document.getElementById("stamp-list"); // とどいた応援�
 const socialSwitchButtons = document.querySelectorAll(".social-switch-button");
 const friendView = document.getElementById("friend-view");
 const guildView = document.getElementById("guild-view");
+const rankingView = document.getElementById("ranking-view"); // 週間ランキング
+const rankingPeriod = document.getElementById("ranking-period");
+const rankingSwitchButtons = document.querySelectorAll(".ranking-switch-button");
+const rankingList = document.getElementById("ranking-list");
 const guildJoinBox = document.getElementById("guild-join-box");
 const guildCreateForm = document.getElementById("guild-create-form");
 const guildNameInput = document.getElementById("guild-name-input");
@@ -435,6 +467,9 @@ let rewardedAchievements = {};
 // カレンダーで見ている年と月（月は 0〜11。1月が 0）と、押して選んでいる日（「2026-10-05」のような文字）
 let calendarYear = new Date().getFullYear();
 let calendarMonth = new Date().getMonth();
+
+// 月の記録グラフで、何を出しているか（"defeats"＝撃破した数、"focus"＝集中した回数。保存しない）
+let graphKind = "defeats";
 let selectedDate = "";
 
 // ガチャのランク。chance は出る確率（3つ足すと 1 になるようにする）
@@ -528,6 +563,34 @@ const GUILD_ITEMS = [
 // 図鑑で、ギルド限定のまとまりを、ガチャのランクと同じ形であつかうための行（rank 5 にする）
 const GUILD_RANK = { rank: 5, stars: "🏰", name: "ギルド限定" };
 
+// ===== 期間限定イベント =====
+
+// イベント限定の装備（イベントの期間中に、決まったことをすると、もらえる。売っていない）
+const EVENT_ITEMS = [
+  { id: "maple-crown", icon: "🍁", name: "もみじのかんむり", rank: 6, slot: "head", eventId: "harvest" },
+  { id: "pumpkin-lantern", icon: "🎃", name: "かぼちゃのランタン", rank: 6, slot: "weapon", eventId: "halloween" },
+  { id: "santa-hat", icon: "🎅", name: "サンタのぼうし", rank: 6, slot: "head", eventId: "christmas" },
+  { id: "sunrise-shield", icon: "🌅", name: "初日の出の盾", rank: 6, slot: "shield", eventId: "newyear" },
+];
+
+// 図鑑で、イベント限定のまとまりを、ガチャのランクと同じ形であつかうための行（rank 6 にする）
+const EVENT_RANK = { rank: 6, stars: "🎉", name: "イベント限定" };
+
+// 毎年くり返すイベント（start・end は「月-日」。その日もふくむ）
+// ボスは、ギルドのボスの見た目をかえる（モンスターのドット絵に、色のフィルターをかける）
+const EVENTS = [
+  { id: "harvest", icon: "🍂", name: "秋の収穫祭", start: "10-06", end: "10-12", bossName: "かかし大王", monsterId: "golem", filter: "sepia(1) saturate(3) hue-rotate(-15deg)" },
+  { id: "halloween", icon: "🎃", name: "ハロウィン", start: "10-25", end: "10-31", bossName: "かぼちゃ大王", monsterId: "ghost", filter: "sepia(1) saturate(6) hue-rotate(-25deg)" },
+  { id: "christmas", icon: "🎄", name: "クリスマス", start: "12-19", end: "12-25", bossName: "雪だるまキング", monsterId: "slime", filter: "grayscale(1) brightness(1.7)" },
+  { id: "newyear", icon: "🎍", name: "お正月", start: "01-01", end: "01-07", bossName: "青鬼", monsterId: "ogre", filter: "hue-rotate(-130deg) saturate(1.8)" },
+];
+const EVENT_GOAL_DEFEATS = 30; // イベント中に、これだけ撃破すると、イベント限定の装備がもらえる
+const EVENT_REPEAT_COINS = 200; // 去年もらった装備を、もう持っているときのコイン
+
+// イベント中にギルドでたおしたボスの数（{ "harvest-2026": 1 } のような形）と、ごほうびをもらったイベント（{ "harvest-2026": true }）
+let eventGuildKills = {};
+let eventRewarded = {};
+
 // 入ってからたおしたギルドのボスの数（ギルド限定の装備をもらうために数える。tasclear-player に保存する）
 let guildBossKills = 0;
 
@@ -592,6 +655,39 @@ let lastStampSeenAt = "";
 // スタンプをえらぶボタンを開いている相手の id（開いていなければ ""）と、送った結果の文字（{ id: 文字 }）
 let stampPickerFor = "";
 let stampSendTexts = {};
+
+// ===== クラウド保存・引っ越しの設定 =====
+
+// ログインに使う名前の、@ のうしろ（「.invalid」は、本物のメールアドレスにならない決まりの名前）
+const CLOUD_EMAIL_DOMAIN = "tasclear.invalid";
+const CLOUD_SAVE_DELAY_MS = 5000; // データが変わってから、クラウドに保存するまで待つ時間（5秒）
+// この端末だけに保存しておくもの（データといっしょには引っ越さない）：端末の名前と、最後にクラウドと合わせた時刻
+const DEVICE_KEY = "tasclear-device";
+const CLOUD_SYNC_KEY = "tasclear-cloud-synced";
+
+// クラウドに保存してよいか（つないだときに、どちらのデータを使うか決めてから true にする）、保存までのタイマー
+let cloudReady = false;
+let cloudSaveTimer = null;
+// 引っ越し用のパスワードを決めたか、最後にクラウドに保存した時刻
+let isPasswordSet = false;
+let lastCloudSavedAt = "";
+
+// ===== お知らせ・ホーム画面に追加の設定 =====
+
+// お知らせをオンにしているか（tasclear-player に保存する。ブラウザの許可も必要）と、締切のお知らせを最後に出した日
+let notifyEnabled = false;
+let lastDeadlineNoticeDate = "";
+// ブラウザの「ホーム画面に追加しますか？」を出すための道具（追加できるときだけ、ブラウザがくれる）
+let installPromptEvent = null;
+
+// ===== 週間ランキングの設定 =====
+
+// 何でくらべているか（"defeats"＝撃破した数、"focus"＝集中した回数）と、ランキングに出す人のプロフィール（{ id: 行 }）
+let rankingKind = "defeats";
+let rankingProfiles = {};
+
+// キャラのドット絵の画像を、レベルと装備の組み合わせごとに覚えておく（何回も描かないように）
+const heroImageCache = {};
 
 // ===== ギルドの設定 =====
 
@@ -1203,6 +1299,46 @@ const EQUIP_SPRITES = {
       "oYYYYYYYYYYYYYYYYYYo",
       "oxYxYxxYxxxxYxxYxYxo",
     ], // 赤い羽かざりの付いた、青と金のかぶと
+  },
+
+  // ここから下は、イベント限定の装備
+  "maple-crown": {
+    x: 2,
+    y: 0,
+    rows: [
+      "...o.....oo.....o...",
+      "..oRo...oRRo...oRo..",
+      ".oRaRo.oRaaRo.oRaRo.",
+      "oooRoooooRRoooooRooo",
+      "oCuuauuuuuuuuuuauuCo",
+      "oCuRuuuuRRRRuuuuRuCo",
+      "oCCCCCCCCCCCCCCCCCCo",
+      "oLLLLLLLLLLLLLLLLLLo",
+    ], // 赤いもみじの葉がならんだ、木のかんむり
+  },
+  "pumpkin-lantern": {
+    x: 21,
+    y: 1,
+    rows: [".G.", ".G.", "oao", "aVa", "aaa", "oao", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".G.", ".o."], // 光るかぼちゃを先につるした杖
+  },
+  "santa-hat": {
+    x: 2,
+    y: 0,
+    rows: [
+      "........oo..........",
+      ".......oTTo.........",
+      "......ooTToo........",
+      "....ooaaaaRRRoo.....",
+      "...oaaRRRRRRRRRQo...",
+      "..oaRRRRRRRRRRRRRQo.",
+      "oTTTTTTTTTTTTTTTTTTo",
+      "oOOOOOOOOOOOOOOOOOOo",
+    ], // 白いポンポンと白いふちの、赤いサンタのぼうし
+  },
+  "sunrise-shield": {
+    x: 0,
+    y: 17,
+    rows: ["ooooooo", "oTTTTTo", "oTaRaTo", "oTRRRTo", "oTaRaTo", "oTTTTTo", "oYYYYYo", ".oYYYo.", "..ooo.."], // 白地に赤い日の出の盾
   },
 };
 
@@ -2126,6 +2262,7 @@ function checkDailyMissions(showEffect) {
   if (showEffect && newOnes.length > 0) {
     addMissionEffect(newOnes, isAllNow);
   }
+  checkEventReward(showEffect); // イベントの「期間中に30体撃破」も、ここで確かめる
   if (newOnes.length > 0) {
     checkAchievements(showEffect); // ミッションの実績がとれたら、ミッションの演出のあとに出す
   }
@@ -2346,23 +2483,26 @@ function smoothOldStyle(grid) {
 }
 
 // キャラクターの色の表（24×30マス）を作り、装備しているアイテムの絵を重ねて返す
-function makeHeroGrid() {
-  const grid = makeColorGrid(getTitle(getLevel()).pixels);
+// level と gear を入れると、その人のキャラを作る（フレンドのキャラを描くため）。入れなければ、自分のキャラ
+function makeHeroGrid(level, gear) {
+  level = level || getLevel();
+  gear = gear || equipped;
+  const grid = makeColorGrid(getTitle(level).pixels);
 
   // 武器を装備しているときは、キャラがもともと持っている武器（右側）を先に消す
-  if (equipped.weapon) {
+  if (gear.weapon) {
     clearOldWeapon(grid);
   }
 
   // 頭の装備をしているときは、もともとの帽子・王冠・かぶと・角・光の輪がはみ出さないように、頭の上のほうを先に消す
-  if (equipped.head) {
+  if (gear.head) {
     clearGridArea(grid, 0, 0, 24, 5); // いちばん上の5行（角や光の輪のあたり）
     clearGridArea(grid, 0, 5, 22, 3); // その下の3行（右はしの剣は消さない）
   }
 
   // 部位ごとに、装備しているアイテムの絵を重ねる
   for (let i = 0; i < EQUIP_SLOTS.length; i++) {
-    const itemId = equipped[EQUIP_SLOTS[i].slot];
+    const itemId = gear[EQUIP_SLOTS[i].slot];
     if (itemId) {
       const sprite = EQUIP_SPRITES[itemId];
       overlayOnGrid(grid, sprite.rows, sprite.x, sprite.y, sprite.behind === true);
@@ -2608,11 +2748,16 @@ function savePlayer() {
     friendIds: friendIds,
     lastStampSeenAt: lastStampSeenAt,
     guildBossKills: guildBossKills,
+    eventGuildKills: eventGuildKills,
+    eventRewarded: eventRewarded,
+    notifyEnabled: notifyEnabled,
+    lastDeadlineNoticeDate: lastDeadlineNoticeDate,
     missionClearCount: missionClearCount,
     missionPerfectCount: missionPerfectCount,
   };
   localStorage.setItem(PLAYER_KEY, JSON.stringify(player));
   scheduleProfileSync(); // レベルや今日のポモドーロが変わったかもしれないので、少し待ってからフレンドに見える情報を送る
+  scheduleCloudSave(); // クラウドにも、少し待ってから保存する
 }
 
 // localStorage から、保存しておいたプレイヤーの状態を取り出す
@@ -2664,6 +2809,10 @@ function loadPlayer() {
     friendIds = Array.isArray(player.friendIds) ? player.friendIds.filter(function (id) { return typeof id === "string"; }) : [];
     lastStampSeenAt = typeof player.lastStampSeenAt === "string" ? player.lastStampSeenAt : ""; // 前の形の保存データには無いので、そのときは「まだ見ていない」
     guildBossKills = Number.isInteger(player.guildBossKills) ? player.guildBossKills : 0; // 前の形の保存データには無いので、そのときは 0
+    eventGuildKills = player.eventGuildKills || {}; // 前の形の保存データには無いので、そのときは空
+    eventRewarded = player.eventRewarded || {};
+    notifyEnabled = player.notifyEnabled === true; // 前の形の保存データには無いので、そのときはオフ
+    lastDeadlineNoticeDate = typeof player.lastDeadlineNoticeDate === "string" ? player.lastDeadlineNoticeDate : "";
     missionClearCount = player.missionClearCount || 0; // 前の形の保存データには無いので、そのときは 0
     missionPerfectCount = player.missionPerfectCount || 0;
     console.log("プレイヤーの状態を読み込みました", player);
@@ -2704,6 +2853,10 @@ function loadPlayer() {
     friendIds = [];
     lastStampSeenAt = "";
     guildBossKills = 0;
+    eventGuildKills = {};
+    eventRewarded = {};
+    notifyEnabled = false;
+    lastDeadlineNoticeDate = "";
     missionClearCount = 0;
     missionPerfectCount = 0;
     giveStarterPets(true); // データが壊れていたときも、初めての人と同じように、最初からいるペットを入れる
@@ -2810,6 +2963,7 @@ function renderStatus() {
 function saveQuests() {
   sortQuests();
   localStorage.setItem(QUESTS_KEY, JSON.stringify(quests));
+  scheduleCloudSave(); // クラウドにも、少し待ってから保存する
 }
 
 // クエストを並べかえる
@@ -4020,7 +4174,86 @@ function renderCalendar() {
   }
 
   renderWeekSummary();
+  renderMonthGraph();
   renderCalendarDetail();
+}
+
+// ===== 月の記録グラフ =====
+
+// 「⚔️ 撃破した数」「🍅 集中した回数」を切りかえる
+function switchGraphKind(kind) {
+  graphKind = kind;
+  graphSwitchButtons.forEach(function (button) {
+    button.classList.toggle("is-active", button.dataset.graph === kind);
+  });
+  renderMonthGraph();
+}
+
+// 表示している月の、1日〜最後の日の { dateText, day, value } の一覧を返す
+function getMonthValues() {
+  const record = graphKind === "focus" ? focusHistory : defeatHistory;
+  const daysInMonth = new Date(calendarYear, calendarMonth + 1, 0).getDate();
+  const values = [];
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateText = makeDateText(calendarYear, calendarMonth, day);
+    values.push({ dateText: dateText, day: day, value: record[dateText] || 0 });
+  }
+  return values;
+}
+
+// 月の記録グラフを表示し直す（いちばん多い日の高さを100%にする。押すと、その日のくわしい中身を出す）
+function renderMonthGraph() {
+  const values = getMonthValues();
+  const max = Math.max.apply(null, values.map(function (item) {
+    return item.value;
+  }));
+  monthGraph.innerHTML = "";
+  values.forEach(function (item) {
+    monthGraph.appendChild(createGraphBar(item, max));
+  });
+  monthGraphSummary.textContent = makeGraphSummary(values, max);
+}
+
+// グラフの1日分（棒と、5日ごとの日付）を作って返す
+function createGraphBar(item, max) {
+  const column = document.createElement("button");
+  column.type = "button";
+  column.className = "month-graph-column";
+  column.classList.toggle("is-today", item.dateText === getTodayString());
+  column.classList.toggle("is-selected", item.dateText === selectedDate);
+  column.title = (calendarMonth + 1) + "/" + item.day + "：" + item.value + (graphKind === "focus" ? "回" : "体");
+  const bar = document.createElement("span");
+  bar.className = "month-graph-bar" + (graphKind === "focus" ? " is-focus" : "");
+  bar.style.height = max > 0 ? (item.value / max) * 100 + "%" : "0";
+  const label = document.createElement("span");
+  label.className = "month-graph-label";
+  label.textContent = item.day === 1 || item.day % 5 === 0 ? String(item.day) : "";
+  column.append(bar, label);
+  column.addEventListener("click", function () {
+    selectedDate = item.dateText; // その日を選んで、くわしい中身と週のふりかえりを出す
+    renderCalendar();
+  });
+  return column;
+}
+
+// 「10月の合計 ⚔️ 45体 ・ 1日の最高 12体（10/3）・ 撃破した日 15日」の文字を返す
+function makeGraphSummary(values, max) {
+  const unit = graphKind === "focus" ? "回" : "体";
+  const total = values.reduce(function (sum, item) {
+    return sum + item.value;
+  }, 0);
+  const activeDays = values.filter(function (item) {
+    return item.value > 0;
+  }).length;
+  if (total === 0) {
+    return (calendarMonth + 1) + "月は、まだ記録がありません";
+  }
+  const best = values.find(function (item) {
+    return item.value === max;
+  });
+  return (calendarMonth + 1) + "月の合計 " + (graphKind === "focus" ? "🍅 " : "⚔️ ") + total + unit +
+    " ・ 1日の最高 " + max + unit + "（" + (calendarMonth + 1) + "/" + best.day + "）" +
+    " ・ " + (graphKind === "focus" ? "集中した日 " : "撃破した日 ") + activeDays + "日";
 }
 
 // ===== 週のふりかえり =====
@@ -4749,6 +4982,7 @@ function renderQuests() {
   // 毎日の習慣のカードも表示し直す（レベルアップ中に撃破ボタンを隠すのも、ここで反映する）
   renderHabits();
   renderDailyMissions(); // 日課やクエストがふえたり減ったりしたら、ミッションの進み具合も表示し直す
+  renderEventBanner(); // イベントの進み具合も表示し直す
 
   // カレンダーも表示し直す（締切や撃破の数が変わったときのため）
   renderCalendar();
@@ -4889,6 +5123,9 @@ function getRankStars(rank) {
   }
   if (rank === GUILD_RANK.rank) {
     return GUILD_RANK.stars + " " + GUILD_RANK.name; // ギルド限定は「🏰 ギルド限定」
+  }
+  if (rank === EVENT_RANK.rank) {
+    return EVENT_RANK.stars + " " + EVENT_RANK.name; // イベント限定は「🎉 イベント限定」
   }
   return GACHA_RANKS[rank - 1].stars;
 }
@@ -5099,6 +5336,10 @@ function createCollectionItem(item) {
     if (item.needKills) {
       cell.title = cell.title + " ギルドのボスを " + item.needKills + "体 たおすと もらえます";
     }
+    if (item.eventId) {
+      const event = EVENTS.find(function (e) { return e.id === item.eventId; });
+      cell.title = cell.title + " イベント「" + event.icon + " " + event.name + "」（" + event.start.replace("-", "/") + "〜" + event.end.replace("-", "/") + "）で もらえます";
+    }
     return cell;
   }
 
@@ -5152,7 +5393,7 @@ function toggleEquip(item) {
 
 // アイテムの id から、ガチャのアイテムとショップ限定の装備の表の行を返す
 function findItem(itemId) {
-  return GACHA_ITEMS.concat(SHOP_ITEMS, GUILD_ITEMS).find(function (item) {
+  return GACHA_ITEMS.concat(SHOP_ITEMS, GUILD_ITEMS, EVENT_ITEMS).find(function (item) {
     return item.id === itemId;
   });
 }
@@ -5248,6 +5489,7 @@ function renderGacha() {
   }
   collectionList.appendChild(createCollectionGroup(SHOP_RANK, SHOP_ITEMS)); // いちばん下に「🛒 ショップ限定」
   collectionList.appendChild(createCollectionGroup(GUILD_RANK, GUILD_ITEMS)); // そのあとに「🏰 ギルド限定」
+  collectionList.appendChild(createCollectionGroup(EVENT_RANK, EVENT_ITEMS)); // いちばん下に「🎉 イベント限定」
 
   // 全部で何種類集めたか
   collectionCount.textContent = "図鑑 " + countOwnedItems(GACHA_ITEMS) + " / " + GACHA_ITEMS.length;
@@ -5333,6 +5575,7 @@ function setOnlineStatus(text, isOn) {
 // Supabase につないで、自分のプロフィールを用意し、フレンドの一覧を読みこむ（ページを開いたときに1回）
 async function initOnline() {
   renderProfile();
+  renderCloud();
   renderFriends();
   renderGuild();
   renderStamps();
@@ -5348,6 +5591,7 @@ async function initOnline() {
     onlineClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     myUserId = await signInOnline();
     await loadMyFriendCode();
+    await initCloud(); // クラウドのデータと、この端末のデータのどちらを使うか決めて、保存をはじめる
     await syncProfile();
     await refreshFriends();
     watchFriends();
@@ -5363,6 +5607,7 @@ async function initOnline() {
     setOnlineStatus("⚠️ つなげませんでした（" + error.message + "）", false);
   }
   renderProfile();
+  renderCloud();
 }
 
 // ログインなしの「自分」を用意して、自分の id を返す（前に作っていれば、それを使う）
@@ -5427,6 +5672,8 @@ function makeFriendCode() {
 function makeProfileRow() {
   const today = getTodayString();
   const level = getLevel();
+  const weekDates = getWeekDates(today, 0); // 今週（日曜日〜土曜日）の日付
+  const week = countWeek(weekDates);
   return {
     nickname: profile.nickname || "ぼうけんしゃ",
     icon: profile.icon,
@@ -5436,6 +5683,10 @@ function makeProfileRow() {
     today_focus: focusHistory[today] || 0,
     today_defeats: defeatHistory[today] || 0,
     stats_date: today,
+    week_start: weekDates[0],
+    week_defeats: week.defeats,
+    week_focus: week.focuses,
+    equipped: cleanGear(equipped), // フレンドの画面に、装備つきのキャラを出すため
     updated_at: new Date().toISOString(),
   };
 }
@@ -5453,6 +5704,9 @@ async function syncProfile() {
 
 // 少し待ってから自分の情報を送る（続けて変わったときは、最後の1回だけ送る）
 function scheduleProfileSync() {
+  if (socialView === "ranking") {
+    renderRanking(); // ランキングを見ているときは、自分の数をすぐ新しくする
+  }
   if (!onlineClient) {
     return;
   }
@@ -5490,12 +5744,19 @@ function watchFriends() {
         friendProfiles[payload.new.id] = payload.new;
         renderFriends();
       }
+      if (rankingProfiles[payload.new.id]) {
+        rankingProfiles[payload.new.id] = payload.new; // ランキングの数も、すぐ新しくする
+        renderRanking();
+      }
     })
     .subscribe();
   setInterval(function () {
     if (document.visibilityState === "visible") {
       refreshFriends();
       loadReceivedStamps(false); // 開いた直後（リアルタイムが動きだす前）にとどいた応援も、ここで拾う
+      if (socialView === "ranking") {
+        loadRanking(); // ランキングを見ているときは、ランキングも読みこみ直す
+      }
     }
   }, FRIEND_REFRESH_MS);
 }
@@ -5588,13 +5849,11 @@ function renderFriends() {
 function createFriendItem(row) {
   const item = document.createElement("li");
   item.className = "friend-item";
-  const icon = document.createElement("span");
-  icon.className = "friend-icon";
-  icon.textContent = row.icon;
+  const icon = createHeroAvatar(row.level, row.equipped); // フレンドのキャラのドット絵（装備つき）
   const info = document.createElement("div");
   info.className = "friend-info";
   info.append(
-    makeFriendLine("friend-name", row.nickname + "  Lv" + row.level),
+    makeFriendLine("friend-name", row.icon + " " + row.nickname + "  Lv" + row.level),
     makeFriendLine("friend-title", row.title),
     makeFriendLine("friend-today", makeFriendTodayText(row))
   );
@@ -5683,6 +5942,47 @@ function copyFriendCode() {
   }).catch(function () {
     prompt("このコードを友だちに送ってください", myFriendCode); // コピーできないブラウザでは、選んでコピーしてもらう
   });
+}
+
+// ===== フレンドのキャラ（ドット絵） =====
+
+// 送られてきた装備（{ head: "iron-helmet" } のような形）から、本当にある装備だけを取り出して返す（おかしなデータで絵がこわれないように）
+function cleanGear(gear) {
+  const result = {};
+  if (!gear || typeof gear !== "object") {
+    return result;
+  }
+  EQUIP_SLOTS.forEach(function (slot) {
+    const item = findItem(gear[slot.slot]);
+    if (item && item.slot === slot.slot && EQUIP_SPRITES[item.id]) {
+      result[slot.slot] = item.id;
+    }
+  });
+  return result;
+}
+
+// レベルと装備から、キャラのドット絵の画像（data URL）を作って返す（同じ組み合わせは、作ったものを使い回す）
+function makeHeroImage(level, gear) {
+  const safeLevel = Number.isInteger(level) && level >= 1 ? level : 1;
+  const safeGear = cleanGear(gear);
+  const key = safeLevel + JSON.stringify(safeGear);
+  if (!heroImageCache[key]) {
+    const canvas = document.createElement("canvas");
+    paintGrid(canvas, smoothOldStyle(makeHeroGrid(safeLevel, safeGear)));
+    heroImageCache[key] = canvas.toDataURL();
+  }
+  return heroImageCache[key];
+}
+
+// 丸の中に、その人のキャラのドット絵を入れて返す（フレンド一覧・ギルドのメンバー・ランキングで使う）
+function createHeroAvatar(level, gear, className) {
+  const avatar = document.createElement("span");
+  avatar.className = "friend-icon hero-avatar" + (className ? " " + className : "");
+  const image = document.createElement("img");
+  image.src = makeHeroImage(level, gear);
+  image.alt = "キャラのドット絵";
+  avatar.appendChild(image);
+  return avatar;
 }
 
 // ===== 応援スタンプ（オンライン） =====
@@ -5863,6 +6163,104 @@ async function sendStamp(userId, stamp) {
   renderGuild();
 }
 
+// ===== 週間ランキング（オンライン） =====
+
+// ランキングに出す人（自分以外）の id の一覧を返す（フレンドと、ギルドの仲間。同じ人は1回だけ）
+function getRankingIds() {
+  const ids = friendIds.concat(guildMembers.map(function (member) {
+    return member.user_id;
+  }));
+  return ids.filter(function (id, index) {
+    return id !== myUserId && ids.indexOf(id) === index;
+  });
+}
+
+// ランキングに出す人のプロフィール（今週の数）を読みこみ直して、表示し直す
+async function loadRanking() {
+  const ids = getRankingIds();
+  if (onlineClient && ids.length > 0) {
+    const result = await onlineClient.from("profiles").select("*").in("id", ids);
+    if (result.error) {
+      console.log("ランキングを読みこめませんでした", result.error);
+    } else {
+      rankingProfiles = {};
+      result.data.forEach(function (row) {
+        rankingProfiles[row.id] = row;
+      });
+    }
+  }
+  renderRanking();
+}
+
+// 「⚔️ 撃破した数」「🍅 集中した回数」を切りかえる
+function switchRankingKind(kind) {
+  rankingKind = kind;
+  rankingSwitchButtons.forEach(function (button) {
+    button.classList.toggle("is-active", button.dataset.ranking === kind);
+  });
+  renderRanking();
+}
+
+// ランキングにならべる人の一覧（自分もふくむ）を、数の多い順にして返す
+function makeRankingEntries(weekDates) {
+  const week = countWeek(weekDates);
+  const entries = [{
+    id: myUserId,
+    icon: profile.icon,
+    nickname: profile.nickname || "ぼうけんしゃ",
+    level: getLevel(),
+    gear: equipped,
+    value: rankingKind === "focus" ? week.focuses : week.defeats,
+  }];
+  getRankingIds().forEach(function (id) {
+    const row = rankingProfiles[id];
+    if (row) {
+      const isThisWeek = row.week_start === weekDates[0]; // 先週から更新していない人は 0
+      const value = rankingKind === "focus" ? row.week_focus : row.week_defeats;
+      entries.push({ id: id, icon: row.icon, nickname: row.nickname, level: row.level, gear: row.equipped, value: isThisWeek ? value || 0 : 0 });
+    }
+  });
+  return entries.sort(function (a, b) {
+    return b.value - a.value;
+  });
+}
+
+// ランキングを表示し直す（同じ数の人は、同じ順位）
+function renderRanking() {
+  const weekDates = getWeekDates(getTodayString(), 0);
+  rankingPeriod.textContent = "🏆 今週 " + formatDeadline(weekDates[0]) + " 〜 " + formatDeadline(weekDates[6]);
+  rankingList.innerHTML = "";
+  const entries = makeRankingEntries(weekDates);
+  let rank = 0;
+  entries.forEach(function (entry, index) {
+    if (index === 0 || entry.value !== entries[index - 1].value) {
+      rank = index + 1;
+    }
+    rankingList.appendChild(createRankingItem(entry, rank));
+  });
+  if (entries.length === 1) {
+    rankingList.appendChild(createListMessage("フレンドを追加したり、ギルドに入ったりすると、いっしょにくらべられます"));
+  }
+}
+
+// ランキングの1行（順位・アイコン・名前・数）を作って返す
+function createRankingItem(entry, rank) {
+  const item = document.createElement("li");
+  item.className = "ranking-item" + (entry.id === myUserId ? " is-me" : "") + (rank <= 3 ? " rank-top" + rank : "");
+  const medal = document.createElement("span");
+  medal.className = "ranking-rank";
+  medal.textContent = ["🥇", "🥈", "🥉"][rank - 1] || rank + "位";
+  const icon = createHeroAvatar(entry.level, entry.gear, "ranking-icon"); // キャラのドット絵
+  const name = document.createElement("span");
+  name.className = "ranking-name";
+  name.textContent = entry.icon + " " + entry.nickname + (entry.id === myUserId ? "（あなた）" : "");
+  const value = document.createElement("span");
+  value.className = "ranking-value";
+  value.textContent = rankingKind === "focus" ? "🍅 " + entry.value + "回" : "⚔️ " + entry.value + "体";
+  item.append(medal, icon, name, value);
+  return item;
+}
+
 // ===== ギルド（オンライン） =====
 
 // 「👥 フレンド」「🏰 ギルド」を切りかえる（ギルドを出すときは、読みこみ直す）
@@ -5870,6 +6268,7 @@ function switchSocialView(view) {
   socialView = view;
   friendView.hidden = view !== "friend";
   guildView.hidden = view !== "guild";
+  rankingView.hidden = view !== "ranking";
   socialSwitchButtons.forEach(function (button) {
     button.classList.toggle("is-active", button.dataset.social === view);
   });
@@ -5878,6 +6277,9 @@ function switchSocialView(view) {
   }
   if (view === "friend") {
     markStampsSeen();
+  }
+  if (view === "ranking") {
+    loadRanking();
   }
 }
 
@@ -5918,7 +6320,7 @@ async function loadGuildDetail(guildId) {
   const ids = members.map(function (member) {
     return member.user_id;
   });
-  const profileResult = await onlineClient.from("profiles").select("id, nickname, icon").in("id", ids);
+  const profileResult = await onlineClient.from("profiles").select("id, nickname, icon, level, equipped").in("id", ids);
   const profiles = {};
   (profileResult.data || []).forEach(function (row) {
     profiles[row.id] = row;
@@ -6088,6 +6490,11 @@ async function claimGuildRewards() {
   const bonus = result.data * GUILD_BOSS_COINS;
   coins = coins + bonus;
   guildBossKills = guildBossKills + result.data;
+  const event = getActiveEvent();
+  if (event) {
+    const key = getEventKey(event);
+    eventGuildKills[key] = (eventGuildKills[key] || 0) + result.data; // イベント中にたおしたボスは、イベントのボスとして数える
+  }
   const newItems = giveGuildItems();
   savePlayer();
   renderGacha(); // コインの数と、図鑑の表示を新しくする
@@ -6096,6 +6503,7 @@ async function claimGuildRewards() {
   newItems.forEach(function (item) {
     addGuildEffect("🎁 ギルド限定の装備！\n" + item.icon + " " + item.name + "\nを手に入れた！（図鑑で装備できます）");
   });
+  checkEventReward(true); // イベントのボスをたおしたら、イベントのごほうび
   checkAchievements(true); // 図鑑の数などの実績がとれたら、演出を出す
 }
 
@@ -6161,11 +6569,14 @@ function renderGuild() {
 
 // ボスのドット絵・名前・HP のバー
 function renderGuildBoss() {
-  const boss = GUILD_BOSSES[(myGuild.boss_level - 1) % GUILD_BOSSES.length];
+  // イベント中は、イベントのボスの見た目にする（強さはふだんのボスと同じ）
+  const event = getActiveEvent();
+  const boss = event ? { monsterId: event.monsterId, name: event.icon + " " + event.bossName } : GUILD_BOSSES[(myGuild.boss_level - 1) % GUILD_BOSSES.length];
   const monster = MONSTERS.find(function (item) {
     return item.id === boss.monsterId;
   });
   drawPixels(guildBossCanvas, monster.pixels);
+  guildBossCanvas.style.filter = event ? event.filter : "";
   guildBossName.textContent = "Lv" + myGuild.boss_level + " " + boss.name;
   guildBossHpFill.style.width = (myGuild.boss_hp / myGuild.boss_max_hp) * 100 + "%";
   guildBossHpText.textContent = "HP " + myGuild.boss_hp.toLocaleString() + " / " + myGuild.boss_max_hp.toLocaleString();
@@ -6186,12 +6597,10 @@ function createGuildMemberItem(member) {
   const isMe = member.user_id === myUserId;
   const item = document.createElement("li");
   item.className = "friend-item" + (isMe ? " is-me" : "");
-  const icon = document.createElement("span");
-  icon.className = "friend-icon";
-  icon.textContent = profileRow.icon;
+  const icon = isMe ? createHeroAvatar(getLevel(), equipped) : createHeroAvatar(profileRow.level, profileRow.equipped); // キャラのドット絵
   const info = document.createElement("div");
   info.className = "friend-info";
-  const name = profileRow.nickname + (isMe ? "（あなた）" : "") + (member.hp === 0 ? " 😵 気絶中" : "");
+  const name = profileRow.icon + " " + profileRow.nickname + (isMe ? "（あなた）" : "") + (member.hp === 0 ? " 😵 気絶中" : "");
   info.append(makeFriendLine("friend-name", name), createMemberHpBar(member.hp));
   info.appendChild(makeFriendLine("friend-today", "❤️ " + member.hp + "/100 ・ ⚔️ 合計 " + member.total_damage.toLocaleString()));
   if (!isMe) {
@@ -6228,6 +6637,430 @@ function renderGuildLogs() {
     item.append(time, log.message);
     guildLogList.appendChild(item);
   });
+}
+
+// ===== ホーム画面に追加（PWA） =====
+
+// サービスワーカー（sw.js）を登録する。ネットがなくても開けるようになり、お知らせも出しやすくなる
+// （公開ページ https:// のときだけ。ファイルを直接開いた file:// では使えない）
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator) || location.protocol.indexOf("http") !== 0) {
+    return;
+  }
+  navigator.serviceWorker.register("sw.js").catch(function (error) {
+    console.log("サービスワーカーを登録できませんでした", error);
+  });
+}
+
+// ホーム画面から開いているか（アプリとして開いているか）を返す
+function isStandalone() {
+  return window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+}
+
+// iPhone・iPad かどうかを返す（iPhone は、ボタンからは追加できないので、やり方を出す）
+function isIos() {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent);
+}
+
+// 設定画面の「📲 ホーム画面に追加」を表示し直す
+function renderInstall() {
+  installButton.hidden = isStandalone() || !installPromptEvent;
+  if (isStandalone()) {
+    installHelp.textContent = "✅ ホーム画面から開いています";
+  } else if (installPromptEvent) {
+    installHelp.textContent = "ボタンを押すと、ホーム画面にアイコンを置けます。ネットがなくても開けます（フレンド・ギルドは、ネットが必要）";
+  } else if (isIos()) {
+    installHelp.textContent = "iPhone・iPad：Safari の下の共有ボタン（□に↑）→「ホーム画面に追加」を押してください";
+  } else if (location.protocol === "file:") {
+    installHelp.textContent = "公開ページ（https:// のページ）で開くと、ホーム画面に追加できます";
+  } else {
+    installHelp.textContent = "ブラウザのメニュー（︙）→「アプリをインストール」か「ホーム画面に追加」を押してください";
+  }
+}
+
+// 「📲 ホーム画面に追加する」：ブラウザの「追加しますか？」を出す
+async function installApp() {
+  if (!installPromptEvent) {
+    return;
+  }
+  installPromptEvent.prompt();
+  await installPromptEvent.userChoice;
+  installPromptEvent = null;
+  renderInstall();
+}
+
+// ===== お知らせ（通知） =====
+
+// このブラウザで、お知らせが使えるかを返す
+function canNotify() {
+  return "Notification" in window;
+}
+
+// 設定画面の「🔔 お知らせ」を表示し直す
+function renderNotify() {
+  if (!canNotify()) {
+    notifyButton.disabled = true;
+    notifyTestButton.disabled = true;
+    notifyHelp.textContent = "このブラウザは、お知らせに使えません（iPhone は、ホーム画面に追加してから開くと使えます）";
+    return;
+  }
+  const isOn = notifyEnabled && Notification.permission === "granted";
+  notifyButton.textContent = isOn ? "🔕 お知らせをオフにする" : "🔔 お知らせをオンにする";
+  notifyTestButton.disabled = !isOn;
+  if (Notification.permission === "denied") {
+    notifyHelp.textContent = "ブラウザで、お知らせがブロックされています。アドレスバーの左のマーク（サイトの設定）から「通知」を「許可」にしてください";
+  } else if (isOn) {
+    notifyHelp.textContent = "オン：ポモドーロの集中・休けいのおわりと、今日・明日が締切のクエスト（1日1回）をお知らせします。アプリを開いているあいだだけです（別のタブを見ていても出ます）";
+  } else {
+    notifyHelp.textContent = "オフ：オンにすると、ブラウザが「通知を許可しますか？」と聞くので、「許可」を押してください";
+  }
+}
+
+// 「🔔 お知らせをオンにする／オフにする」
+async function toggleNotify() {
+  if (notifyEnabled && Notification.permission === "granted") {
+    notifyEnabled = false;
+  } else {
+    const permission = await Notification.requestPermission();
+    notifyEnabled = permission === "granted";
+  }
+  savePlayer();
+  renderNotify();
+  checkDeadlineNotice();
+}
+
+// お知らせを1つ出す（オフのときや、許可されていないときは出さない）
+// スマホ（Android）は、サービスワーカーからでないと出せないので、使えるときはそちらから出す
+async function showNotice(title, body) {
+  if (!canNotify() || !notifyEnabled || Notification.permission !== "granted") {
+    return;
+  }
+  const options = { body: body, icon: "icons/icon-192.png", badge: "icons/icon-192.png", tag: title };
+  try {
+    const registration = "serviceWorker" in navigator ? await navigator.serviceWorker.getRegistration() : null;
+    if (registration) {
+      await registration.showNotification(title, options);
+    } else {
+      new Notification(title, options);
+    }
+  } catch (error) {
+    console.log("お知らせを出せませんでした", error);
+  }
+}
+
+// アプリを見ていないとき（別のタブ・別のアプリを見ているとき）だけ、お知らせを出す
+// （見ているときは、画面の演出で分かるので、出さない）
+function showNoticeIfAway(title, body) {
+  if (document.visibilityState !== "visible") {
+    showNotice(title, body);
+  }
+}
+
+// 今日・明日が締切の、まだ撃破していないクエストがあれば、1日1回お知らせする
+function checkDeadlineNotice() {
+  const today = getTodayString();
+  if (!notifyEnabled || !canNotify() || Notification.permission !== "granted" || lastDeadlineNoticeDate === today) {
+    return; // オフ・許可されていない・今日はもう出した
+  }
+  const tomorrow = addDaysToDateText(today, 1);
+  const names = function (dateText) {
+    return quests.filter(function (quest) {
+      return !quest.done && quest.deadline === dateText;
+    }).map(function (quest) {
+      return quest.name;
+    });
+  };
+  const todayNames = names(today);
+  const tomorrowNames = names(tomorrow);
+  if (todayNames.length === 0 && tomorrowNames.length === 0) {
+    return;
+  }
+  const lines = [];
+  if (todayNames.length > 0) {
+    lines.push("今日：" + todayNames.join("、"));
+  }
+  if (tomorrowNames.length > 0) {
+    lines.push("明日：" + tomorrowNames.join("、"));
+  }
+  lastDeadlineNoticeDate = today;
+  savePlayer();
+  showNotice("📅 締切が近いクエストがあります", lines.join("\n"));
+}
+
+// ===== 期間限定イベント =====
+
+// 今ひらかれているイベントを返す（なければ undefined）
+function getActiveEvent() {
+  const monthDay = getTodayString().slice(5); // 「2026-10-06」の「10-06」
+  return EVENTS.find(function (event) {
+    return event.start <= monthDay && monthDay <= event.end;
+  });
+}
+
+// イベントを年ごとに見分ける名前（「harvest-2026」）を返す
+function getEventKey(event) {
+  return event.id + "-" + getTodayString().slice(0, 4);
+}
+
+// イベントの、今年のはじまりの日と終わりの日（「2026-10-06」）を返す
+function getEventDates(event) {
+  const year = getTodayString().slice(0, 4);
+  return { start: year + "-" + event.start, end: year + "-" + event.end };
+}
+
+// イベントのごほうびの装備を返す
+function getEventItem(event) {
+  return EVENT_ITEMS.find(function (item) {
+    return item.eventId === event.id;
+  });
+}
+
+// イベントの期間中（今日まで）に撃破した数を返す（カレンダーと同じ記録から数える）
+function countEventDefeats(event) {
+  const dates = getEventDates(event);
+  let total = 0;
+  for (let day = dates.start; day <= getTodayString() && day <= dates.end; day = addDaysToDateText(day, 1)) {
+    total = total + (defeatHistory[day] || 0);
+  }
+  return total;
+}
+
+// イベントのごほうびの条件（期間中に30体撃破、または、ギルドでイベントボスを1体たおす）を満たしたかを返す
+function isEventCleared(event) {
+  return countEventDefeats(event) >= EVENT_GOAL_DEFEATS || (eventGuildKills[getEventKey(event)] || 0) >= 1;
+}
+
+// イベントのごほうびをまだもらっていなくて、条件を満たしていたら、装備（もう持っていればコイン）をわたす
+function checkEventReward(showEffect) {
+  const event = getActiveEvent();
+  if (!event || eventRewarded[getEventKey(event)] || !isEventCleared(event)) {
+    return;
+  }
+  eventRewarded[getEventKey(event)] = true;
+  const item = getEventItem(event);
+  let text = "";
+  if (items[item.id]) {
+    coins = coins + EVENT_REPEAT_COINS; // 去年もらった装備は2つ目にせず、コインにする
+    text = event.icon + " " + event.name + " クリア！\n" + item.icon + " " + item.name + " はもう持っているので\n🪙 +" + EVENT_REPEAT_COINS;
+  } else {
+    items[item.id] = 1;
+    text = event.icon + " " + event.name + " クリア！\n" + item.icon + " " + item.name + "\nを手に入れた！（図鑑で装備できます）";
+  }
+  savePlayer();
+  renderGacha(); // コインと図鑑の表示を新しくする
+  renderEventBanner();
+  if (showEffect) {
+    addGuildEffect(text);
+  }
+}
+
+// メイン画面の、イベントのお知らせの帯を表示し直す（イベントがないときは隠す）
+function renderEventBanner() {
+  const event = getActiveEvent();
+  eventBanner.hidden = !event;
+  if (!event) {
+    return;
+  }
+  const item = getEventItem(event);
+  const daysLeft = countDaysBetween(getTodayString(), getEventDates(event).end);
+  eventBannerTitle.textContent = event.icon + " " + event.name + " 開催中！ " + (daysLeft === 0 ? "今日まで" : "あと " + daysLeft + "日");
+  if (eventRewarded[getEventKey(event)]) {
+    eventBannerText.textContent = "✅ クリア！ " + item.icon + " " + item.name + " を手に入れました";
+    return;
+  }
+  const defeats = Math.min(countEventDefeats(event), EVENT_GOAL_DEFEATS);
+  eventBannerText.textContent = "期間中に ⚔️ " + defeats + " / " + EVENT_GOAL_DEFEATS + "体 撃破（ギルドで " + event.bossName + " をたおしてもOK）→ 🎁 " + item.icon + " " + item.name;
+}
+
+// 2つの日付（「2026-10-06」）が、何日はなれているかを返す
+function countDaysBetween(fromText, toText) {
+  const from = new Date(fromText + "T00:00:00");
+  const to = new Date(toText + "T00:00:00");
+  return Math.round((to - from) / (24 * 60 * 60 * 1000));
+}
+
+// ===== クラウド保存・引っ越し（オンライン） =====
+
+// この端末の名前（はじめて開いたときにランダムに作って、この端末だけに保存する。データといっしょには引っ越さない）
+function getDeviceId() {
+  let id = localStorage.getItem(DEVICE_KEY);
+  if (!id) {
+    id = Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+    localStorage.setItem(DEVICE_KEY, id);
+  }
+  return id;
+}
+
+// フレンドコードから、ログインに使う名前（「abc234@tasclear.invalid」。本物のメールアドレスではない）を作って返す
+function makeCloudEmail(code) {
+  return code.toLowerCase() + "@" + CLOUD_EMAIL_DOMAIN;
+}
+
+// クラウドに保存するデータ（「📤 書き出す」と同じ形）を返す
+function makeCloudData() {
+  return {
+    format: DATA_FORMAT,
+    version: 1,
+    exportedDate: getTodayString(),
+    tasks: JSON.parse(localStorage.getItem(QUESTS_KEY) || "[]"),
+    habits: JSON.parse(localStorage.getItem(HABITS_KEY) || "[]"),
+    player: JSON.parse(localStorage.getItem(PLAYER_KEY) || "{}"),
+  };
+}
+
+// つないだときに1回：クラウドのデータと、この端末のデータの、どちらを使うか決めてから、保存をはじめる
+// ほかの端末が、この端末より新しいデータを保存していたら、読みこむか聞く
+async function initCloud() {
+  const userResult = await onlineClient.auth.getUser();
+  isPasswordSet = Boolean(userResult.data.user) && !userResult.data.user.is_anonymous;
+  const result = await onlineClient.from("saves").select("device_id, updated_at").eq("user_id", myUserId).maybeSingle();
+  if (result.error) {
+    console.log("クラウドを読みこめませんでした", result.error);
+    renderCloud("⚠️ クラウドに保存できません（" + result.error.message + "）");
+    return;
+  }
+  if (result.data && isNewerOnOtherDevice(result.data)) {
+    const savedAt = new Date(result.data.updated_at).toLocaleString("ja-JP");
+    const ok = confirm("☁️ ほかの端末で、新しいデータが保存されています（" + savedAt + "）。\n\nOK：そのデータを読みこむ（この端末のデータは置きかわります）\nキャンセル：この端末のデータを使う（クラウドのデータを上書きします）");
+    if (ok && await loadCloudData(myUserId)) {
+      return; // 読みこみ直すので、ここでおしまい
+    }
+  }
+  cloudReady = true;
+  await saveToCloud();
+}
+
+// クラウドのデータが、ほかの端末で、この端末が最後に保存・読みこみした時より後に保存されたかを返す
+function isNewerOnOtherDevice(row) {
+  const lastSynced = localStorage.getItem(CLOUD_SYNC_KEY);
+  if (row.device_id === getDeviceId()) {
+    return false;
+  }
+  return !lastSynced || new Date(row.updated_at) > new Date(lastSynced);
+}
+
+// クラウドのデータで、この端末のデータを置きかえて、ページを読みこみ直す（見つからなければ false を返す）
+async function loadCloudData(userId) {
+  const result = await onlineClient.from("saves").select("data, updated_at").eq("user_id", userId).maybeSingle();
+  const data = result.data ? parseImportText(JSON.stringify(result.data.data)) : null;
+  if (!data) {
+    return false;
+  }
+  localStorage.setItem(QUESTS_KEY, JSON.stringify(data.tasks));
+  localStorage.setItem(HABITS_KEY, JSON.stringify(data.habits));
+  localStorage.setItem(PLAYER_KEY, JSON.stringify(data.player));
+  localStorage.setItem(CLOUD_SYNC_KEY, result.data.updated_at);
+  location.reload(); // 読みこんだデータで、画面を全部描き直す
+  return true;
+}
+
+// 今のデータを、クラウドに保存する
+async function saveToCloud() {
+  if (!onlineClient || !cloudReady) {
+    return;
+  }
+  clearTimeout(cloudSaveTimer);
+  cloudSaveTimer = null;
+  const now = new Date().toISOString();
+  const result = await onlineClient.from("saves").upsert({ user_id: myUserId, data: makeCloudData(), device_id: getDeviceId(), updated_at: now });
+  if (result.error) {
+    console.log("クラウドに保存できませんでした", result.error);
+    renderCloud("⚠️ クラウドに保存できませんでした（" + result.error.message + "）");
+    return;
+  }
+  localStorage.setItem(CLOUD_SYNC_KEY, now);
+  lastCloudSavedAt = now;
+  renderCloud();
+}
+
+// データが変わったら、少し待ってからクラウドに保存する（続けて変わったときは、最後の1回だけ）
+function scheduleCloudSave() {
+  if (!cloudReady) {
+    return;
+  }
+  clearTimeout(cloudSaveTimer);
+  cloudSaveTimer = setTimeout(saveToCloud, CLOUD_SAVE_DELAY_MS);
+}
+
+// まだ保存していない変更があれば、すぐ保存する（ほかのアプリに切りかえる前など）
+function flushCloudSave() {
+  if (cloudSaveTimer) {
+    saveToCloud();
+  }
+}
+
+// 設定画面の「☁️ クラウド保存・引っ越し」を表示し直す（message を入れると、つながりの欄にそれを出す）
+function renderCloud(message) {
+  if (message) {
+    cloudStatus.textContent = message;
+    cloudStatus.classList.remove("is-on");
+  } else if (!onlineClient) {
+    cloudStatus.textContent = "📴 オンラインのときだけ使えます";
+    cloudStatus.classList.remove("is-on");
+  } else if (lastCloudSavedAt) {
+    cloudStatus.textContent = "☁️ クラウドに保存ずみ（" + formatAgo(lastCloudSavedAt) + "）。データが変わると、自動で保存します";
+    cloudStatus.classList.add("is-on");
+  }
+  cloudPasswordTitle.textContent = isPasswordSet
+    ? "🔑 パスワードを変える（設定ずみ。この端末のフレンドコード：" + myFriendCode + "）"
+    : "🔑 引っ越し用のパスワードを決める（まだ決めていません）";
+  cloudPasswordButton.textContent = isPasswordSet ? "パスワードを変える" : "パスワードを決める";
+}
+
+// 「パスワードを決める」：フレンドコードとパスワードで、ほかの端末からログインできるようにする（メールアドレスはいらない）
+async function setCloudPassword() {
+  const password = cloudPasswordInput.value;
+  if (!onlineClient || myFriendCode === "") {
+    cloudPasswordText.textContent = "オンラインにつながっていないので、決められません";
+    return;
+  }
+  if (password.length < 6 || password !== cloudPasswordAgain.value) {
+    cloudPasswordText.textContent = password.length < 6 ? "パスワードは6文字以上にしてください" : "2つのパスワードが同じではありません";
+    return;
+  }
+  const changes = isPasswordSet ? { password: password } : { email: makeCloudEmail(myFriendCode), password: password };
+  const result = await onlineClient.auth.updateUser(changes);
+  if (result.error) {
+    cloudPasswordText.textContent = "⚠️ 決められませんでした（" + result.error.message + "）";
+    return;
+  }
+  isPasswordSet = true;
+  cloudPasswordInput.value = "";
+  cloudPasswordAgain.value = "";
+  cloudPasswordText.textContent = "✅ 決めました。フレンドコード「" + myFriendCode + "」とパスワードを、メモしておいてください（忘れると引っ越せません）";
+  renderCloud();
+  saveToCloud();
+}
+
+// 「この端末に引っ越す」：前の端末のフレンドコードとパスワードでログインして、そのデータを読みこむ
+async function moveFromOtherDevice() {
+  const code = moveCodeInput.value.trim().toUpperCase();
+  if (!onlineClient) {
+    moveText.textContent = "オンラインにつながっていないので、引っ越せません";
+    return;
+  }
+  if (code.length !== FRIEND_CODE_LENGTH || moveCodeInput.value === "" || movePasswordInput.value === "") {
+    moveText.textContent = "前の端末のフレンドコード（6文字）とパスワードを入れてください";
+    return;
+  }
+  if (code === myFriendCode) {
+    moveText.textContent = "それは、この端末のフレンドコードです";
+    return;
+  }
+  if (!confirm("この端末の今のデータは、フレンドコード「" + code + "」のデータに置きかわります。よいですか？")) {
+    return;
+  }
+  const result = await onlineClient.auth.signInWithPassword({ email: makeCloudEmail(code), password: movePasswordInput.value });
+  if (result.error) {
+    moveText.textContent = "⚠️ フレンドコードかパスワードがちがいます（前の端末で、パスワードを決めましたか？）";
+    return;
+  }
+  cloudReady = false; // 引っ越しが終わるまで、この端末のデータを保存しない
+  const loaded = await loadCloudData(result.data.user.id);
+  if (!loaded) {
+    alert("フレンドコードとフレンド・ギルドは引っ越しました。ただ、クラウドにデータがなかったので、クエストなどは、この端末のデータのままです");
+    location.reload();
+  }
 }
 
 // ===== 日替わりセール =====
@@ -6508,6 +7341,7 @@ function finishTimer() {
     renderCalendar();
     savePlayer();
     addTimerEffect("🍅 集中おわり！\n休けいしよう", true);
+    showNoticeIfAway("🍅 集中おわり！", "休けいしよう（" + breakMinutes + "分）"); // 別のタブを見ていたら、お知らせで教える
     timerMode = "break";
 
     // セットしている卵を育てる（決まった回数になったら、かえる）
@@ -6516,6 +7350,7 @@ function finishTimer() {
     checkDailyMissions(true); // 今日のミッションをクリアしていれば、コインをわたして演出を出す
   } else {
     addTimerEffect("☕ 休けいおわり！\n次の集中をはじめよう", false);
+    showNoticeIfAway("☕ 休けいおわり！", "次の集中をはじめよう");
     timerMode = "focus";
   }
 
@@ -7547,6 +8382,7 @@ function giveDefeatRewards(exp, isRare, isQuest) {
 // 毎日の習慣を localStorage に保存する
 function saveHabits() {
   localStorage.setItem(HABITS_KEY, JSON.stringify(habits));
+  scheduleCloudSave();
 }
 
 // localStorage から、保存しておいた毎日の習慣を取り出す
@@ -8020,6 +8856,11 @@ socialSwitchButtons.forEach(function (button) {
   });
 });
 guildCreateForm.addEventListener("submit", createGuild);
+rankingSwitchButtons.forEach(function (button) {
+  button.addEventListener("click", function () {
+    switchRankingKind(button.dataset.ranking);
+  });
+});
 guildJoinForm.addEventListener("submit", joinGuild);
 guildCopyButton.addEventListener("click", copyGuildCode);
 guildLeaveButton.addEventListener("click", leaveGuild);
@@ -8120,6 +8961,49 @@ renderShop();
 // フレンド機能：オンラインの保存場所につないで、自分の情報を送り、フレンドの情報を読みこむ
 initOnline();
 
+// ホーム画面に追加できるようにする（サービスワーカー）。設定画面の「🔔 お知らせ」「📲 ホーム画面に追加」を表示する
+registerServiceWorker();
+renderNotify();
+renderInstall();
+checkDeadlineNotice(); // 今日・明日が締切のクエストがあれば、お知らせする（1日1回）
+setInterval(checkDeadlineNotice, 60 * 60 * 1000); // 開いたままでも、1時間ごとに確かめる（日付が変わったときのため）
+
+// ブラウザが「ホーム画面に追加できます」と教えてくれたとき：あとでボタンから出せるように取っておく
+window.addEventListener("beforeinstallprompt", function (event) {
+  event.preventDefault();
+  installPromptEvent = event;
+  renderInstall();
+});
+// ホーム画面に追加されたとき
+window.addEventListener("appinstalled", function () {
+  installPromptEvent = null;
+  renderInstall();
+});
+
+// カレンダー画面の「📊 月の記録」の切りかえボタン
+graphSwitchButtons.forEach(function (button) {
+  button.addEventListener("click", function () {
+    switchGraphKind(button.dataset.graph);
+  });
+});
+
+// 設定画面の「☁️ クラウド保存・引っ越し」のボタン
+cloudPasswordButton.addEventListener("click", setCloudPassword);
+moveButton.addEventListener("click", moveFromOtherDevice);
+// ほかのアプリやタブに切りかえるときは、まだ保存していない変更を、すぐクラウドに保存する
+document.addEventListener("visibilitychange", function () {
+  if (document.visibilityState === "hidden") {
+    flushCloudSave();
+  }
+});
+
+// 設定画面の「🔔 お知らせ」「📲 ホーム画面に追加」のボタン
+notifyButton.addEventListener("click", toggleNotify);
+notifyTestButton.addEventListener("click", function () {
+  showNotice("🧪 タスクリア", "お知らせは、こんなふうに出ます");
+});
+installButton.addEventListener("click", installApp);
+
 // 別のタブやアプリからもどってきたとき：開いたまま日付が変わっていたら、ログインボーナスをわたす
 document.addEventListener("visibilitychange", function () {
   if (document.visibilityState === "visible") {
@@ -8128,5 +9012,6 @@ document.addEventListener("visibilitychange", function () {
     refreshFriends(); // もどってきたら、フレンドの情報も読みこみ直す
     reloadGuild().then(checkProcrastination); // ギルドも読みこみ直して、日付が変わっていたら先延ばしを確かめる
     loadReceivedStamps(false); // とどいた応援も読みこみ直す
+    checkDeadlineNotice(); // 日付が変わっていたら、締切のお知らせを確かめる
   }
 });

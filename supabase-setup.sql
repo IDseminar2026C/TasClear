@@ -29,6 +29,16 @@ create table if not exists public.profiles (
   updated_at timestamptz not null default now()
 );
 
+-- 週間ランキングのための欄（あとから追加）：今週（日曜日〜土曜日）の、はじまりの日・撃破した数・集中した回数
+alter table public.profiles add column if not exists week_start text not null default '';
+alter table public.profiles add column if not exists week_defeats int not null default 0 check (week_defeats >= 0);
+alter table public.profiles add column if not exists week_focus int not null default 0 check (week_focus >= 0);
+
+-- フレンドのキャラを描くための欄（あとから追加）：装備しているアイテム（{ "head": "iron-helmet" } のような形。大きすぎるものは入れない）
+alter table public.profiles add column if not exists equipped jsonb not null default '{}'::jsonb;
+alter table public.profiles drop constraint if exists profiles_equipped_size;
+alter table public.profiles add constraint profiles_equipped_size check (octet_length(equipped::text) <= 300);
+
 -- 決まり（RLS）：見るのはだれでもできる。作る・変えるのは、自分の行だけ
 alter table public.profiles enable row level security;
 drop policy if exists "profiles_select" on public.profiles;
@@ -299,3 +309,25 @@ begin
   alter publication supabase_realtime add table public.stamps;
 exception when duplicate_object then null;
 end $$;
+
+-- ===== クラウド保存・引っ越し =====
+-- （このほかに、Supabase の「Authentication」→「Sign In / Providers」→「Email」の「Confirm email」をオフにしておく）
+
+-- 1人1行の、アプリの全部のデータ（クエスト・日課・プレイヤー）。どの端末から、いつ保存したか
+create table if not exists public.saves (
+  user_id uuid primary key default auth.uid() references auth.users on delete cascade,
+  data jsonb not null,
+  device_id text not null default '',
+  updated_at timestamptz not null default now()
+);
+alter table public.saves drop constraint if exists saves_data_size;
+alter table public.saves add constraint saves_data_size check (octet_length(data::text) <= 1000000);
+
+-- 決まり（RLS）：見る・作る・変えるのは、自分のデータだけ（ほかの人のデータは、だれも見られない）
+alter table public.saves enable row level security;
+drop policy if exists "saves_select_own" on public.saves;
+create policy "saves_select_own" on public.saves for select to authenticated using (auth.uid() = user_id);
+drop policy if exists "saves_insert_own" on public.saves;
+create policy "saves_insert_own" on public.saves for insert to authenticated with check (auth.uid() = user_id);
+drop policy if exists "saves_update_own" on public.saves;
+create policy "saves_update_own" on public.saves for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);

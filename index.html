@@ -14,6 +14,15 @@
 
   <!-- 見た目を決めるファイル（style.css）を読み込みます -->
   <link rel="stylesheet" href="style.css">
+
+  <!-- ホーム画面に追加したときの、アプリの名前・アイコン・色（manifest.webmanifest にくわしく書いてあります） -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="theme-color" content="#1e2040">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="タスクリア">
 </head>
 
 <body>
@@ -150,6 +159,11 @@
 
     <!-- 「本日のタスク」と「毎日の習慣」の切りかえボタン（押したほうのカードだけを出す） -->
     <!-- ボス戦の日（日曜日）だけ出すお知らせ。モンスターが全部ボスになり、クエストのコインが3倍 -->
+    <!-- 期間限定イベントのお知らせ（イベント中だけ出す）。中身は JavaScript で書き換えます -->
+    <div id="event-banner" class="event-banner" hidden>
+      <p id="event-banner-title" class="event-banner-title"></p>
+      <p id="event-banner-text" class="event-banner-text"></p>
+    </div>
     <p id="boss-day-banner" class="boss-day-banner" hidden>👑 今日はボス戦の日！<span class="boss-day-sub">モンスターは全部ボス・撃破で 🪙 3倍</span></p>
 
     <div class="today-switch">
@@ -396,6 +410,15 @@
         <!-- 週のふりかえり（押して選んでいる日がふくまれる週の、撃破・集中・習慣のまとめ）。中身は JavaScript で作ります -->
         <div id="calendar-week" class="calendar-week"></div>
 
+        <!-- 月の記録グラフ（表示している月の、毎日の撃破数・集中回数の棒グラフ）。中身は JavaScript で作ります -->
+        <h3 class="settings-heading">📊 月の記録</h3>
+        <div class="today-switch">
+          <button class="today-switch-button graph-switch-button is-active" type="button" data-graph="defeats">⚔️ 撃破した数</button>
+          <button class="today-switch-button graph-switch-button" type="button" data-graph="focus">🍅 集中した回数</button>
+        </div>
+        <div id="month-graph" class="month-graph"></div>
+        <p id="month-graph-summary" class="month-graph-summary"></p>
+
         <!-- 押した日のくわしい中身。中身は JavaScript で作ります -->
         <div id="calendar-detail" class="calendar-detail"></div>
       </section>
@@ -412,6 +435,7 @@
         <div class="today-switch">
           <button class="today-switch-button social-switch-button is-active" type="button" data-social="friend">👥 フレンド</button>
           <button class="today-switch-button social-switch-button" type="button" data-social="guild">🏰 ギルド</button>
+          <button class="today-switch-button social-switch-button" type="button" data-social="ranking">🏆 ランキング</button>
         </div>
 
         <div id="friend-view">
@@ -455,6 +479,18 @@
 
         <h3 id="friend-list-heading" class="settings-heading">📋 フレンド一覧</h3>
         <ul id="friend-list" class="friend-list"></ul>
+        </div>
+
+        <!-- ===== 週間ランキング（自分・フレンド・ギルドの仲間で、今週の数をくらべる） ===== -->
+        <div id="ranking-view" hidden>
+          <p id="ranking-period" class="ranking-period">今週</p>
+          <!-- 何でくらべるかの切りかえ -->
+          <div class="today-switch">
+            <button class="today-switch-button ranking-switch-button is-active" type="button" data-ranking="defeats">⚔️ 撃破した数</button>
+            <button class="today-switch-button ranking-switch-button" type="button" data-ranking="focus">🍅 集中した回数</button>
+          </div>
+          <ol id="ranking-list" class="ranking-list"></ol>
+          <p class="settings-help">自分・フレンド・ギルドの仲間で、今週（日曜日〜土曜日）の数をくらべます。毎週日曜日に 0 からスタート。数は自動で新しくなります</p>
         </div>
 
         <!-- ===== ギルド（フレンドと協力してボスをたおす） ===== -->
@@ -544,6 +580,51 @@
         </div>
         <p id="boss-day-today" class="settings-help"></p>
         <p id="boss-day-help" class="settings-help"></p>
+
+        <!-- お知らせ（ブラウザの通知）。ポモドーロのおわりと、締切が近いクエスト -->
+        <h3 class="settings-heading">🔔 お知らせ</h3>
+        <div class="data-buttons">
+          <button id="notify-button" class="data-button" type="button">🔔 お知らせをオンにする</button>
+          <button id="notify-test-button" class="data-button" type="button">🧪 ためしに出す</button>
+        </div>
+        <p id="notify-help" class="settings-help"></p>
+
+        <!-- ホーム画面に追加（スマホのホーム画面に、アプリのようにアイコンを置く） -->
+        <h3 class="settings-heading">📲 ホーム画面に追加</h3>
+        <div class="data-buttons">
+          <button id="install-button" class="data-button" type="button">📲 ホーム画面に追加する</button>
+        </div>
+        <p id="install-help" class="settings-help"></p>
+
+        <!-- クラウド保存・引っ越し（データを Supabase にも保存し、フレンドコードとパスワードで、ほかの端末に引っ越す） -->
+        <h3 class="settings-heading">☁️ クラウド保存・引っ越し</h3>
+        <p id="cloud-status" class="online-status">⏳ つないでいます…</p>
+
+        <!-- 引っ越し用のパスワードを決める（この端末のデータを、ほかの端末に持っていけるようにする） -->
+        <p id="cloud-password-title" class="cloud-subtitle">🔑 引っ越し用のパスワードを決める</p>
+        <div class="profile-row">
+          <label for="cloud-password-input">パスワード</label>
+          <input id="cloud-password-input" class="profile-input" type="password" minlength="6" autocomplete="new-password" placeholder="6文字以上">
+        </div>
+        <div class="profile-row">
+          <label for="cloud-password-again">もう一度</label>
+          <input id="cloud-password-again" class="profile-input" type="password" minlength="6" autocomplete="new-password" placeholder="同じパスワード">
+        </div>
+        <button id="cloud-password-button" class="profile-save-button" type="button">パスワードを決める</button>
+        <p id="cloud-password-text" class="settings-help"></p>
+
+        <!-- 引っ越す（ほかの端末で決めたフレンドコードとパスワードで、その人のデータを持ってくる） -->
+        <p class="cloud-subtitle">📦 ほかの端末から引っ越す</p>
+        <div class="profile-row">
+          <label for="move-code-input">コード</label>
+          <input id="move-code-input" class="profile-input" type="text" maxlength="6" autocomplete="username" placeholder="前の端末のフレンドコード">
+        </div>
+        <div class="profile-row">
+          <label for="move-password-input">パスワード</label>
+          <input id="move-password-input" class="profile-input" type="password" autocomplete="current-password" placeholder="前の端末で決めたパスワード">
+        </div>
+        <button id="move-button" class="profile-save-button" type="button">この端末に引っ越す</button>
+        <p id="move-text" class="settings-help">⚠️ この端末の今のデータは、引っ越してきたデータに置きかわります</p>
 
         <!-- データの書き出し・読みこみ（バックアップや、別のブラウザ・スマホにデータを移すときに使う） -->
         <h3 class="settings-heading">💾 データの書き出し・読みこみ</h3>
